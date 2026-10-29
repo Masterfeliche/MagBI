@@ -126,25 +126,25 @@ Any component can read (`useDesignerStore(s => s.selectedVisualId)`) or write
 1. **Add:** User selects a visual type from the toolbar (bar chart, table,
    card, etc.). A new visual appears at the centre of the canvas with default
    size.
-2. **Configure:** User drags fields from the data pane into wells (Axis, Values,
-   Legend). The visual fires a semantic query and renders the result.
-3. **Position:** User drags the visual to the desired location. Snap-to-grid
-   aligns it to an 8px grid. Smart guides show alignment lines when the visual
-   approaches the edge of another visual.
+2. **Configure:** User drags a field into a well, or onto the visual. A text
+   column prefers X-axis, then Legend. A measure or numeric column prefers
+   Y-axis. The visual fires a semantic query and renders the result.
+3. **Position and size:** The top bar moves the visual. Eight handles resize
+   it, including the left and right edges. The minimum box is 80 by 60. Snap
+   is 10px. Within 4px of another visual's edge or center, or the 20px page
+   margin, a guide line is drawn and the visual snaps to that line instead.
 4. **Format:** User adjusts properties in the property pane (title, colours,
    axis labels, data labels, etc.).
 5. **Change type:** User switches the visual type (e.g., bar chart → line
    chart). Wells are remapped: Axis stays Axis, Values stays Values.
-6. **Delete:** User selects the visual and presses Delete. The visual is
-   removed from the report JSON.
-7. **Copy/paste:** Ctrl+C copies the visual definition to an internal clipboard.
-   Ctrl+V places a copy offset by (20px, 20px).
+6. **Delete:** User selects the visual and presses Delete. A Remove control on
+   a well chip takes that field off the visual.
+7. **Copy/paste** is not built.
 
 ### Snap-to-grid and smart guides
 
-**Snap-to-grid:** All positions round to the nearest 8px. This keeps visuals
-aligned without manual effort. The grid is invisible but its effect is visible
-when dragging — the visual "jumps" in 8px increments.
+**Snap-to-grid:** Positions and resized edges round to the nearest 10px unless
+a guide is closer. The grid is invisible. The visual jumps in 10px steps.
 
 **Smart guides:** When a visual is dragged near the edge or centre of another
 visual, a guide line appears:

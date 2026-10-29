@@ -43,7 +43,7 @@ Pointer math already divides by the CSS scale. A resize or a guide snap must use
 | SUB-1.2 | Alignment lines | Moving or resizing within 4px of another visual's edge or center, or the 20px page margin, snaps to it and draws that line. Farther away, the 10px grid is unchanged | 4h | [x] |
 | SUB-1.3 | Drop on the visual | Dropping Month on a column chart fills X-axis. Dropping Revenue fills Y-axis. A full well refuses the drop. The Build wells show the same fields | 3h | [x] |
 | SUB-1.4 | Remove | Delete removes the selected visual. A control on a well chip removes that field | 2h | [x] |
-| SUB-2.1 | Docs | KB 07 names resize handles, the 4px guides, and drop-on-visual | 1h | [ ] |
+| SUB-2.1 | Docs | KB 07 names resize handles, the 4px guides, and drop-on-visual | 1h | [x] |
 | SUB-2.2 | Finalization | ESLint, `tsc`, Vitest, and a browser pass that widens the Sales column, shows a guide, and drops a field on the chart | 1.5h | [ ] |
 
 Order: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2. Each subtask is code, tests, and one single-sentence commit. About 15.5 hours.
@@ -54,7 +54,8 @@ Order: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2. Each subtask is code, tests, and one single
 - [x] SUB-1.1: 5570230
 - [x] SUB-1.2: 1981c7c
 - [x] SUB-1.3: 2533dde
-- [x] SUB-1.4: (this commit)
+- [x] SUB-1.4: ea71c6e
+- [x] SUB-2.1: (this commit)
 - [ ] SUB-1.2: (Commit hash)
 - [ ] SUB-1.3: (Commit hash)
 - [ ] SUB-1.4: (Commit hash)

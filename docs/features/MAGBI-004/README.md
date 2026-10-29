@@ -64,7 +64,7 @@ Deliverable: `SUM(Sales[Amount])` compiles to `SELECT SUM(amount) FROM sales`. `
 | SUB-4.1 | Time intelligence | `SAMEPERIODLASTYEAR`, `DATEADD`, and `TOTALYTD` rewrite the date predicate; they fail without a marked date table and a relationship to its key; fiscal year start month is honoured; a DuckDB run checks a year shift | 4h | [x] |
 | SUB-5.1 | Save-time checks | `validate_model` compiles every measure and checks every calculated column; errors use stable codes and block the existing definition `PUT`; `measure_expressions` is no longer deferred; `rls_expressions` still is | 3h | [x] |
 | SUB-5.2 | Docs | KB 05 and the DAX spec status note list the supported functions, the DuckDB-only target, and what stays in later sprints | 1.5h | [x] |
-| SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `dax` and the validation change; full regression; PR description | 1.5h | [ ] |
+| SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `dax` and the validation change; full regression; PR description | 1.5h | [x] |
 
 Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3. Each subtask is code, tests, and one single-sentence commit. About 36 hours.
 
@@ -82,17 +82,50 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3. Each subtask 
 - [x] SUB-4.1: see git log. SAMEPERIODLASTYEAR, DATEADD, and TOTALYTD rewrite the date filter. They require one marked date table and its key. Fiscal year start month is honoured. DuckDB checks the year shift.
 - [x] SUB-5.1: see git log. Every measure is compiled and every calculated column is shape-checked. Failures use stable codes and include line and column. Definition PUT returns 422 and does not bump the version. Row-level security stays deferred.
 - [x] SUB-5.2: see git log. KB 05 and the DAX spec name the functions this sprint compiles, the DuckDB-only target, and what stays later.
-- [ ] SUB-5.3: (Commit hash)
+- [x] SUB-5.3: see git log. 429 tests on Windows/Python 3.14. ruff, ruff format, and mypy strict pass. Coverage of `magbi.dax` and `magbi.model.validation` is 88%.
 
 ---
 
 ## 4. Definition of Done (DoD)
-- [ ] Code is written and passes all local tests and lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] `ruff check` and `mypy --strict` pass
-- [ ] Coverage over 80% for `dax` and the validation change
-- [ ] `SUM` and `CALCULATE` SQL both execute on DuckDB and return the expected values
-- [ ] A measure with a syntax or type error is refused by definition `PUT`
-- [ ] KB 05 updated to match the implementation
+- [x] Code is written and passes all local tests and lints (429 tests on Windows/Python 3.14.7, ruff, ruff format)
+- [x] Single-sentence commit rule followed for all commits (commit-msg hook)
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist (section 5)
+- [x] `ruff check` and `mypy --strict` pass (`mypy magbi`: 69 source files, no issues)
+- [x] Coverage over 80% for `dax` and the validation change (88% combined, 1,138 statements; `magbi.dax` 87%, `validation.py` 95%; `compiler.py` alone is 76%)
+- [x] `SUM` and `CALCULATE` SQL both execute on DuckDB and return the expected values
+- [x] A measure with a syntax or type error is refused by definition `PUT`
+- [x] KB 05 updated to match the implementation
+
+### Deviations from the plan
+1. An `OR` of comparisons is not a `CALCULATE` filter rewrite. A comparison, `AND`, `NOT`, `IN`, `ALL`, `REMOVEFILTERS`, and `FILTER` are. An `OR` filter raises "CALCULATE filter is not a comparison".
+2. `BLANK = 0` is not true. `BLANK` is NULL. `+` and `-` treat NULL as 0, which is decision 8.
+3. The measure-edit API test used `SUM(Invoices[amount])`. That fixture has no `amount` column, so save-time compilation rejected it. The expression is now `SUM(Invoices[dept_id])`.
+
+### Findings and open items
+- The visual query, iterators, `RELATED`, row-level security, the Monaco editor, and T-SQL stay in later sprints.
+- DuckDB still caches an open database per path. The query engine must close live connections when `current_version` changes.
+- The admin API stays unauthenticated until Sprint 7 (`MAGBI_INSECURE_ADMIN_API`).
+- This regression was not repeated inside the Python 3.11 Linux image. CI runs that job.
+
+---
+
+## 5. PR Description
+
+**feat: DAX-lite compiler for one measure (MAGBI-004)**
+
+Compile a stored measure into one DuckDB statement, and refuse to save a definition whose formula does not compile.
+
+### What changed
+- **Formula pipeline** (`magbi/dax`): a lexer, Pratt parser, binder, and sqlglot compiler. Supported calls are `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `AVERAGE`, `MIN`, `MAX`, `DISTINCTCOUNT`, `DIVIDE`, `IF`, `CALCULATE`, `ALL`, `REMOVEFILTERS`, `FILTER`, `AND`, `OR`, `NOT`, `TRUE`, `FALSE`, `BLANK`, `ISBLANK`, `SAMEPERIODLASTYEAR`, `DATEADD`, and `TOTALYTD`, plus arithmetic, comparisons, `IN`, and `VAR` / `RETURN`.
+- **CALCULATE and time intelligence**: comparison filters replace the filter on the columns they mention. `ALL` and `REMOVEFILTERS` remove filters. `FILTER` adds one. A filter on another table joins along the active relationship path. Year, month, and year-to-date shifts rewrite the date filter and require one marked date table.
+- **Save-time checks**: `validate_model` compiles every measure and shape-checks every calculated column. Failures use stable codes and include the line and column. Definition `PUT` returns 422 and does not bump `model_version`. `rls_expressions` stays deferred.
+- **Docs**: KB 05 and the DAX spec name the implemented functions, the DuckDB-only target, and what stays later.
+
+### How it was verified
+- `ruff`, `ruff format`, and `mypy` strict on Windows/Python 3.14.7.
+- 429 tests. DuckDB runs cover each aggregate, `DIVIDE`, `IF`, `CALCULATE` replacement, and the year shift.
+- Coverage of `magbi.dax` and `magbi.model.validation` is 88%.
+
+### Risks and follow-ups
+One expression is one `SELECT`. Group-by, totals, and measures that combine two fact tables belong to the query engine. An `OR` filter inside `CALCULATE` is rejected. Row-level security is still not enforced.

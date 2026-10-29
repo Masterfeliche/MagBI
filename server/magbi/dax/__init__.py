@@ -2,5 +2,6 @@
 
 from magbi.dax.errors import DaxError
 from magbi.dax.lexer import Token, TokenKind, tokenize
+from magbi.dax.parser import Expr, parse
 
-__all__ = ["DaxError", "Token", "TokenKind", "tokenize"]
+__all__ = ["DaxError", "Expr", "Token", "TokenKind", "parse", "tokenize"]

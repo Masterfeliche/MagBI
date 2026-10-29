@@ -1,6 +1,7 @@
 """Application settings loaded from environment."""
 
 from pathlib import Path
+
 from pydantic_settings import BaseSettings
 
 

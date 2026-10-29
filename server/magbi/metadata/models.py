@@ -176,9 +176,9 @@ class Dataset(Base):
     )
     current_version: Mapped[int] = mapped_column(Integer, default=0)
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
-    # Transitional (Sprint 2): {"connection_id": ..., "tables": [{"schema","name","target"}]}.
-    # Replaced by the real dataset definition in Sprint 3.
-    import_spec: Mapped[dict[str, Any] | None] = mapped_column(JsonType)
+    # The semantic model (MAGBI-003). Replaces the Sprint 2 import_spec.
+    definition: Mapped[dict[str, Any] | None] = mapped_column(JsonType)
+    model_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, default=utcnow, onupdate=utcnow

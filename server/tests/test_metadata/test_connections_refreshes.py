@@ -65,18 +65,16 @@ async def test_connection_roundtrip_and_unique_name(
             await s.commit()
 
 
-async def test_import_spec_defaults_to_null_and_roundtrips(
+async def test_definition_defaults_to_null_and_roundtrips(
     factory: async_sessionmaker[AsyncSession],
 ) -> None:
     async with factory() as s:
         ds = await make_dataset(s)
-        assert ds.import_spec is None
-        ds.import_spec = {"tables": [{"schema": "dbo", "name": "t", "target": "t"}]}
+        assert ds.definition is None and ds.model_version == 1
+        ds.definition = {"schema_version": "1.0", "tables": []}
         await s.commit()
         again = (await s.execute(select(Dataset))).scalar_one()
-        assert again.import_spec == {
-            "tables": [{"schema": "dbo", "name": "t", "target": "t"}]
-        }
+        assert again.definition == {"schema_version": "1.0", "tables": []}
 
 
 async def test_only_one_active_refresh_per_dataset(

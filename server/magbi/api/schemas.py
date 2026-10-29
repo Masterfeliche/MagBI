@@ -61,7 +61,8 @@ class DatasetOut(BaseModel):
     description: str | None
     mode: str
     current_version: int
-    import_spec: dict[str, Any] | None
+    model_version: int
+    definition: dict[str, Any] | None
     created_at: dt.datetime
     updated_at: dt.datetime
 

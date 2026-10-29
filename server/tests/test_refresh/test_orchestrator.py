@@ -23,6 +23,7 @@ from magbi.metadata.models import (
     RefreshStatus,
     Workspace,
 )
+from magbi.model.schema import definition_from_import_spec
 from magbi.refresh.orchestrator import (
     RefreshConflict,
     RefreshDeps,
@@ -93,7 +94,13 @@ class Env:
                     "tables": [{"schema": "dbo", "name": "orders", "target": "orders"}],
                 }
             )
-            ds = Dataset(workspace_id=ws.id, name="d", import_spec=spec)
+            try:
+                stored = definition_from_import_spec(spec).model_dump(
+                    mode="json", by_alias=True
+                )
+            except (KeyError, ValueError):
+                stored = spec  # deliberately not a definition; the refresh must say so
+            ds = Dataset(workspace_id=ws.id, name="d", definition=stored)
             s.add(ds)
             await s.commit()
             self.dataset_id, self.connection_id = ds.id, cid
@@ -225,7 +232,7 @@ async def test_unexpected_error_is_not_leaked(
     ("spec", "message"),
     [
         ({}, "no tables configured"),
-        ({"tables": [{"schema": "dbo"}]}, "need schema and name"),
+        ({"tables": [{"schema": "dbo"}]}, "definition is invalid"),
         ({"tables": [{"schema": "dbo", "name": "orders"}]}, "no connection configured"),
         (
             {

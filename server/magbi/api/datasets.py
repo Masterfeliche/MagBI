@@ -19,7 +19,7 @@ from magbi.api.errors import ApiError
 from magbi.api.schemas import DatasetIn, DatasetOut, DatasetUpdate, ImportSpec
 from magbi.api.workspaces import get_workspace_or_404
 from magbi.metadata.models import Connection, Dataset
-from magbi.refresh.importer import ImportPipelineError, validate_target
+from magbi.model.schema import ModelSchemaError, definition_from_import_spec
 
 router = APIRouter(tags=["datasets"])
 
@@ -33,29 +33,20 @@ async def get_dataset_or_404(
     return ds
 
 
-async def _normalise_spec(
+async def _definition_from_spec(
     session: AsyncSession, wid: uuid.UUID, spec: ImportSpec
 ) -> dict[str, Any]:
+    """Accept the Sprint 2 import_spec body and store a real definition."""
     connection = await session.get(Connection, spec.connection_id)
     if connection is None or connection.workspace_id != wid:
         raise ApiError(
             422, "CONNECTION_NOT_FOUND", "import_spec.connection_id does not exist"
         )
-    tables: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for t in spec.tables:
-        target = t.target or t.name
-        try:
-            validate_target(target)
-        except ImportPipelineError as exc:
-            raise ApiError(422, "INVALID_IMPORT_SPEC", str(exc)) from None
-        if target.lower() in seen:
-            raise ApiError(
-                422, "INVALID_IMPORT_SPEC", f"duplicate target table name {target!r}"
-            )
-        seen.add(target.lower())
-        tables.append({"schema": t.schema_, "name": t.name, "target": target})
-    return {"connection_id": str(spec.connection_id), "tables": tables}
+    try:
+        definition = definition_from_import_spec(spec.model_dump(by_alias=True))
+    except (ModelSchemaError, KeyError, ValueError) as exc:
+        raise ApiError(422, "INVALID_IMPORT_SPEC", str(exc)) from None
+    return definition.model_dump(mode="json", by_alias=True)
 
 
 def _out(ds: Dataset) -> DatasetOut:
@@ -66,7 +57,8 @@ def _out(ds: Dataset) -> DatasetOut:
         description=ds.description,
         mode=ds.mode.value,
         current_version=ds.current_version,
-        import_spec=ds.import_spec,
+        model_version=ds.model_version,
+        definition=ds.definition,
         created_at=ds.created_at,
         updated_at=ds.updated_at,
     )
@@ -89,7 +81,7 @@ async def create_dataset(
     await get_workspace_or_404(session, wid)
     ds = Dataset(workspace_id=wid, name=body.name.strip(), description=body.description)
     if body.import_spec is not None:
-        ds.import_spec = await _normalise_spec(session, wid, body.import_spec)
+        ds.definition = await _definition_from_spec(session, wid, body.import_spec)
     session.add(ds)
     await _commit(session)
     return _out(ds)
@@ -121,6 +113,7 @@ async def update_dataset(
     if body.description is not None:
         ds.description = body.description
     if body.import_spec is not None:
-        ds.import_spec = await _normalise_spec(session, wid, body.import_spec)
+        ds.definition = await _definition_from_spec(session, wid, body.import_spec)
+        ds.model_version += 1
     await _commit(session)
     return _out(ds)

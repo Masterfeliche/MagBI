@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import uuid
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -396,6 +396,39 @@ class DatasetDefinition(_Model):
             for r in self.relationships
             if table in (r.from_.table, r.to.table) and (r.is_active or not active_only)
         ]
+
+
+def definition_from_import_spec(spec: dict[str, Any]) -> DatasetDefinition:
+    """Build a definition from a Sprint 2 ``import_spec``.
+
+    The import target becomes the table name. Columns are empty until the model
+    is edited; a refresh still reads them from the source catalog.
+    """
+    tables: list[TableDef] = []
+    seen: set[str] = set()
+    for entry in spec.get("tables") or []:
+        source_name = str(entry["name"])
+        target = str(entry.get("target") or source_name)
+        if target.casefold() in seen:
+            raise ModelSchemaError(f"duplicate target table name {target!r}")
+        seen.add(target.casefold())
+        tables.append(
+            TableDef(
+                name=target,
+                source=SqlTableSource.model_validate(
+                    {
+                        "type": "table",
+                        "schema": str(entry["schema"]),
+                        "table": source_name,
+                    }
+                ),
+            )
+        )
+    raw_id = spec.get("connection_id")
+    return DatasetDefinition(
+        connection_id=uuid.UUID(str(raw_id)) if raw_id else None,
+        tables=tables,
+    )
 
 
 def _unique(names: object, what: str) -> set[str]:

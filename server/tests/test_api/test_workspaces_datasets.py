@@ -38,7 +38,8 @@ def test_dataset_crud_without_spec(api: ApiEnv) -> None:
     assert r.status_code == 201
     ds = r.json()
     assert (
-        ds["import_spec"] is None
+        ds["definition"] is None
+        and ds["model_version"] == 1
         and ds["current_version"] == 0
         and ds["mode"] == "import"
     )
@@ -65,13 +66,12 @@ def test_dataset_with_import_spec_normalises_targets(api: ApiEnv) -> None:
         f"{V1}/workspaces/{wid}/datasets", json={"name": "d", "import_spec": spec}
     )
     assert r.status_code == 201, r.text
-    assert r.json()["import_spec"] == {
-        "connection_id": cid,
-        "tables": [
-            {"schema": "dbo", "name": "orders", "target": "orders"},
-            {"schema": "sales", "name": "x", "target": "lines"},
-        ],
-    }
+    body = r.json()["definition"]
+    assert body["connection_id"] == cid
+    assert [(t["name"], t["source"]["table"]) for t in body["tables"]] == [
+        ("orders", "orders"),
+        ("lines", "x"),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -157,7 +157,8 @@ def test_dataset_update(api: ApiEnv) -> None:
         },
     )
     assert r.status_code == 200 and r.json()["name"] == "renamed"
-    assert r.json()["import_spec"]["tables"][0]["target"] == "orders"
+    assert r.json()["definition"]["tables"][0]["name"] == "orders"
+    assert r.json()["model_version"] == 2
     clash = c.put(url, json={"name": "d2"})
     assert clash.status_code == 409
     assert c.get(url).json()["name"] == "renamed"  # failed update changed nothing

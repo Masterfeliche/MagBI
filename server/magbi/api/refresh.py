@@ -48,11 +48,11 @@ async def trigger_refresh(
     session: SessionDep,
 ) -> dict[str, str]:
     dataset = await get_dataset_or_404(session, wid, did)
-    if not dataset.import_spec:
+    if not dataset.definition:
         raise ApiError(
             422,
             "DATASET_NOT_CONFIGURED",
-            "dataset has no import_spec; set the connection and tables first",
+            "dataset has no definition; set the connection and tables first",
         )
     refresh = await queue_refresh(session, dataset.id)  # 409 if one is active
     background.add_task(run_refresh, svc.refresh, refresh.id)

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -32,6 +33,7 @@ from magbi.metadata.models import (
     RefreshStatus,
     utcnow,
 )
+from magbi.model.schema import DatasetDefinition, SqlQuerySource, SqlTableSource
 from magbi.refresh.importer import (
     DEFAULT_BATCH_SIZE,
     ImportPipelineError,
@@ -165,20 +167,32 @@ class _Job:
     tables: list[TableSpec]
 
 
-def _parse_tables(spec: dict[str, Any] | None) -> list[TableSpec]:
-    if not spec or not spec.get("tables"):
+def _import_plan(raw: dict[str, Any] | None) -> tuple[uuid.UUID, list[TableSpec]]:
+    """Tables to read from the source. Generated tables (no source) are skipped."""
+    if not raw:
         raise RefreshSetupError("dataset has no tables configured for import")
-    out: list[TableSpec] = []
-    for entry in spec["tables"]:
-        try:
-            schema, name = str(entry["schema"]), str(entry["name"])
-            target = str(entry.get("target") or name)
-        except (KeyError, TypeError, AttributeError):
+    try:
+        definition = DatasetDefinition.model_validate(raw)
+    except ValidationError:
+        raise RefreshSetupError("dataset definition is invalid") from None
+    if not definition.tables:
+        raise RefreshSetupError("dataset has no tables configured for import")
+    if definition.connection_id is None:
+        raise RefreshSetupError("dataset has no connection configured")
+    specs: list[TableSpec] = []
+    for table in definition.tables:
+        source = table.source
+        if source is None:
+            continue
+        if not isinstance(source, SqlTableSource):
+            kind = "query" if isinstance(source, SqlQuerySource) else source.type
             raise RefreshSetupError(
-                "import table entries need schema and name"
-            ) from None
-        out.append(TableSpec(schema, name, target))
-    return out
+                f"table {table.name!r} uses a {kind} source, which is not importable yet"
+            )
+        specs.append(TableSpec(source.schema_, source.table, table.name))
+    if not specs:
+        raise RefreshSetupError("dataset has no tables configured for import")
+    return definition.connection_id, specs
 
 
 async def _prepare(deps: RefreshDeps, refresh_id: uuid.UUID) -> _Job | None:
@@ -195,12 +209,7 @@ async def _prepare(deps: RefreshDeps, refresh_id: uuid.UUID) -> _Job | None:
         if dataset is None:
             raise RefreshSetupError("dataset no longer exists")
 
-        spec = dataset.import_spec or {}
-        tables = _parse_tables(spec)
-        try:
-            connection_id = uuid.UUID(str(spec.get("connection_id")))
-        except ValueError:
-            raise RefreshSetupError("dataset has no connection configured") from None
+        connection_id, tables = _import_plan(dataset.definition)
         connection = await session.get(Connection, connection_id)
         if connection is None or connection.workspace_id != dataset.workspace_id:
             raise RefreshSetupError("the dataset's connection was not found")

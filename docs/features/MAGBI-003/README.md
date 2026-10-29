@@ -73,7 +73,7 @@ Deliverable: a dataset built from imported tables, with relationships (Invoices 
 | SUB-5.1 | Definition API | `GET` and `PUT` definition with `model_version` and 409 on conflict; dataset create converts a legacy `import_spec`; Sprint 2 API tests updated | 4h | [x] |
 | SUB-5.2 | Relationship, measure, date-table, validate endpoints | Add and delete relationship, add, update, delete measure, generate date table, validate; errors block the write and return the validation body | 4h | [x] |
 | SUB-6.1 | Docs | KB 04 updated; spec status note (definition column, deferred rules, no many-to-many) | 1.5h | [x] |
-| SUB-6.2 | Finalization | ruff, mypy strict, coverage over 80% for `model` and the changed API; regression of the full suite; PR description | 1.5h | [ ] |
+| SUB-6.2 | Finalization | ruff, mypy strict, coverage over 80% for `model` and the changed API; regression of the full suite; PR description | 1.5h | [x] |
 
 Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 6.1, 6.2. Each subtask is code, tests, and one single-sentence commit. About 37 hours.
 
@@ -91,17 +91,53 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 6.1, 6.2. Each subtask 
 - [x] SUB-5.1: see git log. PUT returns 409 MODEL_VERSION_CONFLICT or 422 VALIDATION_FAILED and leaves the stored definition unchanged. A successful save returns warnings.
 - [x] SUB-5.2: see git log. Errors block the write and return the validation body. Validate reports without saving. Date-table rows are written on the next refresh.
 - [x] SUB-6.1: see git log. KB 04 and DATASET-MODEL-SPEC status note the definition column, snake_case storage, deferred expression checks, and no many-to-many.
-- [ ] SUB-6.2: (Commit hash)
+- [x] SUB-6.2: see git log. 391 tests passed on Windows/Python 3.14. ruff and mypy strict clean. Coverage 94% on `model` and `api/datasets`.
 
 ---
 
 ## 4. Definition of Done (DoD)
-- [ ] Code is written and passes all local tests and lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] `ruff check` and `mypy --strict` pass
-- [ ] Coverage over 80% for `model` and the dataset API
-- [ ] A Sprint 2 dataset row still refreshes after the migration
-- [ ] A generated date table is present in `live.duckdb` with no gaps
-- [ ] KB 04 updated to match the implementation
+- [x] Code is written and passes all local tests and lints (391 tests on Windows/Python 3.14, ruff, ruff format)
+- [x] Single-sentence commit rule followed for all commits (commit-msg hook)
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist (section 5)
+- [x] `ruff check` and `mypy --strict` pass (`mypy magbi`: 68 source files, no issues)
+- [x] Coverage over 80% for `model` and the dataset API (94% combined; datasets.py 88%, schema 97%, validation 94%, relationships 99%, date_table 98%)
+- [x] A Sprint 2 dataset row still refreshes after the migration (migration 0003 backfill, orchestrator reads `definition`)
+- [x] A generated date table is present in `live.duckdb` with no gaps (`refresh/dates.py`, exercised by the refresh tests)
+- [x] KB 04 updated to match the implementation
+
+### Deviations from the plan
+1. Stored JSON is snake_case. The spec and `web/src/types/dataset.ts` stay camelCase until the UI sprint.
+2. No `ExpressionChecker` protocol. Deferred checks are named on the validation result (`measure_expressions`, `rls_expressions`).
+3. `POST .../date-table` updates the definition and sets `auto_generate`. The rows are written on the next refresh, which already materialises the date table.
+4. Create and update still accept `import_spec` and convert it. Responses expose `definition`, not `import_spec`.
+5. The SUB-4.2 execution-log line was written in the SUB-5.1 commit.
+
+### Findings and open items
+- High-cardinality, unused-relationship, measure parse, and RLS parse checks are not implemented. They need profiling or the Sprint 4 parser.
+- DuckDB still caches an open database per path. The query engine must close live connections when `current_version` changes.
+- The admin API stays unauthenticated until Sprint 7 (`MAGBI_INSECURE_ADMIN_API`).
+- This regression was not repeated inside the Python 3.11 Linux image. CI runs that job.
+
+---
+
+## 5. PR Description
+
+**feat: semantic model, relationships, date table and validation (MAGBI-003)**
+
+Give each dataset one definition document: tables, relationships, stored measures, a generated date dimension, and a validation result the query engine can trust.
+
+### What changed
+- **Model** (`magbi/model`): Pydantic document for spec sections 2-10, relationship add/remove, undirected join paths, directed cycle detection, date-table generation, and validation with stable error and warning codes.
+- **Storage**: migration `0003` adds `datasets.definition` and `model_version`, backfills from `import_spec`, and drops that column. Refresh imports `type: "table"` sources from the definition.
+- **Date table**: refresh writes a gap-free `Date` table into staging and links the first date column on each table. Further date columns on the same table are inactive.
+- **API**: `GET`/`PUT .../definition` with `model_version` (409 on conflict, 422 when validation has errors). Add and delete relationships, add, update and delete measures, generate a date table, and validate without saving.
+- **Docs**: KB 04 and the dataset-model spec status note the snake_case column, deferred expression checks, and the rejection of many-to-many.
+
+### How it was verified
+- `ruff`, `ruff format`, `mypy` strict, 391 tests on Windows/Python 3.14.
+- Coverage 94% on `magbi.model` and `magbi.api.datasets`.
+- Migration upgrade, downgrade, and drift check were already run on Postgres for `0003`.
+
+### Risks and follow-ups
+Measure text is not parsed. Many-to-many is rejected on purpose. The next sprint should close live DuckDB connections when a dataset version changes, and should compile the expressions this sprint only stores.

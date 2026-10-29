@@ -146,7 +146,11 @@ def _warnings(model: DatasetDefinition, report: ValidationReport) -> None:
     linked = {rel.from_.table for rel in model.relationships} | {
         rel.to.table for rel in model.relationships
     }
-    facts = {rel.from_.table for rel in model.relationships if rel.cardinality == "many-to-one"}
+    facts = {
+        rel.from_.table
+        for rel in model.relationships
+        if rel.cardinality == "many-to-one"
+    }
     for table in model.tables:
         if table.name not in linked:
             report.warnings.append(

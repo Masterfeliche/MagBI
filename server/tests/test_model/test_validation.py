@@ -117,27 +117,38 @@ def test_warnings_for_shape_problems() -> None:
         table("Department", key()),
         relationships=[inner],
     )
-    assert any(w.code == "NULLABLE_INNER_JOIN" for w in validate_model(nullable).warnings)
+    assert any(
+        w.code == "NULLABLE_INNER_JOIN" for w in validate_model(nullable).warnings
+    )
 
 
 def test_date_table_gaps_duplicates_and_missing_data() -> None:
     generated = generate_date_table(dt.date(2024, 1, 1), dt.date(2024, 1, 3))
     model = DatasetDefinition(tables=[generated.table])
-    assert any(w.code == "DATE_TABLE_NOT_CHECKED" for w in validate_model(model).warnings)
+    assert any(
+        w.code == "DATE_TABLE_NOT_CHECKED" for w in validate_model(model).warnings
+    )
 
     empty = duckdb.connect(":memory:")
-    assert any(w.code == "DATE_TABLE_NOT_IMPORTED" for w in validate_model(model, empty).warnings)
+    assert any(
+        w.code == "DATE_TABLE_NOT_IMPORTED"
+        for w in validate_model(model, empty).warnings
+    )
 
     gappy = duckdb.connect(":memory:")
     gappy.execute('CREATE TABLE "Date" ("Date" DATE)')
-    gappy.execute("INSERT INTO \"Date\" VALUES (DATE '2024-01-01'), (DATE '2024-01-03')")
+    gappy.execute(
+        "INSERT INTO \"Date\" VALUES (DATE '2024-01-01'), (DATE '2024-01-03')"
+    )
     gaps = validate_model(model, gappy)
     assert [e.code for e in gaps.errors] == ["DATE_TABLE_GAPS"]
     assert "missing" in gaps.errors[0].message
 
     dupes = duckdb.connect(":memory:")
     dupes.execute('CREATE TABLE "Date" ("Date" DATE)')
-    dupes.execute("INSERT INTO \"Date\" VALUES (DATE '2024-01-01'), (DATE '2024-01-01')")
+    dupes.execute(
+        "INSERT INTO \"Date\" VALUES (DATE '2024-01-01'), (DATE '2024-01-01')"
+    )
     assert {e.code for e in validate_model(model, dupes).errors} == {
         "DATE_TABLE_DUPLICATES",
         "DATE_TABLE_GAPS",

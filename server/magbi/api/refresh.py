@@ -12,6 +12,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Query
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from magbi.api.datasets import get_dataset_or_404
@@ -20,8 +21,15 @@ from magbi.api.errors import ApiError
 from magbi.api.schemas import RefreshOut
 from magbi.metadata.models import DatasetRefresh
 from magbi.refresh.orchestrator import queue_refresh, run_refresh
+from magbi.refresh.schedule import validate_cron
 
 router = APIRouter(tags=["refresh"])
+
+
+class ScheduleIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cron: str = Field(min_length=1, max_length=100)
 
 
 def _out(r: DatasetRefresh) -> RefreshOut:
@@ -37,6 +45,29 @@ def _out(r: DatasetRefresh) -> RefreshOut:
         result=r.result,
         error=r.error,
     )
+
+
+@router.put("/workspaces/{wid}/datasets/{did}/schedule")
+async def set_schedule(
+    wid: uuid.UUID, did: uuid.UUID, body: ScheduleIn, session: SessionDep
+) -> dict[str, str]:
+    dataset = await get_dataset_or_404(session, wid, did)
+    try:
+        cron = validate_cron(body.cron)
+    except ValueError:
+        raise ApiError(
+            422, "BAD_SCHEDULE", "cron expression must have five fields"
+        ) from None
+    dataset.schedule_cron = cron
+    await session.commit()
+    return {"cron": dataset.schedule_cron}
+
+
+@router.delete("/workspaces/{wid}/datasets/{did}/schedule", status_code=204)
+async def clear_schedule(wid: uuid.UUID, did: uuid.UUID, session: SessionDep) -> None:
+    dataset = await get_dataset_or_404(session, wid, did)
+    dataset.schedule_cron = None
+    await session.commit()
 
 
 @router.post("/workspaces/{wid}/datasets/{did}/refresh", status_code=202)

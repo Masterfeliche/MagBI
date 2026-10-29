@@ -100,6 +100,7 @@ class DatasetOut(BaseModel):
     current_version: int
     model_version: int
     definition: dict[str, Any] | None
+    schedule_cron: str | None = None
     created_at: dt.datetime
     updated_at: dt.datetime
 

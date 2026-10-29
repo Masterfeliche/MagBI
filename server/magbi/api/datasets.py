@@ -84,6 +84,7 @@ def _out(ds: Dataset) -> DatasetOut:
         current_version=ds.current_version,
         model_version=ds.model_version,
         definition=ds.definition,
+        schedule_cron=ds.schedule_cron,
         created_at=ds.created_at,
         updated_at=ds.updated_at,
     )

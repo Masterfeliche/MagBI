@@ -457,6 +457,17 @@ def _literal(expr: Expr, at: Call) -> object:
     raise DaxError("filter value must be a literal", at.line, at.col)
 
 
+def filter_expression(filters: tuple[Constraint, ...]) -> exp.Expression | None:
+    """AND of predicates. Used for a WHERE that CALCULATE must not replace."""
+    condition: exp.Expression | None = None
+    for item in filters:
+        piece = _render(item)
+        condition = (
+            piece if condition is None else exp.And(this=condition, expression=piece)
+        )
+    return condition
+
+
 def _where(
     aggregate: exp.Expression, filters: tuple[Constraint, ...]
 ) -> exp.Expression:

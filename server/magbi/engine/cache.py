@@ -56,9 +56,17 @@ class RedisQueryCache:
         self._client.set(key, json.dumps(value), ex=ttl)
 
 
-def cache_key(dataset_id: str, version: int, query: SemanticQuery) -> str:
+def cache_key(
+    dataset_id: str,
+    version: int,
+    query: SemanticQuery,
+    roles: tuple[str, ...] = (),
+) -> str:
     payload = json.dumps(
-        query.model_dump(mode="json", by_alias=True),
+        {
+            "query": query.model_dump(mode="json", by_alias=True),
+            "roles": list(roles),
+        },
         sort_keys=True,
         default=str,
     )
@@ -74,9 +82,10 @@ def run_cached(
     cache: QueryCache | None,
     dataset_id: str,
     version: int,
+    roles: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Return a cached result when one exists. Cache failures still run the query."""
-    key = cache_key(dataset_id, version, query)
+    key = cache_key(dataset_id, version, query, roles)
     if cache is not None:
         try:
             hit = cache.get(key)
@@ -84,7 +93,7 @@ def run_cached(
             hit = None
         if hit is not None:
             return hit
-    result = run_query(model, query, con)
+    result = run_query(model, query, con, roles=roles)
     if cache is not None:
         try:
             cache.set(key, result)

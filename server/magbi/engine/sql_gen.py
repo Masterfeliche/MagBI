@@ -10,7 +10,7 @@ from typing import cast
 
 from sqlglot import exp
 
-from magbi.dax.compiler import AggregatePlan
+from magbi.dax.compiler import AggregatePlan, Constraint, filter_expression
 from magbi.engine.filter_context import BoundFilter
 from magbi.engine.grouping import FactGroup, fact_groups
 from magbi.engine.joins import join_steps
@@ -24,14 +24,17 @@ def detail_sql(
     filters: tuple[BoundFilter, ...] = (),
     *,
     probe: bool = False,
+    rls: tuple[Constraint, ...] = (),
 ) -> str:
     """SQL for the detail rows. Filters are already inside each aggregate."""
     groups = fact_groups(model, bound, filters)
     if len(groups) == 1:
-        query: exp.Query = _one_fact(model, bound, groups[0], ordered=True)
+        query: exp.Query = _one_fact(model, bound, groups[0], ordered=True, rls=rls)
     else:
         parts = [
-            _one_fact(model, bound, group, ordered=False).subquery(alias=f"q{index}")
+            _one_fact(model, bound, group, ordered=False, rls=rls).subquery(
+                alias=f"q{index}"
+            )
             for index, group in enumerate(groups)
         ]
         owners = {
@@ -54,11 +57,13 @@ def totals_sql(
     model: DatasetDefinition,
     bound: BoundQuery,
     filters: tuple[BoundFilter, ...] = (),
+    *,
+    rls: tuple[Constraint, ...] = (),
 ) -> str:
     """Re-run the measures with the same filters and no grouping."""
     groups = fact_groups(model, bound, filters)
     parts = [
-        _scalar_fact(model, group).subquery(alias=f"t{index}")
+        _scalar_fact(model, group, rls).subquery(alias=f"t{index}")
         for index, group in enumerate(groups)
     ]
     owners = {
@@ -76,7 +81,9 @@ def totals_sql(
     return query.sql(dialect="duckdb")
 
 
-def _scalar_fact(model: DatasetDefinition, group: FactGroup) -> exp.Select:
+def _scalar_fact(
+    model: DatasetDefinition, group: FactGroup, rls: tuple[Constraint, ...]
+) -> exp.Select:
     selected: list[exp.Expression] = []
     needed: list[str] = []
     for measure, plan in group.measures:
@@ -87,7 +94,7 @@ def _scalar_fact(model: DatasetDefinition, group: FactGroup) -> exp.Select:
     query = exp.select(*selected).from_(_table(group.fact))
     for rel, nxt in join_steps(model, group.fact, tuple(needed)):
         query = query.join(_table(nxt), on=_on(rel), join_type=_join_kind(rel))
-    return query
+    return _secured(query, rls)
 
 
 def _one_fact(
@@ -96,6 +103,7 @@ def _one_fact(
     group: FactGroup,
     *,
     ordered: bool,
+    rls: tuple[Constraint, ...] = (),
 ) -> exp.Select:
     plans: dict[str, AggregatePlan] = {
         measure.alias: plan for measure, plan in group.measures
@@ -130,7 +138,14 @@ def _one_fact(
                 for field in bound.groups
             ]
         )
-    return query
+    return _secured(query, rls)
+
+
+def _secured(query: exp.Select, rls: tuple[Constraint, ...]) -> exp.Select:
+    predicate = filter_expression(rls)
+    if predicate is None:
+        return query
+    return query.where(predicate)
 
 
 def _outer(

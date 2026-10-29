@@ -61,7 +61,7 @@ Deliverable: a semantic query JSON returns a DataShapeResult from the dataset's 
 | SUB-3.1 | Grouped SQL | One fact becomes one `SELECT` with `GROUP BY`, `ORDER BY`, and `LIMIT`; the aggregate expression comes from the compiler; a query filter replaced by `CALCULATE` changes the value | 5h | [x] |
 | SUB-3.2 | Execute and DSR | Rows come from DuckDB; all-null measure rows are dropped; `includeTotals` re-runs the measures without grouping; dates are ISO strings; `truncated` reflects the limit | 4h | [x] |
 | SUB-4.1 | Cache | A second identical query is served from the cache; a new `current_version` misses; Redis being down still returns the query | 3h | [x] |
-| SUB-4.2 | RLS | Named roles add a `WHERE` that `ALL` does not remove; an unknown role and a non-comparison filter are errors | 4h | [ ] |
+| SUB-4.2 | RLS | Named roles add a `WHERE` that `ALL` does not remove; an unknown role and a non-comparison filter are errors | 4h | [x] |
 | SUB-5.1 | API | `POST` the workspace dataset query route returns the DSR; a missing dataset is 404; no `live.duckdb` is 409; a bad query is 422 and does not run SQL | 3h | [ ] |
 | SUB-5.2 | Docs | KB 06 and the query-engine spec status note the TypeScript contract, DuckDB-only execution, request-supplied roles, and what stays later | 1.5h | [ ] |
 | SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `engine` and the query route; full regression; PR description | 1.5h | [ ] |
@@ -78,7 +78,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 5.3. Each subtask is co
 - [x] SUB-3.1: see git log. One fact is one grouped SELECT. ORDER BY follows the select index and LIMIT is applied. CALCULATE replaces a query filter on the same column.
 - [x] SUB-3.2: see git log. Rows are a DataShapeResult. All-null measure rows are dropped. Totals re-run the measures without grouping. A full limit sets truncated.
 - [x] SUB-4.1: see git log. A repeated query is served from the cache. A new dataset version misses. A cache that raises still returns the query.
-- [ ] SUB-4.2: (Commit hash)
+- [x] SUB-4.2: see git log. Named roles add a WHERE on every subquery. ALL does not remove it. An unknown role or a non-comparison filter is an error.
 - [ ] SUB-5.1: (Commit hash)
 - [ ] SUB-5.2: (Commit hash)
 - [ ] SUB-5.3: (Commit hash)

@@ -51,7 +51,7 @@ Deliverable: open the designer on a dataset, place a bar chart, drop fields into
 | SUB-1.3 | Data pane and wells | The pane lists the adapted model; dropping a field fills the matching well; a second drop past the well's max is refused | 4h | [x] |
 | SUB-2.1 | Visual rendering | Bar, line, pie, card, and table turn a DSR into a render model; the other chart types stay notes instead of a fake column chart; the map explains the missing coordinates | 5h | [x] |
 | SUB-2.2 | Filters and properties | A chart category becomes a page cross-filter and is cleared by a second click; a page filter is added to every visual query; title and color patch the visual | 4h | [x] |
-| SUB-2.3 | Undo and publish | Ctrl+Z restores the previous document and Ctrl+Y reapplies it; `POST` and `PUT` reports store the definition and `is_published` | 4h | [ ] |
+| SUB-2.3 | Undo and publish | Ctrl+Z restores the previous document and Ctrl+Y reapplies it; `POST` and `PUT` reports store the definition and `is_published` | 4h | [x] |
 | SUB-3.1 | Docs | KB 07 names the designer route, the live query, the visuals that render, and what stays in Sprint 10 | 1.5h | [ ] |
 | SUB-3.2 | Finalization | ESLint, `tsc`, Vitest, the report API tests, and a browser pass of the designer flow; PR description | 1.5h | [ ] |
 
@@ -64,7 +64,8 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2. Each subtask is code, tests, and 
 - [x] SUB-1.2: 2c6f5da
 - [x] SUB-1.3: 6445a13
 - [x] SUB-2.1: 2fb76cf
-- [x] SUB-2.2: (this commit)
+- [x] SUB-2.2: 6cfffbb
+- [x] SUB-2.3: (this commit)
 
 Layout deviation from the first three-pane draft: Filters and Build are right-side rails and only one is open. The ribbon is the report name, Undo, Redo, and Publish. The gallery keeps later visual types, and only column, bar, line, pie, card, and table draw a query. Format is a title and one color. No component library.
 - [ ] SUB-2.3: (Commit hash)

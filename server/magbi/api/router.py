@@ -10,6 +10,7 @@ from magbi.api import (
     identity,
     query,
     refresh,
+    reports,
     transforms,
     workspaces,
 )
@@ -24,4 +25,5 @@ api_router.include_router(embed.router)
 api_router.include_router(datasets.router)
 api_router.include_router(refresh.router)
 api_router.include_router(query.router)
+api_router.include_router(reports.router)
 api_router.include_router(transforms.router)

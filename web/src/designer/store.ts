@@ -5,10 +5,12 @@ import { create } from "zustand";
 
 import type { FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
+import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
 import { blankReport, clampPosition, placeVisual } from "./layout";
 
 interface DesignerState {
   report: ReportDefinition;
+  history: History;
   selectedVisualId: string | null;
   selectVisual: (id: string | null) => void;
   replaceReport: (report: ReportDefinition) => void;
@@ -17,22 +19,26 @@ interface DesignerState {
   setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
   setPageFilters: (filters: FilterDefinition[]) => void;
   setFormat: (id: string, title: string, color: string) => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 export const useDesignerStore = create<DesignerState>((set, get) => ({
   report: blankReport("Report", ""),
+  history: EMPTY_HISTORY,
   selectedVisualId: null,
   selectVisual: (id) => set({ selectedVisualId: id }),
-  replaceReport: (report) => set({ report }),
+  replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null }),
   addVisual: (type) => {
     const report = get().report;
     const page = report.pages[0];
     if (!page) return;
     const visual = placeVisual(page.visuals, type, crypto.randomUUID());
-    set({
-      report: { ...report, pages: [{ ...page, visuals: [...page.visuals, visual] }] },
-      selectedVisualId: visual.id,
+    commit(set, get, {
+      ...report,
+      pages: [{ ...page, visuals: [...page.visuals, visual] }],
     });
+    set({ selectedVisualId: visual.id });
   },
   moveVisual: (id, x, y) => {
     const report = get().report;
@@ -41,31 +47,50 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     const visuals = page.visuals.map((visual) =>
       visual.id === id ? moved(visual, x, y) : visual,
     );
-    set({ report: { ...report, pages: [{ ...page, visuals }] } });
+    commit(set, get, { ...report, pages: [{ ...page, visuals }] });
   },
   setWells: (id, wells) => {
-    const report = get().report;
-    const page = report.pages[0];
-    if (!page) return;
-    const visuals = page.visuals.map((visual) => (visual.id === id ? { ...visual, wells } : visual));
-    set({ report: { ...report, pages: [{ ...page, visuals }] } });
+    updateVisual(set, get, id, (visual) => ({ ...visual, wells }));
   },
   setPageFilters: (filters) => {
     const report = get().report;
     const page = report.pages[0];
     if (!page) return;
-    set({ report: { ...report, pages: [{ ...page, filters }] } });
+    commit(set, get, { ...report, pages: [{ ...page, filters }] });
   },
   setFormat: (id, title, color) => {
-    const report = get().report;
-    const page = report.pages[0];
-    if (!page) return;
-    const visuals = page.visuals.map((visual) =>
-      visual.id === id ? patchFormat(visual, title, color) : visual,
-    );
-    set({ report: { ...report, pages: [{ ...page, visuals }] } });
+    updateVisual(set, get, id, (visual) => patchFormat(visual, title, color));
+  },
+  undo: () => {
+    const result = undo(get().report, get().history);
+    set({ report: result.doc, history: result.history });
+  },
+  redo: () => {
+    const result = redo(get().report, get().history);
+    set({ report: result.doc, history: result.history });
   },
 }));
+
+function commit(
+  set: (partial: Partial<DesignerState>) => void,
+  get: () => DesignerState,
+  next: ReportDefinition,
+) {
+  set({ report: next, history: record(get().report, next, get().history) });
+}
+
+function updateVisual(
+  set: (partial: Partial<DesignerState>) => void,
+  get: () => DesignerState,
+  id: string,
+  map: (visual: VisualDefinition) => VisualDefinition,
+) {
+  const report = get().report;
+  const page = report.pages[0];
+  if (!page) return;
+  const visuals = page.visuals.map((visual) => (visual.id === id ? map(visual) : visual));
+  commit(set, get, { ...report, pages: [{ ...page, visuals }] });
+}
 
 function moved(visual: VisualDefinition, x: number, y: number): VisualDefinition {
   return { ...visual, ...clampPosition(x, y, visual.width, visual.height) };

@@ -34,7 +34,12 @@ export function DesignerPage() {
   const [tab, setTab] = useState<"visuals" | "format">("visuals");
   const [tables, setTables] = useState<DesignerTable[]>([]);
   const [loadError, setLoadError] = useState("");
+  const undo = useDesignerStore((state) => state.undo);
+  const redo = useDesignerStore((state) => state.redo);
+  const history = useDesignerStore((state) => state.history);
   const [cross, setCross] = useState<CrossFilter | null>(null);
+  const [reportId, setReportId] = useState("");
+  const [publishError, setPublishError] = useState("");
   const [title, setTitle] = useState("");
   const [color, setColor] = useState("#118DFF");
 
@@ -83,6 +88,53 @@ export function DesignerPage() {
     return () => observer.disconnect();
   }, [pane]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+      } else if (key === "y") {
+        event.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
+
+  async function publish() {
+    if (!workspaceId || !datasetId) return;
+    setPublishError("");
+    try {
+      if (reportId) {
+        await apiFetch(`/workspaces/${workspaceId}/reports/${reportId}`, {
+          method: "PUT",
+          body: JSON.stringify({ definition: report, is_published: true }),
+        });
+        return;
+      }
+      const created = await apiFetch<{ id: string }>(`/workspaces/${workspaceId}/reports`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: report.name,
+          dataset_id: datasetId,
+          definition: report,
+          is_published: true,
+        }),
+      });
+      setReportId(created.id);
+    } catch (error: unknown) {
+      setPublishError(error instanceof Error ? error.message : "Publish failed");
+    }
+  }
+
   function toggle(next: Pane) {
     setPane((current) => (current === next ? "closed" : next));
   }
@@ -91,13 +143,13 @@ export function DesignerPage() {
     <div className="designer">
       <header className="ribbon">
         <strong className="report-name">{report.name}</strong>
-        <button type="button" disabled>
+        <button type="button" disabled={history.past.length === 0} onClick={undo}>
           Undo
         </button>
-        <button type="button" disabled>
+        <button type="button" disabled={history.future.length === 0} onClick={redo}>
           Redo
         </button>
-        <button type="button" className="publish" disabled>
+        <button type="button" className="publish" onClick={() => void publish()}>
           Publish
         </button>
       </header>
@@ -106,7 +158,7 @@ export function DesignerPage() {
           <div className="page-tabs">
             <span className="page-tab">Page 1</span>
           </div>
-          {loadError && <p className="hint">{loadError}</p>}
+          {(loadError || publishError) && <p className="hint">{loadError || publishError}</p>}
           <Canvas
             scale={scale}
             workspaceId={workspaceId ?? ""}

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 
 import { VisualView } from "./Charts";
 import { filtersForVisual, groupingOf, toggleCrossFilter, type CrossFilter } from "./filters";
-import { PAGE_HEIGHT, PAGE_WIDTH, pagePoint } from "./layout";
+import { PAGE_HEIGHT, PAGE_WIDTH, clampPosition, pagePoint } from "./layout";
 import { useDesignerStore } from "./store";
 
 export function Canvas({
@@ -27,7 +27,13 @@ export function Canvas({
   const setPageFilters = useDesignerStore((state) => state.setPageFilters);
   const page = report.pages[0];
   const frame = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null);
+  const offset = useRef({ dx: 0, dy: 0 });
+  const dragRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  function placeDrag(next: { id: string; x: number; y: number } | null) {
+    dragRef.current = next;
+    setDrag(next);
+  }
 
   return (
     <div
@@ -41,8 +47,8 @@ export function Canvas({
           key={visual.id}
           className={visual.id === selectedId ? "visual selected" : "visual"}
           style={{
-            left: visual.x,
-            top: visual.y,
+            left: drag?.id === visual.id ? drag.x : visual.x,
+            top: drag?.id === visual.id ? drag.y : visual.y,
             width: visual.width,
             height: visual.height,
           }}
@@ -59,17 +65,30 @@ export function Canvas({
               const rect = frame.current?.getBoundingClientRect();
               if (!rect) return;
               const point = pagePoint(event.clientX, event.clientY, rect.left, rect.top, scale);
-              setDrag({ id: visual.id, dx: point.x - visual.x, dy: point.y - visual.y });
+              offset.current = { dx: point.x - visual.x, dy: point.y - visual.y };
+              placeDrag({ id: visual.id, x: visual.x, y: visual.y });
               event.currentTarget.setPointerCapture(event.pointerId);
             }}
             onPointerMove={(event) => {
-              if (!drag || drag.id !== visual.id) return;
+              if (dragRef.current?.id !== visual.id) return;
               const rect = frame.current?.getBoundingClientRect();
               if (!rect) return;
               const point = pagePoint(event.clientX, event.clientY, rect.left, rect.top, scale);
-              moveVisual(visual.id, point.x - drag.dx, point.y - drag.dy);
+              const clamped = clampPosition(
+                point.x - offset.current.dx,
+                point.y - offset.current.dy,
+                visual.width,
+                visual.height,
+              );
+              placeDrag({ id: visual.id, ...clamped });
             }}
-            onPointerUp={() => setDrag(null)}
+            onPointerUp={() => {
+              const current = dragRef.current;
+              if (current && current.id === visual.id) {
+                moveVisual(visual.id, current.x, current.y);
+              }
+              placeDrag(null);
+            }}
           />
           <div className="visual-body">
           <VisualView

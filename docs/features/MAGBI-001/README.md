@@ -55,8 +55,8 @@ Deliverable: `docker compose up` -> API starts, `/health` OK, Postgres has the s
 ## 2. Implementation Plan
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
-| SUB-0.1 | Init git repo and install commit-msg hook | `git init`; hook rejects multi-sentence or >72 char messages | 0.5h | [ ] |
-| SUB-0.2 | Test tooling: pytest config, conftest, aiosqlite, cryptography deps | `pytest` collects and runs a smoke test; CI green | 1h | [ ] |
+| SUB-0.1 | Init git repo and install commit-msg hook | `git init`; hook rejects multi-sentence or >72 char messages | 0.5h | [x] |
+| SUB-0.2 | Test tooling: pytest config, conftest, aiosqlite, cryptography deps | `pytest` collects and runs a smoke test; CI green | 1h | [x] |
 | SUB-1.1 | Credential vault (`credentials.py`) | Round-trip OK; wrong key/AAD/tampered data raise; nonce unique per call; bad key length rejected; plaintext never in repr/log | 2h | [ ] |
 | SUB-1.2 | Settings: `credential_key`, `environment`, validation | Missing/invalid key or default jwt secret fails startup when `environment != dev` | 1h | [ ] |
 | SUB-1.3 | DuckDB store (`duckdb_store.py`) | Create dataset dir; open live read-only/read-write; next version path; promote staging to live; archive pruning to N; list versions; path traversal on ids rejected | 3h | [ ] |
@@ -73,8 +73,8 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 ---
 
 ## 3. Execution Log
-- [ ] SUB-0.1: (Commit hash)
-- [ ] SUB-0.2: (Commit hash)
+- [x] SUB-0.1: cd03665 (hook verified: rejects multi-sentence and bad format)
+- [x] SUB-0.2: 357d194 (also fixed 3 baseline ruff/mypy errors that would fail CI)
 - [ ] SUB-1.1: (Commit hash)
 - [ ] SUB-1.2: (Commit hash)
 - [ ] SUB-1.3: (Commit hash)

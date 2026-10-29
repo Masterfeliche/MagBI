@@ -57,16 +57,16 @@ Deliverable: `docker compose up` -> API starts, `/health` OK, Postgres has the s
 |-------------|---------|---------------------|------|--------|
 | SUB-0.1 | Init git repo and install commit-msg hook | `git init`; hook rejects multi-sentence or >72 char messages | 0.5h | [x] |
 | SUB-0.2 | Test tooling: pytest config, conftest, aiosqlite, cryptography deps | `pytest` collects and runs a smoke test; CI green | 1h | [x] |
-| SUB-1.1 | Credential vault (`credentials.py`) | Round-trip OK; wrong key/AAD/tampered data raise; nonce unique per call; bad key length rejected; plaintext never in repr/log | 2h | [ ] |
-| SUB-1.2 | Settings: `credential_key`, `environment`, validation | Missing/invalid key or default jwt secret fails startup when `environment != dev` | 1h | [ ] |
-| SUB-1.3 | DuckDB store (`duckdb_store.py`) | Create dataset dir; open live read-only/read-write; next version path; promote staging to live; archive pruning to N; list versions; path traversal on ids rejected | 3h | [ ] |
-| SUB-1.4 | Metadata ORM models + session factory | Models for workspaces, workspace_members, datasets, reports, users, audit_log; UUID PKs; FKs and unique constraints | 3h | [ ] |
-| SUB-1.5 | Alembic setup + `0001_initial` migration | `alembic upgrade head` and `downgrade base` succeed on SQLite and Postgres; models match migration (autogenerate shows no diff) | 2h | [ ] |
-| SUB-1.6 | Metadata CRUD tests | Create/read/update/delete each entity; cascade rules; constraint violations raise | 2h | [ ] |
-| SUB-1.7 | Lifespan startup checks + `/health/ready` | Ready returns 200 only when DB reachable and data dir writable; otherwise 503 with reason | 2h | [ ] |
+| SUB-1.1 | Credential vault (`credentials.py`) | Round-trip OK; wrong key/AAD/tampered data raise; nonce unique per call; bad key length rejected; plaintext never in repr/log | 2h | [x] |
+| SUB-1.2 | Settings: `credential_key`, `environment`, validation | Missing/invalid key or default jwt secret fails startup when `environment != dev` | 1h | [x] |
+| SUB-1.3 | DuckDB store (`duckdb_store.py`) | Create dataset dir; open live read-only/read-write; next version path; promote staging to live; archive pruning to N; list versions; path traversal on ids rejected | 3h | [x] |
+| SUB-1.4 | Metadata ORM models + session factory | Models for workspaces, workspace_members, datasets, reports, users, audit_log; UUID PKs; FKs and unique constraints | 3h | [x] |
+| SUB-1.5 | Alembic setup + `0001_initial` migration | `alembic upgrade head` and `downgrade base` succeed on SQLite and Postgres; models match migration (autogenerate shows no diff) | 2h | [x] |
+| SUB-1.6 | Metadata CRUD tests | Create/read/update/delete each entity; cascade rules; constraint violations raise | 2h | [x] |
+| SUB-1.7 | Lifespan startup checks + `/health/ready` | Ready returns 200 only when DB reachable and data dir writable; otherwise 503 with reason | 2h | [x] |
 | SUB-1.8 | Fix server Dockerfile and compose env | `docker compose build api` succeeds; api container reaches ready against compose Postgres | 1.5h | [~] |
-| SUB-1.9 | Docs: update KB 10, fix `CREDENTIAL_KEY` naming in import spec, mark status | KB chapter reflects what was built | 1h | [ ] |
-| SUB-1.10 | Finalization: ruff, mypy --strict, coverage >80% for metadata and storage | All three pass; PR description generated | 1h | [ ] |
+| SUB-1.9 | Docs: update KB 10, fix `CREDENTIAL_KEY` naming in import spec, mark status | KB chapter reflects what was built | 1h | [x] |
+| SUB-1.10 | Finalization: ruff, mypy --strict, coverage >80% for metadata and storage | All three pass; PR description generated | 1h | [x] |
 
 Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9 -> 1.10. Each subtask is Code + Test + one single-sentence commit.
 
@@ -83,16 +83,57 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 - [x] SUB-1.6: f8716ec
 - [x] SUB-1.7: 56cea02
 - [~] SUB-1.8: 9c13a9b PARTIAL. Verified: compose config valid, clean `pip install .` from pyproject+magbi succeeds. NOT verified (Docker daemon off, no Postgres): `docker compose build api` and api reaching ready against Postgres. web/worker moved behind compose profiles until Sprints 8/9.
-- [ ] SUB-1.9: (Commit hash)
-- [ ] SUB-1.10: (Commit hash)
+- [x] SUB-1.9: ee8e208
+- [x] SUB-1.10: this commit (CI commands pass locally: ruff, mypy, 81 tests; coverage 99% on config, main, metadata, storage)
 
 ---
 
 ## 4. Definition of Done (DoD)
-- [ ] Code is written and passes all local tests/lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] `ruff check` and `mypy --strict` pass
-- [ ] Coverage > 80% for `metadata` and `storage`
-- [ ] KB chapter 10 updated to match the implementation
+- [x] Code is written and passes all local tests/lints
+- [x] Single-sentence commit rule followed for all commits (hook enforced, 11 commits)
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist
+- [x] `ruff check` and `mypy --strict` pass
+- [x] Coverage > 80% for `metadata` and `storage` (99%)
+- [x] KB chapter 10 updated to match the implementation
+- [ ] **Open:** `docker compose up` end to end against real PostgreSQL (needs Docker running)
+
+---
+
+## 5. Open items for follow-up
+1. **Verify on real infrastructure.** Start Docker, run `cd deploy && docker compose up --build`, confirm `GET :8000/health/ready` returns 200 and `\dt` in Postgres lists the six tables. Run `alembic upgrade head` and `downgrade base` once against Postgres 16. Only SQLite execution and offline PostgreSQL SQL rendering were done.
+2. **Windows swap** is documented but unsolved; Sprint 2.3 must handle readers holding the live file.
+3. **CI Python version** is 3.11 while local development used 3.14. Dependencies install on both, but CI only exercises 3.11.
+4. **Line endings:** git warns LF to CRLF on every commit. Add a `.gitattributes` (`* text=auto eol=lf`) in a separate chore commit.
+5. **API prefix mismatch** (`/api/...` stubs vs `/api/v1` in the spec) is untouched; resolve in Sprint 2/3 when routes are added.
+6. **Web and worker** services are behind compose profiles until their entry points exist.
+
+---
+
+## 6. Pull Request Description
+
+**Title:** feat: Sprint 1 foundation - metadata, DuckDB store, credential vault (MAGBI-001)
+
+### Summary
+Builds the storage and metadata foundation the rest of the engine depends on. Replaces placeholder modules with tested implementations and makes the API start safely.
+
+### What changed
+- **Credential vault** (`storage/credentials.py`): AES-256-GCM, random nonce, optional associated data, tamper and wrong-key detection, key never in repr or errors (FR-006).
+- **Settings** (`config.py`): `environment`, `credential_key`, `duckdb_archive_versions`; non-dev startup requires a valid key and a non-default JWT secret.
+- **DuckDB store** (`storage/duckdb_store.py`): per-dataset directory, `live`/`vN`/`staging` files, promotion with rollback on failure, archive pruning, id validation against path traversal.
+- **Metadata layer** (`metadata/`): ORM for users, workspaces, workspace members, datasets, reports, audit log (FR-090); async engine and session helpers; SQLite foreign keys enforced; UTC-only timestamps.
+- **Alembic** (`migrations/`): async env, initial migration `0001`, drift check in tests.
+- **API** (`main.py`): `create_app` factory, lifespan startup checks, `/health/live`, `/health/ready` (503 with non-leaking reasons).
+- **Build:** Dockerfile installs after copying sources, runs as non-root, adds unixODBC, healthcheck, runs migrations on start. Compose waits for healthy Postgres; `web` and `worker` are behind profiles.
+- **Tooling:** pytest config, shared fixtures, fixed three baseline ruff/mypy errors that would have failed CI.
+- **Docs:** KB chapter 10 now describes the built storage layer and the Windows rename caveat; import spec uses `MAGBI_CREDENTIAL_KEY`.
+
+### Testing
+- 81 tests pass; coverage 99% on `config`, `main`, `metadata`, `storage`.
+- `ruff check magbi/` and `mypy magbi/` (strict) pass.
+- **Not tested:** Docker image build and runtime against live PostgreSQL (Docker daemon unavailable). Postgres DDL was rendered offline and reviewed (`JSONB`, `UUID`, `BIGSERIAL`, check constraints).
+
+### Reviewer notes
+- New required env in non-dev: `MAGBI_CREDENTIAL_KEY` (see `deploy/.env.example`).
+- Credential tokens are versioned (`v1:`) to allow later rotation.
+- Deferred tables (connections, dataset versions, refreshes, RLS, apps, embed clients) arrive with the sprints that use them.

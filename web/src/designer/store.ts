@@ -6,7 +6,7 @@ import { create } from "zustand";
 import type { FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
 import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
-import { blankReport, clampPosition, placeVisual } from "./layout";
+import { blankReport, clampPosition, placeVisual, type Box } from "./layout";
 
 interface DesignerState {
   report: ReportDefinition;
@@ -16,6 +16,7 @@ interface DesignerState {
   replaceReport: (report: ReportDefinition) => void;
   addVisual: (type: string) => void;
   moveVisual: (id: string, x: number, y: number) => void;
+  resizeVisual: (id: string, box: Box) => void;
   setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
   setPageFilters: (filters: FilterDefinition[]) => void;
   setFormat: (id: string, title: string, color: string) => void;
@@ -48,6 +49,9 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       visual.id === id ? moved(visual, x, y) : visual,
     );
     commit(set, get, { ...report, pages: [{ ...page, visuals }] });
+  },
+  resizeVisual: (id, box) => {
+    updateVisual(set, get, id, (visual) => ({ ...visual, ...box }));
   },
   setWells: (id, wells) => {
     updateVisual(set, get, id, (visual) => ({ ...visual, wells }));

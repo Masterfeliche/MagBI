@@ -5,9 +5,31 @@ import type { VisualDefinition } from "../types/report";
 export const PAGE_WIDTH = 1760;
 export const PAGE_HEIGHT = 990;
 export const SNAP = 10;
+export const MIN_WIDTH = 80;
+export const MIN_HEIGHT = 60;
+
+export type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+
+export interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export function snap(value: number): number {
   return Math.round(value / SNAP) * SNAP;
+}
+
+export function pageOffset(
+  clientX: number,
+  clientY: number,
+  originX: number,
+  originY: number,
+  scale: number,
+): { x: number; y: number } {
+  const safe = scale === 0 ? 1 : scale;
+  return { x: (clientX - originX) / safe, y: (clientY - originY) / safe };
 }
 
 export function pagePoint(
@@ -17,11 +39,41 @@ export function pagePoint(
   originY: number,
   scale: number,
 ): { x: number; y: number } {
-  const safe = scale === 0 ? 1 : scale;
-  return {
-    x: snap((clientX - originX) / safe),
-    y: snap((clientY - originY) / safe),
-  };
+  const point = pageOffset(clientX, clientY, originX, originY, scale);
+  return { x: snap(point.x), y: snap(point.y) };
+}
+
+/** Move one or two edges. The opposite edge stays put. The box stays on the page. */
+export function resizeBox(start: Box, handle: ResizeHandle, pointerX: number, pointerY: number): Box {
+  let left = start.x;
+  let right = start.x + start.width;
+  let top = start.y;
+  let bottom = start.y + start.height;
+  if (handle.includes("w")) left = snap(pointerX);
+  if (handle.includes("e")) right = snap(pointerX);
+  if (handle.includes("n")) top = snap(pointerY);
+  if (handle.includes("s")) bottom = snap(pointerY);
+  if (right - left < MIN_WIDTH) {
+    if (handle.includes("w")) left = right - MIN_WIDTH;
+    else right = left + MIN_WIDTH;
+  }
+  if (bottom - top < MIN_HEIGHT) {
+    if (handle.includes("n")) top = bottom - MIN_HEIGHT;
+    else bottom = top + MIN_HEIGHT;
+  }
+  if (left < 0) left = 0;
+  if (top < 0) top = 0;
+  if (right > PAGE_WIDTH) right = PAGE_WIDTH;
+  if (bottom > PAGE_HEIGHT) bottom = PAGE_HEIGHT;
+  if (right - left < MIN_WIDTH) {
+    if (handle.includes("w")) left = Math.max(0, right - MIN_WIDTH);
+    else right = Math.min(PAGE_WIDTH, left + MIN_WIDTH);
+  }
+  if (bottom - top < MIN_HEIGHT) {
+    if (handle.includes("n")) top = Math.max(0, bottom - MIN_HEIGHT);
+    else bottom = Math.min(PAGE_HEIGHT, top + MIN_HEIGHT);
+  }
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 export function clampPosition(

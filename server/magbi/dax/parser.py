@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TypeAlias
 
 from magbi.dax.errors import DaxError
+from magbi.dax.functions import function_error
 from magbi.dax.lexer import Token, TokenKind, tokenize
 
 _INFIX: dict[TokenKind, int] = {
@@ -297,6 +298,9 @@ class _Parser:
                 self._advance()
                 args.append(self._statement())
         self._expect(TokenKind.RPAREN, "')'")
+        problem = function_error(name.text)
+        if problem is not None:
+            raise DaxError(problem, name.line, name.col)
         return Call(name.text, tuple(args), name.line, name.col)
 
 

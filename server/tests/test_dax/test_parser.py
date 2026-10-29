@@ -75,6 +75,17 @@ def test_chained_comparison_is_rejected() -> None:
     assert caught.value.col == 7
 
 
+def test_unsupported_and_unknown_functions_name_themselves() -> None:
+    with pytest.raises(DaxError) as unsupported:
+        parse("TOPN(Sales, 1)")
+    assert unsupported.value.message.startswith("TOPN is a DAX function not supported")
+    assert unsupported.value.line == 1 and unsupported.value.col == 1
+    with pytest.raises(DaxError) as unknown:
+        parse("1 + MYTHING(Sales[Amount])")
+    assert "Unknown function 'MYTHING'" in unknown.value.message
+    assert unknown.value.col == 5
+
+
 def test_empty_and_unbalanced_input() -> None:
     with pytest.raises(DaxError, match="end of formula"):
         parse("   ")

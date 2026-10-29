@@ -101,7 +101,8 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 ---
 
 ## 5. Open items for follow-up
-1. ~~Verify on real infrastructure~~ Done: see SUB-1.8.`r`n2. **Windows swap** is documented but unsolved; Sprint 2.3 must handle readers holding the live file.
+1. ~~Verify on real infrastructure~~ Done: see SUB-1.8.
+2. **Windows swap** is documented but unsolved; Sprint 2.3 must handle readers holding the live file.
 3. **CI Python version** is 3.11 while local development used 3.14. Dependencies install on both, but CI only exercises 3.11.
 4. **Line endings:** git warns LF to CRLF on every commit. Add a `.gitattributes` (`* text=auto eol=lf`) in a separate chore commit.
 5. **API prefix mismatch** (`/api/...` stubs vs `/api/v1` in the spec) is untouched; resolve in Sprint 2/3 when routes are added.

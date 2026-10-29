@@ -6,19 +6,21 @@ from magbi.api import (
     admin,
     connections,
     datasets,
+    embed,
     identity,
     query,
     refresh,
     transforms,
     workspaces,
 )
-from magbi.api.deps import admin_gate
+from magbi.api.deps import api_guard
 
-api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(admin_gate)])
+api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(api_guard)])
 api_router.include_router(connections.router)
 api_router.include_router(workspaces.router)
 api_router.include_router(identity.router)
 api_router.include_router(admin.router)
+api_router.include_router(embed.router)
 api_router.include_router(datasets.router)
 api_router.include_router(refresh.router)
 api_router.include_router(query.router)

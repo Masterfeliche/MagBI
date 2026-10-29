@@ -59,7 +59,7 @@ def test_measures_relationships_and_validate(api: ApiEnv) -> None:
         json={
             "model_version": 2,
             "table": "Invoices",
-            "measure": {"name": "Total", "expression": "SUM(Invoices[amount])"},
+                "measure": {"name": "Total", "expression": "SUM(Invoices[dept_id])"},
         },
     )
     assert added.status_code == 200, added.text

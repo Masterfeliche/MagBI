@@ -1,36 +1,34 @@
 # 07 — Report Designer
 
-> **Status: Planned**
+> **Status: Shipped in MAGBI-009.** The viewer and embed SDK stay in Sprint 10.
+
+The designer route is `/workspaces/:workspaceId/datasets/:datasetId/designer`.
+It loads that dataset and draws each visual with `POST /api/v1/workspaces/{workspaceId}/datasets/{datasetId}/query`.
+Column, bar, line, pie, card, and table render the result. Map explains that it needs coordinates.
+Slicer writes a page filter. Scatter, funnel, gauge, treemap, and waterfall stay in the gallery and are not drawn as a column chart.
+Publish stores the definition and `is_published` with `POST` and `PUT /api/v1/workspaces/{workspaceId}/reports`.
+Opening a published report is Sprint 10.
 
 ---
 
 ## What It Does
 
-The report designer is where users build dashboards. It is a browser-based
-editor with three panes:
+The report designer is where users build dashboards. Filters and Build are right-side rails, and only one is open so the 1760×990 page stays large:
 
 ```
-┌────────────┬─────────────────────────────┬──────────────┐
-│            │                             │              │
-│  Data Pane │       Canvas (1760×990)     │  Property    │
-│            │                             │  Pane        │
-│  Tables    │   ┌──────┐    ┌──────┐     │              │
-│  Columns   │   │ Bar  │    │ Card │     │  Format      │
-│  Measures  │   │Chart │    │      │     │  sections    │
-│            │   └──────┘    └──────┘     │              │
-│            │                             │  Wells       │
-│            │        ┌──────────┐        │  (Axis,      │
-│            │        │  Table   │        │   Values,    │
-│            │        │          │        │   Legend)     │
-│            │        └──────────┘        │              │
-│            │                             │              │
-└────────────┴─────────────────────────────┴──────────────┘
+┌──────────────────────────────────────────────┬────────┬────┐
+│ Ribbon: name, Undo, Redo, Publish           │        │    │
+├──────────────────────────────────────────────┤ Build  │ F  │
+│                                              │ or     │ i  │
+│            Page (1760×990, scaled)           │ Filters│ l  │
+│                                              │        │ t  │
+└──────────────────────────────────────────────┴────────┴────┘
 ```
 
-Users drag fields from the data pane onto the canvas or into wells. They resize
-and position visuals freely. They configure formatting in the property pane.
-The result is a **Report Definition** — a JSON document that describes
-everything on the page.
+The Build rail lists fields, the visual gallery, and the wells (Y-axis, X-axis, Legend).
+Format on that rail sets a title and one color. The Filters rail adds page filters (`eq` and `in`).
+Dragging a visual records one undo patch when the pointer goes up.
+The result is a **Report Definition** — a JSON document that describes everything on the page.
 
 ---
 
@@ -475,13 +473,13 @@ patches by diffing two JSON objects.
 
 ## For Agents
 
-1. Designer components live in `web/src/designer/`. The main components are
-   `Canvas.tsx`, `VisualWrapper.tsx`, `DataPane.tsx`, `PropertyPane.tsx`,
-   `WellsPanel.tsx`, `FilterPane.tsx`.
-2. State is in `web/src/designer/store.ts` (Zustand). Do not create additional
-   stores — all designer state goes in this one store.
-3. Undo/redo uses `fast-json-patch`. When modifying the report JSON, always
-   go through the store's mutation functions so patches are recorded.
+1. Designer components live in `web/src/designer/`. The page is `DesignerPage.tsx`.
+   Wells are listed in `catalog.ts`. A dataset payload is adapted in `model.ts`.
+   `query.ts` builds the semantic query. `render.ts` turns a DSR into a chart model.
+2. State is in `web/src/designer/store.ts` (Zustand). Document edits go through
+   that store so `history.ts` can record one JSON patch per commit.
+3. Undo/redo uses `fast-json-patch`. Pointer moves update a local drag preview.
+   The patch is recorded when the pointer goes up. Ctrl+Z and Ctrl+Y call the store.
 4. The report definition TypeScript types are in `web/src/types/report.ts`.
    Keep them in sync with the server's validation.
 5. When adding a new visual type, register it in `web/src/visuals/registry.ts`

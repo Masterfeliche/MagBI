@@ -20,8 +20,12 @@ class Settings(BaseSettings):
     credential_key: str = ""
     jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
+    jwt_private_key_pem: str = ""
+    jwt_public_key_pem: str = ""
     access_token_ttl_minutes: int = 60
     embed_token_ttl_minutes: int = 15
+    bootstrap_admin_email: str = ""
+    bootstrap_admin_password: str = ""
     max_query_timeout_seconds: int = 30
     max_concurrent_refreshes: int = 10
     # Until auth lands (Sprint 7) the admin API is open, so outside dev it stays off

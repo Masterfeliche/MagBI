@@ -9,8 +9,9 @@ from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 
 from magbi.api.datasets import get_dataset_or_404
-from magbi.api.deps import ServicesDep, SessionDep
+from magbi.api.deps import ActorDep, ServicesDep, SessionDep
 from magbi.api.errors import ApiError
+from magbi.auth.roles import Actor, permits
 from magbi.engine.cache import RedisQueryCache, run_cached
 from magbi.engine.errors import QueryError
 from magbi.engine.semantic import parse_query
@@ -34,6 +35,7 @@ async def run_dataset_query(
     body: QueryIn,
     session: SessionDep,
     svc: ServicesDep,
+    actor: ActorDep,
 ) -> dict[str, Any]:
     dataset = await get_dataset_or_404(session, wid, did)
     if dataset.definition is None:
@@ -54,12 +56,32 @@ async def run_dataset_query(
             cache=_cache(svc),
             dataset_id=str(dataset.id),
             version=dataset.current_version,
-            roles=tuple(body.roles),
+            roles=_query_roles(actor, body.roles, str(wid), str(dataset.id)),
         )
     except QueryError as exc:
         raise ApiError(422, exc.code, exc.message) from None
     finally:
         con.close()
+
+
+def _query_roles(
+    actor: Actor, requested: list[str], workspace_id: str, dataset_id: str
+) -> tuple[str, ...]:
+    if actor.kind == "embed":
+        if actor.workspace_id != workspace_id or dataset_id not in actor.datasets:
+            raise ApiError(
+                403, "FORBIDDEN", "this embed token cannot query this dataset"
+            )
+        return actor.rls_roles
+    if actor.kind == "dev" or (
+        actor.kind == "user" and permits(actor, workspace_id, "editor")
+    ):
+        return tuple(requested)
+    if actor.kind == "user" and permits(actor, workspace_id, "viewer"):
+        if requested:
+            raise ApiError(403, "FORBIDDEN", "only an editor can set query roles")
+        return ()
+    raise ApiError(403, "FORBIDDEN", "this token cannot query")
 
 
 def _cache(svc: Services) -> RedisQueryCache | None:

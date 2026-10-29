@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from magbi.api.errors import ApiError
 from magbi.auth.roles import Actor
-from magbi.auth.tokens import USER_AUDIENCE, TokenError, read_token
+from magbi.auth.tokens import EMBED_AUDIENCE, USER_AUDIENCE, TokenError, read_token
 from magbi.services import Services
 
 
@@ -53,14 +53,38 @@ async def get_actor(request: Request, svc: ServicesDep, session: SessionDep) -> 
     algorithm = "RS256" if cfg.jwt_private_key_pem else "HS256"
     try:
         payload = read_token(
-            raw.strip(),
+            token,
             secret=cfg.jwt_secret,
             algorithm=algorithm,
             public_key=cfg.jwt_public_key_pem or None,
             audience=USER_AUDIENCE,
         )
     except TokenError as exc:
-        raise ApiError(401, exc.code, exc.message) from None
+        if exc.code == "TOKEN_EXPIRED":
+            raise ApiError(401, exc.code, exc.message) from None
+        try:
+            payload = read_token(
+                token,
+                secret=cfg.jwt_secret,
+                algorithm=algorithm,
+                public_key=cfg.jwt_public_key_pem or None,
+                audience=EMBED_AUDIENCE,
+            )
+        except TokenError as embed_exc:
+            raise ApiError(401, embed_exc.code, embed_exc.message) from None
+    if payload.get("type") == "embed":
+        rls = payload.get("rls") if isinstance(payload.get("rls"), dict) else {}
+        roles = rls.get("roles") if isinstance(rls, dict) else []
+        return Actor(
+            "embed",
+            str(payload.get("sub", "")),
+            str(payload.get("email", "")),
+            str(payload.get("name", "")),
+            workspace_id=str(payload.get("workspaceId", "")),
+            datasets=tuple(str(item) for item in payload.get("datasets") or []),
+            reports=tuple(str(item) for item in payload.get("reports") or []),
+            rls_roles=tuple(str(item) for item in roles or []),
+        )
     if payload.get("type") != "user":
         raise ApiError(401, "TOKEN_INVALID", "token is not valid")
     workspaces = payload.get("workspaces") or []
@@ -98,18 +122,11 @@ async def _service_actor(session: AsyncSession, token: str) -> Actor:
 ActorDep = Annotated[Actor, Depends(get_actor)]
 
 
-def admin_gate(svc: ServicesDep) -> None:
-    """Keep the unauthenticated admin API off outside dev unless opted in.
-
-    Until user auth lands (Sprint 7) these endpoints can make the server connect
-    to arbitrary hosts, so exposing them must be a deliberate choice
-    (``MAGBI_INSECURE_ADMIN_API=true``). Replaced by role checks in Sprint 7.
-    """
-    cfg = svc.settings
-    if cfg.environment != "dev" and not cfg.insecure_admin_api:
-        raise ApiError(
-            503,
-            "ADMIN_API_DISABLED",
-            "this API has no authentication yet; set MAGBI_INSECURE_ADMIN_API=true "
-            "to enable it outside dev",
-        )
+async def api_guard(request: Request, actor: ActorDep) -> Actor:
+    """Identify the caller and keep embed and service tokens off management routes."""
+    path = request.url.path
+    if actor.kind == "embed" and not path.endswith(("/query", "/auth/whoami")):
+        raise ApiError(403, "FORBIDDEN", "an embed token cannot call this route")
+    if actor.kind == "service" and not path.endswith(("/embed/token", "/auth/whoami")):
+        raise ApiError(403, "FORBIDDEN", "a service token cannot call this route")
+    return actor

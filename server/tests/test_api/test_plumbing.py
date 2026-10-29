@@ -48,9 +48,8 @@ def test_gate_closed_outside_dev_by_default(tmp_path: Path) -> None:
     )
     with TestClient(create_app(cfg)) as c:
         r = c.get("/api/v1/connection-kinds")
-        assert r.status_code == 503
-        assert r.json()["error"]["code"] == "ADMIN_API_DISABLED"
-        assert "MAGBI_INSECURE_ADMIN_API" in r.json()["error"]["message"]
+        assert r.status_code == 401
+        assert r.json()["error"]["code"] == "TOKEN_MISSING"
 
 
 def test_gate_opens_with_explicit_opt_in(tmp_path: Path) -> None:
@@ -66,14 +65,14 @@ def test_gate_opens_with_explicit_opt_in(tmp_path: Path) -> None:
         assert c.get("/api/v1/connection-kinds").status_code == 200
 
 
-def test_gate_open_in_dev(tmp_path: Path) -> None:
+def test_gate_closed_in_dev_without_a_token(tmp_path: Path) -> None:
     cfg = Settings(
         environment="dev",
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'm.db'}",
         duckdb_data_dir=tmp_path / "d",
     )
     with TestClient(create_app(cfg)) as c:
-        assert c.get("/api/v1/connection-kinds").status_code == 200
+        assert c.get("/api/v1/connection-kinds").status_code == 401
 
 
 @pytest.fixture

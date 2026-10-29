@@ -66,6 +66,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             refresh=RefreshDeps(sessions, store, connections, cfg.import_batch_size),
         )
         try:
+            from magbi.auth.bootstrap import ensure_bootstrap_admin
+
+            await ensure_bootstrap_admin(sessions, cfg)
+        except Exception as exc:  # noqa: BLE001 - database may be down; /health/ready reports it
+            log.warning("bootstrap admin skipped: %s", type(exc).__name__)
+        try:
             await sweep_stale_refreshes(app.state.services.refresh)
         except Exception as exc:  # noqa: BLE001 - database may be down; /health/ready reports it
             log.warning("stale refresh sweep skipped: %s", type(exc).__name__)

@@ -1,6 +1,20 @@
+from magbi.auth.bootstrap import ensure_bootstrap_admin
+
 from tests.test_api.conftest import ApiEnv
 
 V1 = "/api/v1"
+
+
+async def test_an_empty_database_gets_a_bootstrap_admin(api: ApiEnv) -> None:
+    api.settings.bootstrap_admin_email = "root@example.com"
+    api.settings.bootstrap_admin_password = "root-password"
+    await ensure_bootstrap_admin(api.services.sessions, api.settings)
+    await ensure_bootstrap_admin(api.services.sessions, api.settings)
+    logged = api.client.post(
+        f"{V1}/auth/login",
+        json={"email": "root@example.com", "password": "root-password"},
+    )
+    assert logged.status_code == 200, logged.text
 
 
 def test_login_and_membership(api: ApiEnv) -> None:

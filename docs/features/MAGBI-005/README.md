@@ -55,7 +55,7 @@ Deliverable: a semantic query JSON returns a DataShapeResult from the dataset's 
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
 | SUB-1.1 | Query schema and binding | A Pydantic query matches the TypeScript fields; unknown tables, columns, and measures fail with a stable code and the name; a select entry is a group column or one measure | 3h | [x] |
-| SUB-1.2 | Filter context | `where` becomes the compiler filter list, including `notIn`, `contains`, `startsWith`, `isBlank`, and `isNotBlank`; a bad operator or value is an error | 3h | [ ] |
+| SUB-1.2 | Filter context | `where` becomes the compiler filter list, including `notIn`, `contains`, `startsWith`, `isBlank`, and `isNotBlank`; a bad operator or value is an error | 3h | [x] |
 | SUB-2.1 | Joins | Group and filter tables are joined from the home fact with `join_path`; no path and an ambiguous path are errors | 3h | [ ] |
 | SUB-2.2 | Chasm trap | Two home tables become two grouped subqueries `FULL OUTER JOIN`ed on the group columns; a DuckDB run shows each fact's sum, not a duplicated sum | 4h | [ ] |
 | SUB-3.1 | Grouped SQL | One fact becomes one `SELECT` with `GROUP BY`, `ORDER BY`, and `LIMIT`; the aggregate expression comes from the compiler; a query filter replaced by `CALCULATE` changes the value | 5h | [ ] |
@@ -72,7 +72,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 5.3. Each subtask is co
 
 ## 3. Execution Log
 - [x] SUB-1.1: see git log. The query matches the TypeScript fields. A select entry is a group column or one measure. Unknown names carry a stable code.
-- [ ] SUB-1.2: (Commit hash)
+- [x] SUB-1.2: see git log. Query filters become compiler predicates. Text filters use CONTAINS and STARTS_WITH so the search text is literal. A date string becomes a date.
 - [ ] SUB-2.1: (Commit hash)
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-3.1: (Commit hash)

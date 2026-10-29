@@ -445,12 +445,23 @@ def _where(
 def _render(item: Constraint) -> exp.Expression:
     table, column = item.columns[0]
     ref = exp.column(column, table=table, quoted=True)
-    if item.op == "in":
+    if item.op in {"in", "notIn"}:
         values = item.value if isinstance(item.value, tuple) else (item.value,)
-        return cast(
+        inside = cast(
             exp.Expression,
             exp.In(this=ref, expressions=[_sql_literal(value) for value in values]),
         )
+        if item.op == "notIn":
+            return exp.Not(this=inside)
+        return inside
+    if item.op == "isBlank":
+        return exp.Is(this=ref, expression=exp.Null())
+    if item.op == "isNotBlank":
+        return exp.Not(this=exp.Is(this=ref, expression=exp.Null()))
+    if item.op in {"contains", "startsWith"}:
+        text = item.value if isinstance(item.value, str) else str(item.value)
+        function = "contains" if item.op == "contains" else "starts_with"
+        return exp.Anonymous(this=function, expressions=[ref, exp.Literal.string(text)])
     compared = {
         "=": exp.EQ,
         "<>": exp.NEQ,

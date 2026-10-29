@@ -8,6 +8,8 @@ on the active relationship path.
 
 from __future__ import annotations
 
+import calendar
+import datetime as dt
 from dataclasses import dataclass
 from typing import cast
 
@@ -72,10 +74,12 @@ def compile_measure(
             expr.col,
         )
     fact = next(iter(facts))
-    query: exp.Select = exp.select(_scalar(expr, {}, context)).from_(_table(fact))
+    query: exp.Select = exp.select(_scalar(expr, {}, context, model)).from_(
+        _table(fact)
+    )
     joined = {fact}
     mentioned: set[str] = set()
-    _filter_tables(expr, context, mentioned)
+    _filter_tables(expr, context, mentioned, model)
     extras = list(also)
     for table in mentioned:
         if table != fact and table not in extras:
@@ -153,7 +157,10 @@ def _children(expr: Expr) -> tuple[Expr, ...]:
 
 
 def _scalar(
-    expr: Expr, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+    expr: Expr,
+    scope: dict[str, Expr],
+    filters: tuple[Constraint, ...],
+    model: DatasetDefinition,
 ) -> exp.Expression:
     if isinstance(expr, NumberLit):
         return exp.Literal.number(expr.value)
@@ -164,45 +171,60 @@ def _scalar(
     if isinstance(expr, NameRef):
         if expr.name.casefold() not in scope:
             raise DaxError(f"name {expr.name!r} does not exist", expr.line, expr.col)
-        return _scalar(scope[expr.name.casefold()], scope, filters)
+        return _scalar(scope[expr.name.casefold()], scope, filters, model)
     if isinstance(expr, Unary):
-        operand = _scalar(expr.expr, scope, filters)
+        operand = _scalar(expr.expr, scope, filters, model)
         if expr.op == "+":
             return operand
         if expr.op == "-":
             return exp.Neg(this=operand)
         return exp.Not(this=operand)
     if isinstance(expr, Binary):
-        return _binary(expr, scope, filters)
+        return _binary(expr, scope, filters, model)
     if isinstance(expr, InExpr):
         return exp.In(
-            this=_scalar(expr.expr, scope, filters),
-            expressions=[_scalar(value, scope, filters) for value in expr.values],
+            this=_scalar(expr.expr, scope, filters, model),
+            expressions=[
+                _scalar(value, scope, filters, model) for value in expr.values
+            ],
         )
     if isinstance(expr, VarBlock):
         local = dict(scope)
         for name, value in expr.bindings:
             local[name.casefold()] = value
-        return _scalar(expr.body, local, filters)
+        return _scalar(expr.body, local, filters, model)
     if isinstance(expr, Call):
-        return _call(expr, scope, filters)
+        return _call(expr, scope, filters, model)
     raise DaxError("this expression cannot be compiled", expr.line, expr.col)
 
 
 def _call(
-    expr: Call, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+    expr: Call,
+    scope: dict[str, Expr],
+    filters: tuple[Constraint, ...],
+    model: DatasetDefinition,
 ) -> exp.Expression:
     name = expr.name.casefold()
+    if name == "totalytd":
+        if len(expr.args) != 2:
+            raise DaxError(
+                "TOTALYTD expects an expression and the date column",
+                expr.line,
+                expr.col,
+            )
+        return _scalar(
+            expr.args[0], scope, _ytd(filters, expr.args[1], expr, model), model
+        )
     if name == "calculate":
         if not expr.args:
             raise DaxError("CALCULATE expects an expression", expr.line, expr.col)
         updated = filters
         for modifier in expr.args[1:]:
-            updated = _apply(updated, modifier, expr)
-        return _scalar(expr.args[0], scope, updated)
+            updated = _apply(updated, modifier, expr, model)
+        return _scalar(expr.args[0], scope, updated, model)
     if name in AGGREGATES:
         return _where(_aggregate(expr)[1], filters)
-    args = [_scalar(arg, scope, filters) for arg in expr.args]
+    args = [_scalar(arg, scope, filters, model) for arg in expr.args]
     if name == "blank":
         return exp.Null()
     if name == "isblank":
@@ -221,22 +243,25 @@ def _call(
         otherwise = args[2] if len(args) == 3 else exp.Null()
         return exp.If(this=args[0], true=args[1], false=otherwise)
     if name == "divide":
-        return _divide(expr, scope, filters)
+        return _divide(expr, scope, filters, model)
     raise DaxError(f"{expr.name} cannot be compiled yet", expr.line, expr.col)
 
 
 def _divide(
-    expr: Call, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+    expr: Call,
+    scope: dict[str, Expr],
+    filters: tuple[Constraint, ...],
+    model: DatasetDefinition,
 ) -> exp.Expression:
     if len(expr.args) not in {2, 3}:
         raise DaxError("DIVIDE expects two or three arguments", expr.line, expr.col)
-    num = _scalar(expr.args[0], scope, filters)
-    den = _scalar(expr.args[1], scope, filters)
+    num = _scalar(expr.args[0], scope, filters, model)
+    den = _scalar(expr.args[1], scope, filters, model)
     zero = exp.Literal.number(0)
     if len(expr.args) == 2:
         return exp.Div(this=num, expression=exp.Nullif(this=den, expression=zero))
-    alt = _scalar(expr.args[2], scope, filters)
-    den_again = _scalar(expr.args[1], scope, filters)
+    alt = _scalar(expr.args[2], scope, filters, model)
+    den_again = _scalar(expr.args[1], scope, filters, model)
     blank = exp.or_(
         exp.EQ(this=den, expression=zero),
         exp.Is(this=den_again, expression=exp.Null()),
@@ -245,10 +270,13 @@ def _divide(
 
 
 def _binary(
-    expr: Binary, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+    expr: Binary,
+    scope: dict[str, Expr],
+    filters: tuple[Constraint, ...],
+    model: DatasetDefinition,
 ) -> exp.Expression:
-    left = _scalar(expr.left, scope, filters)
-    right = _scalar(expr.right, scope, filters)
+    left = _scalar(expr.left, scope, filters, model)
+    right = _scalar(expr.right, scope, filters, model)
     if expr.op in {"+", "-"}:
         left = _zero(left)
         right = _zero(right)
@@ -299,25 +327,35 @@ def _eq(left: exp.Expression, right: exp.Expression) -> exp.Expression:
 
 
 def _filter_tables(
-    expr: Expr, filters: tuple[Constraint, ...], found: set[str]
+    expr: Expr,
+    filters: tuple[Constraint, ...],
+    found: set[str],
+    model: DatasetDefinition,
 ) -> None:
     if isinstance(expr, Call) and expr.name.casefold() == "calculate":
         updated = filters
         for modifier in expr.args[1:]:
-            updated = _apply(updated, modifier, expr)
+            updated = _apply(updated, modifier, expr, model)
         if expr.args:
-            _filter_tables(expr.args[0], updated, found)
+            _filter_tables(expr.args[0], updated, found, model)
         return
     for item in filters:
         for table, _column in item.columns:
             found.add(table)
     for child in _children(expr):
-        _filter_tables(child, filters, found)
+        _filter_tables(child, filters, found, model)
 
 
 def _apply(
-    filters: tuple[Constraint, ...], modifier: Expr, at: Call
+    filters: tuple[Constraint, ...],
+    modifier: Expr,
+    at: Call,
+    model: DatasetDefinition,
 ) -> tuple[Constraint, ...]:
+    if isinstance(modifier, Call) and modifier.name.casefold() == "sameperiodlastyear":
+        return _shift_dates(filters, modifier, model, years=-1)
+    if isinstance(modifier, Call) and modifier.name.casefold() == "dateadd":
+        return _dateadd(filters, modifier, model)
     if isinstance(modifier, Call) and modifier.name.casefold() in {
         "all",
         "removefilters",
@@ -430,9 +468,156 @@ def _render(item: Constraint) -> exp.Expression:
 def _sql_literal(value: object) -> exp.Expression:
     if isinstance(value, bool):
         return exp.Boolean(this=value)
+    if isinstance(value, dt.datetime):
+        value = value.date()
+    if isinstance(value, dt.date):
+        return cast(
+            exp.Expression,
+            exp.Cast(
+                this=exp.Literal.string(value.isoformat()),
+                to=exp.DataType.build("DATE"),
+            ),
+        )
     if isinstance(value, int | float):
         return exp.Literal.number(value)
     return exp.Literal.string(str(value))
+
+
+def _shift_dates(
+    filters: tuple[Constraint, ...],
+    call: Call,
+    model: DatasetDefinition,
+    *,
+    years: int = 0,
+    months: int = 0,
+    days: int = 0,
+) -> tuple[Constraint, ...]:
+    if len(call.args) != 1:
+        raise DaxError(
+            f"{call.name} expects the date table column", call.line, call.col
+        )
+    table, column = _date_key(call.args[0], call, model)
+    hit = False
+    shifted: list[Constraint] = []
+    for item in filters:
+        if (table, column) not in item.columns or item.op == "in":
+            shifted.append(item)
+            continue
+        hit = True
+        shifted.append(
+            Constraint(
+                item.columns,
+                item.op,
+                _move(item.value, years, months, days, call),
+            )
+        )
+    if not hit:
+        raise DaxError(f"{call.name} needs a date filter", call.line, call.col)
+    return tuple(shifted)
+
+
+def _dateadd(
+    filters: tuple[Constraint, ...], call: Call, model: DatasetDefinition
+) -> tuple[Constraint, ...]:
+    count_arg = call.args[1] if len(call.args) == 3 else None
+    if (
+        isinstance(count_arg, Unary)
+        and count_arg.op == "-"
+        and isinstance(count_arg.expr, NumberLit)
+    ):
+        count_arg = NumberLit(-count_arg.expr.value, count_arg.line, count_arg.col)
+    if (
+        len(call.args) != 3
+        or not isinstance(count_arg, NumberLit)
+        or not isinstance(call.args[2], NameRef)
+    ):
+        raise DaxError(
+            "DATEADD expects a date column, a number, and an interval",
+            call.line,
+            call.col,
+        )
+    count = count_arg.value
+    if isinstance(count, float) and not count.is_integer():
+        raise DaxError("DATEADD count must be a whole number", call.line, call.col)
+    step = int(count)
+    interval = call.args[2].name.casefold()
+    years = months = days = 0
+    if interval == "year":
+        years = step
+    elif interval == "quarter":
+        months = 3 * step
+    elif interval == "month":
+        months = step
+    elif interval == "day":
+        days = step
+    else:
+        raise DaxError(
+            "DATEADD interval must be DAY, MONTH, QUARTER, or YEAR",
+            call.line,
+            call.col,
+        )
+    column = call.args[0]
+    if not isinstance(column, ColumnRef):
+        raise DaxError("DATEADD expects the date table column", call.line, call.col)
+    rewritten = Call(call.name, (column,), call.line, call.col)
+    return _shift_dates(
+        filters, rewritten, model, years=years, months=months, days=days
+    )
+
+
+def _ytd(
+    filters: tuple[Constraint, ...],
+    column: Expr,
+    at: Call,
+    model: DatasetDefinition,
+) -> tuple[Constraint, ...]:
+    table, name = _date_key(column, at, model)
+    dates = [
+        item.value
+        for item in filters
+        if (table, name) in item.columns and isinstance(item.value, dt.date)
+    ]
+    if not dates:
+        raise DaxError("TOTALYTD needs a date filter", at.line, at.col)
+    latest = max(dates)
+    start_month = model.date_table.fiscal_year_start_month
+    year = latest.year if latest.month >= start_month else latest.year - 1
+    start = dt.date(year, start_month, 1)
+    kept = tuple(item for item in filters if (table, name) not in item.columns)
+    return kept + (
+        Constraint(((table, name),), ">=", start),
+        Constraint(((table, name),), "<=", latest),
+    )
+
+
+def _date_key(column: Expr, at: Call, model: DatasetDefinition) -> tuple[str, str]:
+    marked = [table for table in model.tables if table.is_date_table]
+    if len(marked) != 1 or marked[0].date_column is None:
+        raise DaxError("a marked date table is required", at.line, at.col)
+    if not isinstance(column, ColumnRef):
+        raise DaxError(
+            "time intelligence expects the date table column", at.line, at.col
+        )
+    table = marked[0]
+    if column.table != table.name or column.column != table.date_column:
+        raise DaxError(
+            f"{column.table}[{column.column}] is not the date table key",
+            at.line,
+            at.col,
+        )
+    return table.name, table.date_column
+
+
+def _move(value: object, years: int, months: int, days: int, at: Call) -> dt.date:
+    if isinstance(value, dt.datetime):
+        value = value.date()
+    if not isinstance(value, dt.date):
+        raise DaxError("the date filter must be a date", at.line, at.col)
+    month_index = value.month - 1 + months
+    year = value.year + years + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+    return dt.date(year, month, day) + dt.timedelta(days=days)
 
 
 def _table(name: str) -> exp.Table:

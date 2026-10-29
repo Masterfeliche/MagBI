@@ -151,6 +151,8 @@ class _Binder:
             return self._measure(expr, stack)
         if isinstance(expr, NameRef):
             return self._name(expr, variables)
+        if isinstance(expr, Call) and expr.name.casefold() == "dateadd":
+            return self._dateadd(expr, stack, variables)
         if isinstance(expr, Call):
             args = tuple(self.expression(arg, stack, variables) for arg in expr.args)
             return Call(expr.name, args, expr.line, expr.col)
@@ -202,6 +204,34 @@ class _Binder:
             bindings.append((name, bound))
         body = self.expression(expr.body, stack, scope)
         return VarBlock(tuple(bindings), body, expr.line, expr.col)
+
+    def _dateadd(
+        self,
+        expr: Call,
+        stack: tuple[str, ...],
+        variables: dict[str, str],
+    ) -> Call:
+        if len(expr.args) != 3:
+            raise DaxError(
+                "DATEADD expects a date column, a number, and an interval",
+                expr.line,
+                expr.col,
+            )
+        column = self.expression(expr.args[0], stack, variables)
+        count = self.expression(expr.args[1], stack, variables)
+        interval = expr.args[2]
+        if not isinstance(interval, NameRef) or interval.name.casefold() not in {
+            "day",
+            "month",
+            "quarter",
+            "year",
+        }:
+            raise DaxError(
+                "DATEADD interval must be DAY, MONTH, QUARTER, or YEAR",
+                expr.line,
+                expr.col,
+            )
+        return Call(expr.name, (column, count, interval), expr.line, expr.col)
 
     def _name(self, expr: NameRef, variables: dict[str, str]) -> Expr:
         key = expr.name.casefold()

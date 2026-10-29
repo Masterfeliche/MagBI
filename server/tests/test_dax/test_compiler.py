@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime as dt
+
 import duckdb
 import pytest
 
@@ -247,6 +249,102 @@ def test_an_ambiguous_filter_path_is_rejected() -> None:
     )
     with pytest.raises(DaxError, match="ambiguous"):
         compile_measure(model, 'CALCULATE(SUM(Sales[Amount]), Region[Name] = "East")')
+
+
+def test_time_intelligence_shifts_the_date_filter() -> None:
+    day = dt.date(2024, 3, 15)
+    model = DatasetDefinition(
+        tables=[
+            TableDef(
+                name="Sales",
+                columns=[
+                    ColumnDef(name="Amount", data_type=DataType.INTEGER),
+                    ColumnDef(name="sold", data_type=DataType.DATE),
+                ],
+            ),
+            TableDef(
+                name="Date",
+                is_date_table=True,
+                date_column="Date",
+                columns=[
+                    ColumnDef(
+                        name="Date",
+                        data_type=DataType.DATE,
+                        is_nullable=False,
+                        is_primary_key=True,
+                    )
+                ],
+            ),
+        ],
+        relationships=[
+            RelationshipDef.model_validate(
+                {
+                    "from": {"table": "Sales", "column": "sold"},
+                    "to": {"table": "Date", "column": "Date"},
+                    "cardinality": "many-to-one",
+                }
+            )
+        ],
+        date_table={"fiscal_year_start_month": 7},
+    )
+    con = duckdb.connect()
+    con.execute('CREATE TABLE "Sales" ("Amount" INTEGER, "sold" DATE)')
+    con.execute('CREATE TABLE "Date" ("Date" DATE)')
+    con.execute(
+        'INSERT INTO "Sales" VALUES '
+        "(10, DATE '2024-03-15'), (4, DATE '2023-03-15'), "
+        "(8, DATE '2024-02-15'), (6, DATE '2023-08-01'), (100, DATE '2023-06-01')"
+    )
+    con.execute(
+        'INSERT INTO "Date" VALUES '
+        "(DATE '2024-03-15'), (DATE '2023-03-15'), (DATE '2024-02-15'), "
+        "(DATE '2023-08-01'), (DATE '2023-06-01')"
+    )
+    filters = (("Date", "Date", "=", day),)
+    last_year = compile_measure(
+        model,
+        "CALCULATE(SUM(Sales[Amount]), SAMEPERIODLASTYEAR(Date[Date]))",
+        filters=filters,
+    )
+    assert con.execute(last_year).fetchone() == (4,)
+    previous = compile_measure(
+        model,
+        "CALCULATE(SUM(Sales[Amount]), DATEADD(Date[Date], -1, MONTH))",
+        filters=filters,
+    )
+    assert con.execute(previous).fetchone() == (8,)
+    ytd = compile_measure(
+        model, "TOTALYTD(SUM(Sales[Amount]), Date[Date])", filters=filters
+    )
+    assert con.execute(ytd).fetchone() == (24,)
+    plain = DatasetDefinition(
+        tables=[
+            TableDef(
+                name="Sales",
+                columns=[
+                    ColumnDef(name="Amount", data_type=DataType.INTEGER),
+                    ColumnDef(name="sold", data_type=DataType.DATE),
+                ],
+            ),
+            TableDef(
+                name="Date",
+                columns=[
+                    ColumnDef(
+                        name="Date",
+                        data_type=DataType.DATE,
+                        is_nullable=False,
+                        is_primary_key=True,
+                    )
+                ],
+            ),
+        ]
+    )
+    with pytest.raises(DaxError, match="marked date table"):
+        compile_measure(
+            plain,
+            "CALCULATE(SUM(Sales[Amount]), SAMEPERIODLASTYEAR(Date[Date]))",
+            filters=filters,
+        )
 
 
 def test_two_fact_tables_are_rejected() -> None:

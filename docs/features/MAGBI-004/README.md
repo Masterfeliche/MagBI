@@ -61,7 +61,7 @@ Deliverable: `SUM(Sales[Amount])` compiles to `SELECT SUM(amount) FROM sales`. `
 | SUB-3.1 | Aggregate SQL | `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `AVERAGE`, `MIN`, `MAX`, `DISTINCTCOUNT` emit DuckDB SQL; a column on a related table adds the join from `join_path`; the SQL runs on an in-memory DuckDB table and returns the expected number | 4h | [x] |
 | SUB-3.2 | Scalars and BLANK | `DIVIDE`, `IF`, arithmetic, comparisons, and `IN` compile; NULL in `+` and `-` acts as 0; `DIVIDE` by zero is NULL; a DuckDB run covers `DIVIDE` and `IF` | 3h | [x] |
 | SUB-3.3 | CALCULATE | A comparison filter replaces that column's filter; `ALL(Table)` and `ALL(Table[Column])` remove filters; `FILTER` adds a predicate; no path and an ambiguous path are errors; a DuckDB run shows the replaced filter changing the sum | 4h | [x] |
-| SUB-4.1 | Time intelligence | `SAMEPERIODLASTYEAR`, `DATEADD`, and `TOTALYTD` rewrite the date predicate; they fail without a marked date table and a relationship to its key; fiscal year start month is honoured; a DuckDB run checks a year shift | 4h | [ ] |
+| SUB-4.1 | Time intelligence | `SAMEPERIODLASTYEAR`, `DATEADD`, and `TOTALYTD` rewrite the date predicate; they fail without a marked date table and a relationship to its key; fiscal year start month is honoured; a DuckDB run checks a year shift | 4h | [x] |
 | SUB-5.1 | Save-time checks | `validate_model` compiles every measure and checks every calculated column; errors use stable codes and block the existing definition `PUT`; `measure_expressions` is no longer deferred; `rls_expressions` still is | 3h | [ ] |
 | SUB-5.2 | Docs | KB 05 and the DAX spec status note list the supported functions, the DuckDB-only target, and what stays in later sprints | 1.5h | [ ] |
 | SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `dax` and the validation change; full regression; PR description | 1.5h | [ ] |
@@ -79,7 +79,7 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3. Each subtask 
 - [x] SUB-3.1: see git log. One aggregate becomes one SELECT. An extra table is joined along the active relationship path. The SQL runs in DuckDB.
 - [x] SUB-3.2: see git log. NULL in addition and subtraction acts as 0. DIVIDE by zero is NULL, or the alternate value when one is given. Two fact tables are rejected.
 - [x] SUB-3.3: see git log. A comparison replaces the filter on that column. ALL removes filters. FILTER adds one. A missing or ambiguous relationship path is an error. DuckDB shows the replaced sum.
-- [ ] SUB-4.1: (Commit hash)
+- [x] SUB-4.1: see git log. SAMEPERIODLASTYEAR, DATEADD, and TOTALYTD rewrite the date filter. They require one marked date table and its key. Fiscal year start month is honoured. DuckDB checks the year shift.
 - [ ] SUB-5.1: (Commit hash)
 - [ ] SUB-5.2: (Commit hash)
 - [ ] SUB-5.3: (Commit hash)

@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from magbi.api.errors import ApiError
@@ -34,7 +35,7 @@ def _dev_actor() -> Actor:
     return Actor("dev", "dev", "dev@localhost", "Dev", platform_admin=True)
 
 
-async def get_actor(request: Request, svc: ServicesDep) -> Actor:
+async def get_actor(request: Request, svc: ServicesDep, session: SessionDep) -> Actor:
     """The caller. A missing token is the dev admin only in test or insecure mode."""
     header = request.headers.get("authorization", "")
     if not header:
@@ -45,6 +46,9 @@ async def get_actor(request: Request, svc: ServicesDep) -> Actor:
     scheme, _, raw = header.partition(" ")
     if scheme.lower() != "bearer" or not raw:
         raise ApiError(401, "TOKEN_INVALID", "authentication is required")
+    token = raw.strip()
+    if token.startswith("v2_svc_"):
+        return await _service_actor(session, token)
     cfg = svc.settings
     algorithm = "RS256" if cfg.jwt_private_key_pem else "HS256"
     try:
@@ -72,6 +76,22 @@ async def get_actor(request: Request, svc: ServicesDep) -> Actor:
         str(payload.get("name", "")),
         platform_admin=bool(payload.get("platformAdmin")),
         memberships=memberships,
+    )
+
+
+async def _service_actor(session: AsyncSession, token: str) -> Actor:
+    from magbi.auth.service_tokens import hash_service_secret
+    from magbi.metadata.models import ServiceToken
+
+    row = await session.scalar(
+        select(ServiceToken).where(
+            ServiceToken.token_hash == hash_service_secret(token)
+        )
+    )
+    if row is None or row.revoked_at is not None:
+        raise ApiError(401, "TOKEN_INVALID", "token is not valid")
+    return Actor(
+        "service", str(row.id), "", row.name, workspace_id=str(row.workspace_id)
     )
 
 

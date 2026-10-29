@@ -160,6 +160,19 @@ class WorkspaceMember(Base):
     user: Mapped[User] = relationship(back_populates="memberships")
 
 
+class ServiceToken(Base):
+    __tablename__ = "service_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
 class Dataset(Base):
     __tablename__ = "datasets"
     __table_args__ = (

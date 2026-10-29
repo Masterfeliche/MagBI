@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from magbi.api import (
+    admin,
     connections,
     datasets,
     identity,
@@ -17,6 +18,7 @@ api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(admin_gate)])
 api_router.include_router(connections.router)
 api_router.include_router(workspaces.router)
 api_router.include_router(identity.router)
+api_router.include_router(admin.router)
 api_router.include_router(datasets.router)
 api_router.include_router(refresh.router)
 api_router.include_router(query.router)

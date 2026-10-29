@@ -7,6 +7,7 @@ measure's formula. A cycle names every measure on the loop.
 
 from __future__ import annotations
 
+from magbi.connectors.types import DataType
 from magbi.dax.errors import DaxError
 from magbi.dax.parser import (
     Binary,
@@ -25,10 +26,123 @@ from magbi.model.schema import DatasetDefinition, MeasureDef, TableDef
 
 MAX_DEPTH = 32
 
+_AGGREGATES = frozenset(
+    {
+        "sum",
+        "count",
+        "counta",
+        "countrows",
+        "average",
+        "min",
+        "max",
+        "distinctcount",
+    }
+)
+_NUMERIC = frozenset({DataType.INTEGER, DataType.DECIMAL})
+_ORDERABLE = _NUMERIC | frozenset({DataType.STRING, DataType.DATE, DataType.DATETIME})
+
 
 def bind(model: DatasetDefinition, source: str) -> Expr:
     """Parse ``source`` and resolve every name. The model is not modified."""
     return _Binder(model).expression(parse(source), (), {})
+
+
+def bind_measure(model: DatasetDefinition, source: str) -> Expr:
+    """Bind a measure and require an aggregation over columns of the right type."""
+    expr = bind(model, source)
+    _check_calls(model, expr)
+    if not _aggregates(expr):
+        raise DaxError("measures must aggregate", expr.line, expr.col)
+    return expr
+
+
+def bind_calculated_column(model: DatasetDefinition, source: str) -> Expr:
+    """Bind a calculated column. Aggregations are rejected and nothing is executed."""
+    expr = bind(model, source)
+    if _aggregates(expr):
+        raise DaxError(
+            "calculated columns cannot contain aggregations", expr.line, expr.col
+        )
+    return expr
+
+
+def _aggregates(expr: Expr) -> bool:
+    if isinstance(expr, Call) and expr.name.casefold() in _AGGREGATES:
+        return True
+    children: tuple[Expr, ...] = ()
+    if isinstance(expr, Call):
+        children = expr.args
+    elif isinstance(expr, Unary):
+        children = (expr.expr,)
+    elif isinstance(expr, Binary):
+        children = (expr.left, expr.right)
+    elif isinstance(expr, InExpr):
+        children = (expr.expr, *expr.values)
+    elif isinstance(expr, VarBlock):
+        children = tuple(value for _name, value in expr.bindings) + (expr.body,)
+    return any(_aggregates(child) for child in children)
+
+
+def _check_calls(model: DatasetDefinition, expr: Expr) -> None:
+    if isinstance(expr, Call):
+        _check_call(model, expr)
+        for arg in expr.args:
+            _check_calls(model, arg)
+        return
+    if isinstance(expr, Unary):
+        _check_calls(model, expr.expr)
+    elif isinstance(expr, Binary):
+        _check_calls(model, expr.left)
+        _check_calls(model, expr.right)
+    elif isinstance(expr, InExpr):
+        _check_calls(model, expr.expr)
+        for value in expr.values:
+            _check_calls(model, value)
+    elif isinstance(expr, VarBlock):
+        for _name, value in expr.bindings:
+            _check_calls(model, value)
+        _check_calls(model, expr.body)
+
+
+def _check_call(model: DatasetDefinition, expr: Call) -> None:
+    name = expr.name.casefold()
+    if name == "countrows":
+        if len(expr.args) != 1 or not isinstance(expr.args[0], TableRef):
+            raise DaxError("COUNTROWS expects a table", expr.line, expr.col)
+        return
+    if name not in _AGGREGATES:
+        return
+    if len(expr.args) != 1 or not isinstance(expr.args[0], ColumnRef):
+        raise DaxError(f"{expr.name} expects one column", expr.line, expr.col)
+    column = expr.args[0]
+    data_type = _column_type(model, column)
+    allowed = _ORDERABLE if name in {"min", "max"} else _NUMERIC
+    if data_type not in allowed:
+        kind = (
+            "a number, date, or string"
+            if name in {"min", "max"}
+            else "a numeric column"
+        )
+        raise DaxError(
+            f"{expr.name} requires {kind}. {column.table}[{column.column}] is {data_type.value}",
+            expr.line,
+            expr.col,
+        )
+
+
+def _column_type(model: DatasetDefinition, ref: ColumnRef) -> DataType:
+    table = model.table(ref.table)
+    if table is None:
+        raise DaxError(f"table {ref.table!r} does not exist", ref.line, ref.col)
+    for column in table.columns:
+        if column.name == ref.column:
+            return column.data_type
+    for calculated in table.calculated_columns:
+        if calculated.name == ref.column:
+            return calculated.data_type
+    raise DaxError(
+        f"column {ref.table!r}.{ref.column!r} does not exist", ref.line, ref.col
+    )
 
 
 class _Binder:

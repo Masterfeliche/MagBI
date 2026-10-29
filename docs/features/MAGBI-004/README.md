@@ -57,7 +57,7 @@ Deliverable: `SUM(Sales[Amount])` compiles to `SELECT SUM(amount) FROM sales`. `
 | SUB-1.2 | Pratt parser | AST for literals, refs, calls, the precedence table, `IN {…}`, and `VAR` / `RETURN`; parentheses; the input is not mutated | 4h | [x] |
 | SUB-1.3 | Parse errors | A known-unsupported function names itself and says it is not supported; an unknown call name says unknown function; errors carry line and column | 2h | [x] |
 | SUB-2.1 | Name binding | Columns, measures, and tables resolve against `DatasetDefinition`; a missing name is an error; a measure cycle is an error naming the loop | 3h | [x] |
-| SUB-2.2 | Types and shape | Numeric aggregations reject strings; `MIN`/`MAX` allow date and string; a measure without an aggregation is an error; a calculated column with an aggregation is an error | 3h | [ ] |
+| SUB-2.2 | Types and shape | Numeric aggregations reject strings; `MIN`/`MAX` allow date and string; a measure without an aggregation is an error; a calculated column with an aggregation is an error | 3h | [x] |
 | SUB-3.1 | Aggregate SQL | `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `AVERAGE`, `MIN`, `MAX`, `DISTINCTCOUNT` emit DuckDB SQL; a column on a related table adds the join from `join_path`; the SQL runs on an in-memory DuckDB table and returns the expected number | 4h | [ ] |
 | SUB-3.2 | Scalars and BLANK | `DIVIDE`, `IF`, arithmetic, comparisons, and `IN` compile; NULL in `+` and `-` acts as 0; `DIVIDE` by zero is NULL; a DuckDB run covers `DIVIDE` and `IF` | 3h | [ ] |
 | SUB-3.3 | CALCULATE | A comparison filter replaces that column's filter; `ALL(Table)` and `ALL(Table[Column])` remove filters; `FILTER` adds a predicate; no path and an ambiguous path are errors; a DuckDB run shows the replaced filter changing the sum | 4h | [ ] |
@@ -75,7 +75,7 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3. Each subtask 
 - [x] SUB-1.2: see git log. Comparisons do not chain. AND binds tighter than OR. VAR / RETURN and IN sets are expressions.
 - [x] SUB-1.3: see git log. Known DAX names that this sprint does not compile say they are not supported. Any other call name is an unknown function.
 - [x] SUB-2.1: see git log. Exact names win. A case-insensitive match is used only when one model name folds to the text. Measure cycles name the loop.
-- [ ] SUB-2.2: (Commit hash)
+- [x] SUB-2.2: see git log. SUM, COUNT, AVERAGE, and DISTINCTCOUNT require a numeric column. MIN and MAX also allow date and string. A calculated column is not executed.
 - [ ] SUB-3.1: (Commit hash)
 - [ ] SUB-3.2: (Commit hash)
 - [ ] SUB-3.3: (Commit hash)

@@ -130,6 +130,7 @@ class RefreshOut(BaseModel):
     created_at: dt.datetime
     started_at: dt.datetime | None
     finished_at: dt.datetime | None
+    duration_seconds: float | None = None
     result: dict[str, Any] | None
     error: str | None
 

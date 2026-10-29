@@ -9,6 +9,7 @@ Cancelling a running refresh is not implemented yet.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Query
@@ -32,6 +33,12 @@ class ScheduleIn(BaseModel):
     cron: str = Field(min_length=1, max_length=100)
 
 
+def _duration(started: datetime | None, finished: datetime | None) -> float | None:
+    if started is None or finished is None:
+        return None
+    return round((finished - started).total_seconds(), 3)
+
+
 def _out(r: DatasetRefresh) -> RefreshOut:
     return RefreshOut(
         id=r.id,
@@ -42,6 +49,7 @@ def _out(r: DatasetRefresh) -> RefreshOut:
         created_at=r.created_at,
         started_at=r.started_at,
         finished_at=r.finished_at,
+        duration_seconds=_duration(r.started_at, r.finished_at),
         result=r.result,
         error=r.error,
     )

@@ -22,6 +22,8 @@ def detail_sql(
     model: DatasetDefinition,
     bound: BoundQuery,
     filters: tuple[BoundFilter, ...] = (),
+    *,
+    probe: bool = False,
 ) -> str:
     """SQL for the detail rows. Filters are already inside each aggregate."""
     groups = fact_groups(model, bound, filters)
@@ -45,7 +47,47 @@ def detail_sql(
                 )
             else:
                 query = query.join(part, join_type="cross")
-    return _limited(_ordered(query, bound), bound).sql(dialect="duckdb")
+    return _limited(_ordered(query, bound), bound, probe).sql(dialect="duckdb")
+
+
+def totals_sql(
+    model: DatasetDefinition,
+    bound: BoundQuery,
+    filters: tuple[BoundFilter, ...] = (),
+) -> str:
+    """Re-run the measures with the same filters and no grouping."""
+    groups = fact_groups(model, bound, filters)
+    parts = [
+        _scalar_fact(model, group).subquery(alias=f"t{index}")
+        for index, group in enumerate(groups)
+    ]
+    owners = {
+        measure.alias: index
+        for index, group in enumerate(groups)
+        for measure, _plan in group.measures
+    }
+    selected = [
+        _quoted(measure.alias, f"t{owners[measure.alias]}")
+        for measure in bound.measures
+    ]
+    query = exp.select(*selected).from_(parts[0])
+    for part in parts[1:]:
+        query = query.join(part, join_type="cross")
+    return query.sql(dialect="duckdb")
+
+
+def _scalar_fact(model: DatasetDefinition, group: FactGroup) -> exp.Select:
+    selected: list[exp.Expression] = []
+    needed: list[str] = []
+    for measure, plan in group.measures:
+        selected.append(
+            cast(exp.Expression, plan.expression.copy().as_(measure.alias, quoted=True))
+        )
+        needed.extend(plan.tables)
+    query = exp.select(*selected).from_(_table(group.fact))
+    for rel, nxt in join_steps(model, group.fact, tuple(needed)):
+        query = query.join(_table(nxt), on=_on(rel), join_type=_join_kind(rel))
+    return query
 
 
 def _one_fact(
@@ -132,8 +174,10 @@ def _ordered(query: exp.Query, bound: BoundQuery) -> exp.Query:
     return query
 
 
-def _limited(query: exp.Query, bound: BoundQuery) -> exp.Query:
+def _limited(query: exp.Query, bound: BoundQuery, probe: bool) -> exp.Query:
     limit = DEFAULT_LIMIT if bound.limit is None else bound.limit
+    if probe:
+        limit += 1
     return query.limit(limit)
 
 

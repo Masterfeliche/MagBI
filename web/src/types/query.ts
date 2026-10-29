@@ -6,6 +6,7 @@ export interface SemanticQuery {
   where?: QueryFilter[];
   orderBy?: QueryOrderBy[];
   limit?: number;
+  includeTotals?: boolean;
 }
 
 export interface QuerySource {
@@ -36,10 +37,13 @@ export interface DSR {
   columns: DSRColumn[];
   rows: unknown[][];
   rowCount: number;
+  totals?: unknown[] | null;
+  truncated?: boolean;
 }
 
 export interface DSRColumn {
   name: string;
   dataType: string;
   isMeasure: boolean;
+  format?: string | null;
 }

@@ -70,12 +70,11 @@ function cartesian(dsr: DSR, orientation: "column" | "bar" | "line"): CartesianM
     };
   }
   if (legendIndex === undefined) {
-    return {
-      kind: "cartesian",
-      orientation,
-      categories: dsr.rows.map((row) => text(row[categoryIndex])),
-      series: seriesFrom(dsr, measures),
-    };
+    const ordered = orderMonths(
+      dsr.rows.map((row) => text(row[categoryIndex])),
+      seriesFrom(dsr, measures),
+    );
+    return { kind: "cartesian", orientation, ...ordered };
   }
   const categories = unique(dsr.rows.map((row) => text(row[categoryIndex])));
   const legends = unique(dsr.rows.map((row) => text(row[legendIndex])));
@@ -106,6 +105,24 @@ function pie(dsr: DSR): PieModel {
     slices: dsr.rows.map((row, index) => ({
       name: categoryIndex === undefined ? String(index + 1) : text(row[categoryIndex]),
       value: measure === undefined ? 0 : number(row[measure]),
+    })),
+  };
+}
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+function orderMonths(
+  categories: string[],
+  series: { name: string; values: number[] }[],
+): { categories: string[]; series: { name: string; values: number[] }[] } {
+  const indexes = categories.map((category) => MONTHS.indexOf(category.slice(0, 3).toLowerCase()));
+  if (indexes.some((index) => index < 0)) return { categories, series };
+  const order = categories.map((_, index) => index).sort((a, b) => indexes[a] - indexes[b]);
+  return {
+    categories: order.map((index) => categories[index]),
+    series: series.map((item) => ({
+      name: item.name,
+      values: order.map((index) => item.values[index] ?? 0),
     })),
   };
 }

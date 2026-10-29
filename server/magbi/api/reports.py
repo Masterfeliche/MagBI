@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,6 +75,13 @@ async def _get(session: AsyncSession, wid: uuid.UUID, rid: uuid.UUID) -> Report:
     if report is None or report.workspace_id != wid:
         raise ApiError(404, "REPORT_NOT_FOUND", "report not found")
     return report
+
+
+@router.get("/workspaces/{wid}/reports", response_model=list[ReportOut])
+async def list_reports(wid: uuid.UUID, session: SessionDep) -> list[ReportOut]:
+    await get_workspace_or_404(session, wid)
+    rows = await session.execute(select(Report).where(Report.workspace_id == wid))
+    return [_out(report) for report in rows.scalars()]
 
 
 @router.post("/workspaces/{wid}/reports", status_code=201, response_model=ReportOut)

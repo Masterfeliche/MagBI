@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Until auth lands (Sprint 7) the admin API is open, so outside dev it stays off
     # unless explicitly enabled. Comma-separated host allow-list for connectors
     # (empty = any host).
+    import_batch_size: int = 10_000
     insecure_admin_api: bool = False
     connector_allowed_hosts: str = ""
 
@@ -39,6 +40,8 @@ class Settings(BaseSettings):
                 parse_key(self.credential_key)
             except CredentialError as exc:
                 raise ValueError(f"MAGBI_CREDENTIAL_KEY invalid: {exc}") from exc
+        if self.import_batch_size < 1:
+            raise ValueError("MAGBI_IMPORT_BATCH_SIZE must be >= 1")
         if self.duckdb_archive_versions < 0:
             raise ValueError("MAGBI_DUCKDB_ARCHIVE_VERSIONS must be >= 0")
         if self.environment != "dev":

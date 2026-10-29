@@ -6,32 +6,24 @@ import logging
 import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from magbi import __version__
+from magbi.api.errors import install_error_handlers
+from magbi.api.router import api_router
 from magbi.config import Settings
 from magbi.config import settings as default_settings
+from magbi.connections import ConnectionService, parse_allowed_hosts
 from magbi.metadata.db import check_connection, create_engine, create_session_factory
+from magbi.refresh.orchestrator import RefreshDeps, sweep_stale_refreshes
+from magbi.services import Services
 from magbi.storage.credentials import CredentialVault
 from magbi.storage.duckdb_store import DuckDBStore
 
 log = logging.getLogger("magbi")
-
-
-@dataclass
-class Services:
-    """Long-lived dependencies, created at startup and kept on ``app.state``."""
-
-    settings: Settings
-    engine: AsyncEngine
-    sessions: async_sessionmaker[AsyncSession]
-    store: DuckDBStore
-    vault: CredentialVault | None
 
 
 def ensure_data_dir(path: Path) -> None:
@@ -54,17 +46,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             log.warning(
                 "metadata database unreachable at startup: %s", type(exc).__name__
             )
+        vault = (
+            CredentialVault.from_encoded_key(cfg.credential_key)
+            if cfg.credential_key
+            else None
+        )
+        sessions = create_session_factory(engine)
+        store = DuckDBStore(cfg.duckdb_data_dir, cfg.duckdb_archive_versions)
+        connections = ConnectionService(
+            vault, parse_allowed_hosts(cfg.connector_allowed_hosts)
+        )
         app.state.services = Services(
             settings=cfg,
             engine=engine,
-            sessions=create_session_factory(engine),
-            store=DuckDBStore(cfg.duckdb_data_dir, cfg.duckdb_archive_versions),
-            vault=(
-                CredentialVault.from_encoded_key(cfg.credential_key)
-                if cfg.credential_key
-                else None
-            ),
+            sessions=sessions,
+            store=store,
+            vault=vault,
+            connections=connections,
+            refresh=RefreshDeps(sessions, store, connections, cfg.import_batch_size),
         )
+        try:
+            await sweep_stale_refreshes(app.state.services.refresh)
+        except Exception as exc:  # noqa: BLE001 - database may be down; /health/ready reports it
+            log.warning("stale refresh sweep skipped: %s", type(exc).__name__)
         if cfg.credential_key == "":
             log.warning("MAGBI_CREDENTIAL_KEY is not set; connection secrets disabled")
         try:
@@ -78,6 +82,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         description="General-purpose BI engine — connect, model, visualise, embed.",
         lifespan=lifespan,
     )
+
+    install_error_handlers(app)
+    app.include_router(api_router)
 
     app.add_middleware(
         CORSMiddleware,

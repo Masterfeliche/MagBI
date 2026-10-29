@@ -1,5 +1,5 @@
-"""Dataset CRUD and model endpoints."""
+"""Dataset endpoints."""
 
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/api/datasets", tags=["datasets"])
+router = APIRouter(tags=["datasets"])

@@ -19,6 +19,7 @@ def test_settings(tmp_path: Path) -> Settings:
         duckdb_data_dir=tmp_path / "datasets",
         credential_key=generate_key(),
         jwt_secret="test-secret-test-secret-test-secret",
+        insecure_admin_api=True,
     )
 
 

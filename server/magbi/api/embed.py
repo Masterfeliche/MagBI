@@ -2,4 +2,4 @@
 
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/api/embed", tags=["embed"])
+router = APIRouter(tags=["embed"])

@@ -1,5 +1,5 @@
-"""Dataset refresh trigger and history endpoints."""
+"""Dataset refresh trigger and status endpoints."""
 
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/api/refresh", tags=["refresh"])
+router = APIRouter(tags=["refresh"])

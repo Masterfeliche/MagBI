@@ -1,5 +1,5 @@
-"""Workspace CRUD endpoints."""
+"""Workspace endpoints."""
 
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
+router = APIRouter(tags=["workspaces"])

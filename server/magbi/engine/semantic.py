@@ -21,6 +21,9 @@ from magbi.model.schema import (
     TableDef,
 )
 
+DEFAULT_LIMIT = 10_000
+MAX_LIMIT = 100_000
+
 AGGREGATIONS = frozenset(
     {
         "sum",
@@ -137,9 +140,19 @@ class MeasureField:
 
 @dataclass(frozen=True, slots=True)
 class BoundQuery:
-    groups: tuple[GroupField, ...]
-    measures: tuple[MeasureField, ...]
+    fields: tuple[GroupField | MeasureField, ...]
     sources: tuple[str, ...]
+    order_by: tuple[tuple[int, str], ...]
+    limit: int | None
+    include_totals: bool
+
+    @property
+    def groups(self) -> tuple[GroupField, ...]:
+        return tuple(field for field in self.fields if isinstance(field, GroupField))
+
+    @property
+    def measures(self) -> tuple[MeasureField, ...]:
+        return tuple(field for field in self.fields if isinstance(field, MeasureField))
 
 
 def parse_query(raw: dict[str, Any]) -> SemanticQuery:
@@ -153,24 +166,31 @@ def parse_query(raw: dict[str, Any]) -> SemanticQuery:
 def bind_query(model: DatasetDefinition, query: SemanticQuery) -> BoundQuery:
     """Resolve every name. The model and the query are not modified."""
     sources = tuple(_table_name(model, source.table) for source in query.sources)
-    groups: list[GroupField] = []
-    measures: list[MeasureField] = []
+    fields: list[GroupField | MeasureField] = []
     aliases: set[str] = set()
     for item in query.select:
         if item.column is not None and item.aggregation is None:
             table_name = _table_name(model, item.column.table)
             column = _column(model, table_name, item.column.column)
             alias = _alias(item.alias or column.name, aliases)
-            groups.append(GroupField(table_name, column.name, column.data_type, alias))
+            fields.append(GroupField(table_name, column.name, column.data_type, alias))
             continue
-        measures.append(_measure_field(model, item, aliases))
+        fields.append(_measure_field(model, item, aliases))
     for ordering in query.order_by:
         if ordering.select >= len(query.select):
             raise QueryError(
                 "QUERY_SHAPE",
                 f"orderBy select {ordering.select} is outside the select list",
             )
-    return BoundQuery(tuple(groups), tuple(measures), sources)
+    if query.limit is not None and query.limit > MAX_LIMIT:
+        raise QueryError("QUERY_SHAPE", f"limit {query.limit} is above {MAX_LIMIT}")
+    return BoundQuery(
+        tuple(fields),
+        sources,
+        tuple((item.select, item.direction) for item in query.order_by),
+        query.limit,
+        query.include_totals,
+    )
 
 
 def _measure_field(

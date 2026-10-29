@@ -10,10 +10,11 @@ from typing import cast
 
 from sqlglot import exp
 
+from magbi.dax.compiler import AggregatePlan
 from magbi.engine.filter_context import BoundFilter
 from magbi.engine.grouping import FactGroup, fact_groups
 from magbi.engine.joins import join_steps
-from magbi.engine.semantic import BoundQuery, GroupField
+from magbi.engine.semantic import DEFAULT_LIMIT, BoundQuery, GroupField, MeasureField
 from magbi.model.schema import DatasetDefinition, RelationshipDef
 
 
@@ -25,41 +26,58 @@ def detail_sql(
     """SQL for the detail rows. Filters are already inside each aggregate."""
     groups = fact_groups(model, bound, filters)
     if len(groups) == 1:
-        return _one_fact(model, bound, groups[0]).sql(dialect="duckdb")
-    parts = [
-        _one_fact(model, bound, group).subquery(alias=f"q{index}")
-        for index, group in enumerate(groups)
-    ]
-    owners = {
-        measure.alias: index
-        for index, group in enumerate(groups)
-        for measure, _plan in group.measures
-    }
-    query = exp.select(*_outer(bound, len(groups), owners)).from_(parts[0])
-    for index, part in enumerate(parts[1:], start=1):
-        if bound.groups:
-            query = query.join(part, on=_keys(bound.groups, index), join_type="full")
-        else:
-            query = query.join(part, join_type="cross")
-    return query.sql(dialect="duckdb")
+        query: exp.Query = _one_fact(model, bound, groups[0], ordered=True)
+    else:
+        parts = [
+            _one_fact(model, bound, group, ordered=False).subquery(alias=f"q{index}")
+            for index, group in enumerate(groups)
+        ]
+        owners = {
+            measure.alias: index
+            for index, group in enumerate(groups)
+            for measure, _plan in group.measures
+        }
+        query = exp.select(*_outer(bound, len(groups), owners)).from_(parts[0])
+        for index, part in enumerate(parts[1:], start=1):
+            if bound.groups:
+                query = query.join(
+                    part, on=_keys(bound.groups, index), join_type="full"
+                )
+            else:
+                query = query.join(part, join_type="cross")
+    return _limited(_ordered(query, bound), bound).sql(dialect="duckdb")
 
 
 def _one_fact(
-    model: DatasetDefinition, bound: BoundQuery, group: FactGroup
+    model: DatasetDefinition,
+    bound: BoundQuery,
+    group: FactGroup,
+    *,
+    ordered: bool,
 ) -> exp.Select:
-    selected: list[exp.Expression] = [
-        cast(
-            exp.Expression,
-            _quoted(field.column, field.table).as_(field.alias, quoted=True),
-        )
-        for field in bound.groups
-    ]
+    plans: dict[str, AggregatePlan] = {
+        measure.alias: plan for measure, plan in group.measures
+    }
     needed = [field.table for field in bound.groups]
-    for measure, plan in group.measures:
-        selected.append(
-            cast(exp.Expression, plan.expression.copy().as_(measure.alias, quoted=True))
-        )
+    for _measure, plan in group.measures:
         needed.extend(plan.tables)
+    if ordered:
+        selected = [_field_expr(field, plans) for field in bound.fields]
+    else:
+        selected = [
+            cast(
+                exp.Expression,
+                _quoted(field.column, field.table).as_(field.alias, quoted=True),
+            )
+            for field in bound.groups
+        ]
+        for measure, plan in group.measures:
+            selected.append(
+                cast(
+                    exp.Expression,
+                    plan.expression.copy().as_(measure.alias, quoted=True),
+                )
+            )
     query = exp.select(*selected).from_(_table(group.fact))
     for rel, nxt in join_steps(model, group.fact, tuple(needed)):
         query = query.join(_table(nxt), on=_on(rel), join_type=_join_kind(rel))
@@ -77,7 +95,10 @@ def _outer(
     bound: BoundQuery, count: int, owners: dict[str, int]
 ) -> list[exp.Expression]:
     selected: list[exp.Expression] = []
-    for field in bound.groups:
+    for field in bound.fields:
+        if isinstance(field, MeasureField):
+            selected.append(_quoted(field.alias, f"q{owners[field.alias]}"))
+            continue
         parts = [_quoted(field.alias, f"q{index}") for index in range(count)]
         merged: exp.Expression = parts[0]
         if len(parts) > 1:
@@ -85,9 +106,35 @@ def _outer(
                 exp.Expression, exp.Coalesce(this=parts[0], expressions=parts[1:])
             )
         selected.append(cast(exp.Expression, merged.as_(field.alias, quoted=True)))
-    for measure in bound.measures:
-        selected.append(_quoted(measure.alias, f"q{owners[measure.alias]}"))
     return selected
+
+
+def _field_expr(
+    field: GroupField | MeasureField, plans: dict[str, AggregatePlan]
+) -> exp.Expression:
+    if isinstance(field, GroupField):
+        return cast(
+            exp.Expression,
+            _quoted(field.column, field.table).as_(field.alias, quoted=True),
+        )
+    plan = plans[field.alias]
+    return cast(exp.Expression, plan.expression.copy().as_(field.alias, quoted=True))
+
+
+def _ordered(query: exp.Query, bound: BoundQuery) -> exp.Query:
+    for index, direction in bound.order_by:
+        query = query.order_by(
+            exp.Ordered(
+                this=exp.column(bound.fields[index].alias, quoted=True),
+                desc=direction == "desc",
+            )
+        )
+    return query
+
+
+def _limited(query: exp.Query, bound: BoundQuery) -> exp.Query:
+    limit = DEFAULT_LIMIT if bound.limit is None else bound.limit
+    return query.limit(limit)
 
 
 def _keys(groups: tuple[GroupField, ...], index: int) -> exp.Expression:

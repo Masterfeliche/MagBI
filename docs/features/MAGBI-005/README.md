@@ -58,7 +58,7 @@ Deliverable: a semantic query JSON returns a DataShapeResult from the dataset's 
 | SUB-1.2 | Filter context | `where` becomes the compiler filter list, including `notIn`, `contains`, `startsWith`, `isBlank`, and `isNotBlank`; a bad operator or value is an error | 3h | [x] |
 | SUB-2.1 | Joins | Group and filter tables are joined from the home fact with `join_path`; no path and an ambiguous path are errors | 3h | [x] |
 | SUB-2.2 | Chasm trap | Two home tables become two grouped subqueries `FULL OUTER JOIN`ed on the group columns; a DuckDB run shows each fact's sum, not a duplicated sum | 4h | [x] |
-| SUB-3.1 | Grouped SQL | One fact becomes one `SELECT` with `GROUP BY`, `ORDER BY`, and `LIMIT`; the aggregate expression comes from the compiler; a query filter replaced by `CALCULATE` changes the value | 5h | [ ] |
+| SUB-3.1 | Grouped SQL | One fact becomes one `SELECT` with `GROUP BY`, `ORDER BY`, and `LIMIT`; the aggregate expression comes from the compiler; a query filter replaced by `CALCULATE` changes the value | 5h | [x] |
 | SUB-3.2 | Execute and DSR | Rows come from DuckDB; all-null measure rows are dropped; `includeTotals` re-runs the measures without grouping; dates are ISO strings; `truncated` reflects the limit | 4h | [ ] |
 | SUB-4.1 | Cache | A second identical query is served from the cache; a new `current_version` misses; Redis being down still returns the query | 3h | [ ] |
 | SUB-4.2 | RLS | Named roles add a `WHERE` that `ALL` does not remove; an unknown role and a non-comparison filter are errors | 4h | [ ] |
@@ -75,7 +75,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 5.3. Each subtask is co
 - [x] SUB-1.2: see git log. Query filters become compiler predicates. Text filters use CONTAINS and STARTS_WITH so the search text is literal. A date string becomes a date.
 - [x] SUB-2.1: see git log. Extra tables are joined from the home fact with the existing path search. A missing or ambiguous path is an error.
 - [x] SUB-2.2: see git log. Two home tables become grouped subqueries joined with FULL OUTER JOIN. DuckDB returns each fact's own sum.
-- [ ] SUB-3.1: (Commit hash)
+- [x] SUB-3.1: see git log. One fact is one grouped SELECT. ORDER BY follows the select index and LIMIT is applied. CALCULATE replaces a query filter on the same column.
 - [ ] SUB-3.2: (Commit hash)
 - [ ] SUB-4.1: (Commit hash)
 - [ ] SUB-4.2: (Commit hash)

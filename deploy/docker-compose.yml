@@ -1,32 +1,50 @@
+# Usage:  cd deploy && docker compose up --build
+# Secrets: copy .env.example to .env. With MAGBI_ENVIRONMENT=prod the api refuses
+# to start without MAGBI_CREDENTIAL_KEY and a non-default MAGBI_JWT_SECRET.
+
 services:
   api:
     build: ../server
     ports:
       - "8000:8000"
     environment:
+      MAGBI_ENVIRONMENT: ${MAGBI_ENVIRONMENT:-dev}
       MAGBI_DATABASE_URL: postgresql+asyncpg://magbi:magbi@postgres:5432/magbi
       MAGBI_REDIS_URL: redis://redis:6379/0
       MAGBI_DUCKDB_DATA_DIR: /data/datasets
+      MAGBI_CREDENTIAL_KEY: ${MAGBI_CREDENTIAL_KEY:-}
+      MAGBI_JWT_SECRET: ${MAGBI_JWT_SECRET:-change-me-in-production}
     volumes:
       - duckdb-data:/data/datasets
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
+  # Enabled with `--profile worker` once the Celery app exists (Sprint 8).
   worker:
+    profiles: ["worker"]
     build: ../server
     command: celery -A magbi.refresh.orchestrator worker --loglevel=info
     environment:
+      MAGBI_ENVIRONMENT: ${MAGBI_ENVIRONMENT:-dev}
       MAGBI_DATABASE_URL: postgresql+asyncpg://magbi:magbi@postgres:5432/magbi
       MAGBI_REDIS_URL: redis://redis:6379/0
       MAGBI_DUCKDB_DATA_DIR: /data/datasets
+      MAGBI_CREDENTIAL_KEY: ${MAGBI_CREDENTIAL_KEY:-}
+      MAGBI_JWT_SECRET: ${MAGBI_JWT_SECRET:-change-me-in-production}
     volumes:
       - duckdb-data:/data/datasets
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
+  # Enabled with `--profile web` once the web app has an entry point (Sprint 9).
   web:
+    profiles: ["web"]
     build: ../web
     ports:
       - "3000:80"
@@ -43,6 +61,11 @@ services:
       - pg-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U magbi -d magbi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7-alpine

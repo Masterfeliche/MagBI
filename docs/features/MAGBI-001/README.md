@@ -81,8 +81,8 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 - [x] SUB-1.4: cc248be
 - [x] SUB-1.5: 0a454b0 (PostgreSQL SQL rendered offline; live Postgres run pending, Docker daemon was off)
 - [x] SUB-1.6: f8716ec
-- [ ] SUB-1.7: (Commit hash)
-- [ ] SUB-1.8: (Commit hash)
+- [x] SUB-1.7: 56cea02
+- [~] SUB-1.8: (hash below) PARTIAL. Verified: compose config valid, clean `pip install .` from pyproject+magbi succeeds. NOT verified (Docker daemon off, no Postgres): `docker compose build api` and api reaching ready against Postgres. web/worker moved behind compose profiles until Sprints 8/9.
 - [ ] SUB-1.9: (Commit hash)
 - [ ] SUB-1.10: (Commit hash)
 

@@ -28,7 +28,9 @@ def cfg(tmp_path: Path) -> tuple[Config, Path]:
 def table_names(db: Path) -> set[str]:
     con = sqlite3.connect(db)
     try:
-        rows = con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        rows = con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
     finally:
         con.close()
     return {r[0] for r in rows} - {"alembic_version"}

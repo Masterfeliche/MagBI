@@ -79,7 +79,7 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 - [x] SUB-1.2: 437622c
 - [x] SUB-1.3: 562e8a7
 - [x] SUB-1.4: cc248be
-- [ ] SUB-1.5: (Commit hash)
+- [x] SUB-1.5: 0a454b0 (PostgreSQL SQL rendered offline; live Postgres run pending, Docker daemon was off)
 - [ ] SUB-1.6: (Commit hash)
 - [ ] SUB-1.7: (Commit hash)
 - [ ] SUB-1.8: (Commit hash)

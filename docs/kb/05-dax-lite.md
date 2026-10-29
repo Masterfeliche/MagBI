@@ -1,6 +1,12 @@
 # 05 — DAX-lite Formula Language
 
-> **Status: Planned**
+> **Status: Implemented for one measure at a time (MAGBI-004).**
+>
+> The compiler turns one formula into one DuckDB `SELECT`. T-SQL and DirectQuery are not emitted yet.
+>
+> **Supported now:** `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `AVERAGE`, `MIN`, `MAX`, `DISTINCTCOUNT`, `DIVIDE`, `IF`, `CALCULATE`, `ALL`, `REMOVEFILTERS`, `FILTER`, `AND`, `OR`, `NOT`, `TRUE`, `FALSE`, `BLANK`, `ISBLANK`, `SAMEPERIODLASTYEAR`, `DATEADD`, `TOTALYTD`, plus `+ - * / = <> < > <= >= && || &`, `IN { … }`, parentheses, and `VAR` / `RETURN`.
+>
+> **Later:** iterators (`SUMX` and the other X functions), `RELATED`, `KEEPFILTERS`, `ALLEXCEPT`, `VALUES`, `SWITCH`, the visual query (group-by, totals, multi-fact joins, blank-row removal), row-level security, the Monaco editor, and T-SQL.
 
 ---
 

@@ -8,9 +8,9 @@ editor, the parser, the binder, the compiler and the query planner.
 | | |
 |---|---|
 | Written | 29 October 2026 |
-| Status | Draft — not implemented |
-| DAX coverage | ~40 functions; enough for every measure MSD has written so far |
-| Compilation target | DuckDB SQL (primary), T-SQL (DirectQuery to SQL Server) |
+| Status | Implemented for a single measure (MAGBI-004). DuckDB SQL only. |
+| DAX coverage | Implemented: `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `AVERAGE`, `MIN`, `MAX`, `DISTINCTCOUNT`, `DIVIDE`, `IF`, `CALCULATE`, `ALL`, `REMOVEFILTERS`, `FILTER`, `AND`, `OR`, `NOT`, `TRUE`, `FALSE`, `BLANK`, `ISBLANK`, `SAMEPERIODLASTYEAR`, `DATEADD`, `TOTALYTD`, operators, `IN`, and `VAR` / `RETURN`. Later: iterators, `RELATED`, `KEEPFILTERS`, `ALLEXCEPT`, `VALUES`, `SWITCH`, the visual query, row-level security, the Monaco editor, and T-SQL. |
+| Compilation target | DuckDB SQL. T-SQL for DirectQuery is not emitted yet. |
 | Sources | [SQLBI — Introducing CALCULATE](https://www.sqlbi.com/articles/introducing-calculate-in-dax/), [SQLBI — Filter context](https://www.sqlbi.com/articles/filter-context-in-dax-explained-visually/), [SQLBI — Context transition](https://www.sqlbi.com/articles/understanding-context-transition-in-dax/), [dax.guide](https://dax.guide/), [Microsoft Learn — Time intelligence](https://learn.microsoft.com/en-us/training/modules/dax-power-bi-time-intelligence/2-functions), [SQLBI — Auto-exist](https://sqlbi.com/articles/understanding-dax-auto-exist) |
 
 ---

@@ -63,7 +63,7 @@ Deliverable: `SUM(Sales[Amount])` compiles to `SELECT SUM(amount) FROM sales`. `
 | SUB-3.3 | CALCULATE | A comparison filter replaces that column's filter; `ALL(Table)` and `ALL(Table[Column])` remove filters; `FILTER` adds a predicate; no path and an ambiguous path are errors; a DuckDB run shows the replaced filter changing the sum | 4h | [x] |
 | SUB-4.1 | Time intelligence | `SAMEPERIODLASTYEAR`, `DATEADD`, and `TOTALYTD` rewrite the date predicate; they fail without a marked date table and a relationship to its key; fiscal year start month is honoured; a DuckDB run checks a year shift | 4h | [x] |
 | SUB-5.1 | Save-time checks | `validate_model` compiles every measure and checks every calculated column; errors use stable codes and block the existing definition `PUT`; `measure_expressions` is no longer deferred; `rls_expressions` still is | 3h | [x] |
-| SUB-5.2 | Docs | KB 05 and the DAX spec status note list the supported functions, the DuckDB-only target, and what stays in later sprints | 1.5h | [ ] |
+| SUB-5.2 | Docs | KB 05 and the DAX spec status note list the supported functions, the DuckDB-only target, and what stays in later sprints | 1.5h | [x] |
 | SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `dax` and the validation change; full regression; PR description | 1.5h | [ ] |
 
 Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3. Each subtask is code, tests, and one single-sentence commit. About 36 hours.
@@ -81,7 +81,7 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3. Each subtask 
 - [x] SUB-3.3: see git log. A comparison replaces the filter on that column. ALL removes filters. FILTER adds one. A missing or ambiguous relationship path is an error. DuckDB shows the replaced sum.
 - [x] SUB-4.1: see git log. SAMEPERIODLASTYEAR, DATEADD, and TOTALYTD rewrite the date filter. They require one marked date table and its key. Fiscal year start month is honoured. DuckDB checks the year shift.
 - [x] SUB-5.1: see git log. Every measure is compiled and every calculated column is shape-checked. Failures use stable codes and include line and column. Definition PUT returns 422 and does not bump the version. Row-level security stays deferred.
-- [ ] SUB-5.2: (Commit hash)
+- [x] SUB-5.2: see git log. KB 05 and the DAX spec name the functions this sprint compiles, the DuckDB-only target, and what stays later.
 - [ ] SUB-5.3: (Commit hash)
 
 ---

@@ -64,7 +64,7 @@ Deliverable: `docker compose up` -> API starts, `/health` OK, Postgres has the s
 | SUB-1.5 | Alembic setup + `0001_initial` migration | `alembic upgrade head` and `downgrade base` succeed on SQLite and Postgres; models match migration (autogenerate shows no diff) | 2h | [x] |
 | SUB-1.6 | Metadata CRUD tests | Create/read/update/delete each entity; cascade rules; constraint violations raise | 2h | [x] |
 | SUB-1.7 | Lifespan startup checks + `/health/ready` | Ready returns 200 only when DB reachable and data dir writable; otherwise 503 with reason | 2h | [x] |
-| SUB-1.8 | Fix server Dockerfile and compose env | `docker compose build api` succeeds; api container reaches ready against compose Postgres | 1.5h | [~] |
+| SUB-1.8 | Fix server Dockerfile and compose env | `docker compose build api` succeeds; api container reaches ready against compose Postgres | 1.5h | [x] |
 | SUB-1.9 | Docs: update KB 10, fix `CREDENTIAL_KEY` naming in import spec, mark status | KB chapter reflects what was built | 1h | [x] |
 | SUB-1.10 | Finalization: ruff, mypy --strict, coverage >80% for metadata and storage | All three pass; PR description generated | 1h | [x] |
 
@@ -82,7 +82,7 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 - [x] SUB-1.5: 0a454b0 (PostgreSQL SQL rendered offline; live Postgres run pending, Docker daemon was off)
 - [x] SUB-1.6: f8716ec
 - [x] SUB-1.7: 56cea02
-- [~] SUB-1.8: 9c13a9b PARTIAL. Verified: compose config valid, clean `pip install .` from pyproject+magbi succeeds. NOT verified (Docker daemon off, no Postgres): `docker compose build api` and api reaching ready against Postgres. web/worker moved behind compose profiles until Sprints 8/9.
+- [x] SUB-1.8: 9c13a9b (verified on Docker 29.8: image builds, api healthy as non-root, /health/ready 200, 6 tables created, Alembic downgrade base + upgrade head OK on Postgres 16, alembic check clean). web/worker moved behind compose profiles until Sprints 8/9.
 - [x] SUB-1.9: ee8e208
 - [x] SUB-1.10: this commit (CI commands pass locally: ruff, mypy, 81 tests; coverage 99% on config, main, metadata, storage)
 
@@ -96,13 +96,12 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 - [x] `ruff check` and `mypy --strict` pass
 - [x] Coverage > 80% for `metadata` and `storage` (99%)
 - [x] KB chapter 10 updated to match the implementation
-- [ ] **Open:** `docker compose up` end to end against real PostgreSQL (needs Docker running)
+- [x] `docker compose up` end to end against real PostgreSQL (verified)
 
 ---
 
 ## 5. Open items for follow-up
-1. **Verify on real infrastructure.** Start Docker, run `cd deploy && docker compose up --build`, confirm `GET :8000/health/ready` returns 200 and `\dt` in Postgres lists the six tables. Run `alembic upgrade head` and `downgrade base` once against Postgres 16. Only SQLite execution and offline PostgreSQL SQL rendering were done.
-2. **Windows swap** is documented but unsolved; Sprint 2.3 must handle readers holding the live file.
+1. ~~Verify on real infrastructure~~ Done: see SUB-1.8.`r`n2. **Windows swap** is documented but unsolved; Sprint 2.3 must handle readers holding the live file.
 3. **CI Python version** is 3.11 while local development used 3.14. Dependencies install on both, but CI only exercises 3.11.
 4. **Line endings:** git warns LF to CRLF on every commit. Add a `.gitattributes` (`* text=auto eol=lf`) in a separate chore commit.
 5. **API prefix mismatch** (`/api/...` stubs vs `/api/v1` in the spec) is untouched; resolve in Sprint 2/3 when routes are added.
@@ -131,7 +130,7 @@ Builds the storage and metadata foundation the rest of the engine depends on. Re
 ### Testing
 - 81 tests pass; coverage 99% on `config`, `main`, `metadata`, `storage`.
 - `ruff check magbi/` and `mypy magbi/` (strict) pass.
-- **Not tested:** Docker image build and runtime against live PostgreSQL (Docker daemon unavailable). Postgres DDL was rendered offline and reviewed (`JSONB`, `UUID`, `BIGSERIAL`, check constraints).
+- Docker: image builds, stack healthy, `/health/ready` 200, 6 tables on Postgres 16, Alembic downgrade/upgrade round trip and drift check pass.
 
 ### Reviewer notes
 - New required env in non-dev: `MAGBI_CREDENTIAL_KEY` (see `deploy/.env.example`).

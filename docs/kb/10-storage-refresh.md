@@ -1,8 +1,6 @@
 # 10 — Storage & Data Refresh
 
-> **Status: In Progress** — storage layer (MAGBI-001) and the import pipeline, atomic swap and refresh
-> runner (MAGBI-002, Sprint 2) are built. Scheduling, Celery workers, incremental refresh and
-> cancellation are still planned (Sprint 8). See "Implementation notes" near the end.
+> **Status: In Progress (MAGBI-008).** Storage, import, and the atomic swap are built. A five-field cron on the dataset queues that same runner (`trigger` `schedule`). Scalar calculated columns are written on the staging file before the swap. A bad expression fails the refresh and leaves `live.duckdb` unchanged. Limits are one active refresh per dataset, three per workspace, and `max_concurrent_refreshes` (default 10) for the platform. `duration_seconds` is on the history response. A Celery task `magbi.refresh_dataset` calls the same coroutine; the API still runs it in-process when no worker is up. Transform recipes are not applied. Incremental refresh and cancellation are still later. See "Implementation notes" near the end.
 >
 > **Implemented in Sprint 2, where it differs from the text below:**
 > - **No Parquet buffer.** Batches go from Arrow straight into the staging file (`INSERT ... SELECT`).

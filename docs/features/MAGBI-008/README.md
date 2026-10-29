@@ -50,7 +50,7 @@ Deliverable: a dataset cron schedule queues a refresh, the existing runner swaps
 | SUB-2.1 | Concurrency limits | A second refresh for one dataset stays 409; the fourth in a workspace and the one past the platform cap are 429 and do not insert a row | 3h | [x] |
 | SUB-2.2 | Calculated columns | A scalar calculated column is present in `live.duckdb` after a successful refresh; a bad expression fails the refresh and leaves the previous live file unchanged | 4h | [x] |
 | SUB-3.1 | Celery task and duration | A Celery task calls `run_refresh`; history includes `duration_seconds` | 2h | [x] |
-| SUB-3.2 | Docs | KB 10 says schedules queue the existing runner, calculated columns are scalar only, and recipes are not applied | 1.5h | [ ] |
+| SUB-3.2 | Docs | KB 10 says schedules queue the existing runner, calculated columns are scalar only, and recipes are not applied | 1.5h | [x] |
 | SUB-3.3 | Finalization | ruff, mypy strict, coverage over 80% for the schedule, limit, and calculated-column code; full regression; PR description | 1.5h | [ ] |
 
 Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3. Each subtask is code, tests, and one single-sentence commit. About 19 hours.
@@ -63,7 +63,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3. Each subtask is code, tests, and one s
 - [x] SUB-2.1: see git log. A second refresh for one dataset is still 409. The fourth in a workspace and the one past the platform cap raise a limit and do not insert a row.
 - [x] SUB-2.2: see git log. A scalar calculated column is written on the staging file before the swap. A bad expression fails the refresh and leaves the previous live file unchanged.
 - [x] SUB-3.1: see git log. A Celery task named magbi.refresh_dataset runs the existing refresh coroutine. History includes duration_seconds.
-- [ ] SUB-3.2: (Commit hash)
+- [x] SUB-3.2: see git log. KB 10 says a cron queues the existing runner, calculated columns are scalar only, and transform recipes are not applied on import.
 - [ ] SUB-3.3: (Commit hash)
 
 ---

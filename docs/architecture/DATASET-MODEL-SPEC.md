@@ -10,7 +10,7 @@ the model editor UI) reads or writes this schema.
 | | |
 |---|---|
 | Written | 29 October 2026 |
-| Status | Draft — not implemented |
+| Status | Partially implemented (MAGBI-003). Stored as snake_case in `datasets.definition`. Many-to-many and bidirectional filters are rejected. Measure and RLS expressions are stored and not parsed. Gap checks run when `live.duckdb` exists. |
 | Depends on | [POWERBI-V2-ARCHITECTURE.md](POWERBI-V2-ARCHITECTURE.md) §8, [DAX-LITE-SPEC.md](DAX-LITE-SPEC.md), [QUERY-ENGINE-SPEC.md](QUERY-ENGINE-SPEC.md) §4–7 |
 | Analogues | Power BI Model.bim / TMDL, Cube.js cube definitions, dbt semantic layer |
 

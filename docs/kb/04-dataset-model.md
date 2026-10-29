@@ -1,6 +1,28 @@
 # 04 — Dataset & Semantic Model
 
-> **Status: Planned**
+> **Status: Implemented in MAGBI-003 (Sprint 3), with the limits below**
+
+The stored document is snake_case JSON in `datasets.definition`. Identity,
+timestamps, and `current_version` stay on the row. `model_version` is the
+optimistic concurrency counter. The examples further down keep the spec's
+camelCase names; the API and the Pydantic models use snake_case (`schema_version`,
+`data_type`, `is_primary_key`, `connection_id`).
+
+What this sprint stores and checks:
+
+- Tables, columns, measures, calculated columns, hierarchies, relationships, and
+  RLS roles. Measures and calculated columns are text. RLS is stored and not enforced.
+- Relationships are many-to-one or one-to-one only. Many-to-many and bidirectional
+  cross-filter are rejected. One active relationship per pair of tables. The one
+  side must be a primary key.
+- Join paths are undirected over active relationships. Cycles are directed
+  many-to-one. An ambiguous path is an error.
+- A date table can be generated and is written into DuckDB on the next refresh
+  when `date_table.auto_generate` is true.
+- Validation reports structural errors and four warnings. Expression parsing and
+  high-cardinality checks are deferred (`checks_deferred`).
+
+Auto-detecting relationships and the model editor UI are not in this sprint.
 
 ---
 
@@ -500,9 +522,10 @@ Students → StudentCourses ← Courses. The aggregation semantics become explic
 
 ## For Agents
 
-1. The dataset model schema lives in `server/magbi/model/schema.py` (Python
-   Pydantic models) and `web/src/types/dataset.ts` (TypeScript interfaces).
-   **Keep these in sync.** Every field must exist in both.
+1. The stored model is `server/magbi/model/schema.py` (snake_case JSON in
+   `datasets.definition`). `web/src/types/dataset.ts` still follows this spec's
+   camelCase and is not what the API returns. Do not treat the two files as
+   the same schema until the UI sprint maps them.
 2. Relationships are a directed graph. The query engine traverses this graph
    via BFS (see chapter 06). Do not create cycles.
 3. RLS filters are appended to the `WHERE` clause of every sub-query. They

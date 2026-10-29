@@ -64,7 +64,7 @@ Deliverable: a semantic query JSON returns a DataShapeResult from the dataset's 
 | SUB-4.2 | RLS | Named roles add a `WHERE` that `ALL` does not remove; an unknown role and a non-comparison filter are errors | 4h | [x] |
 | SUB-5.1 | API | `POST` the workspace dataset query route returns the DSR; a missing dataset is 404; no `live.duckdb` is 409; a bad query is 422 and does not run SQL | 3h | [x] |
 | SUB-5.2 | Docs | KB 06 and the query-engine spec status note the TypeScript contract, DuckDB-only execution, request-supplied roles, and what stays later | 1.5h | [x] |
-| SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `engine` and the query route; full regression; PR description | 1.5h | [ ] |
+| SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `engine` and the query route; full regression; PR description | 1.5h | [x] |
 
 Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 5.3. Each subtask is code, tests, and one single-sentence commit. About 35 hours.
 
@@ -81,17 +81,56 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 5.3. Each subtask is co
 - [x] SUB-4.2: see git log. Named roles add a WHERE on every subquery. ALL does not remove it. An unknown role or a non-comparison filter is an error.
 - [x] SUB-5.1: see git log. POST the workspace dataset query route returns the result. A missing dataset is 404. No imported file is 409. A bad field is 422.
 - [x] SUB-5.2: see git log. KB 06 and the query-engine spec name the TypeScript contract, DuckDB-only execution, request-supplied roles, and what stays later.
-- [ ] SUB-5.3: (Commit hash)
+- [x] SUB-5.3: see git log. 447 tests on Windows/Python 3.14. ruff, ruff format, and mypy strict pass. Coverage of `magbi.engine` and `magbi.api.query` is 88%.
 
 ---
 
 ## 4. Definition of Done (DoD)
-- [ ] Code is written and passes all local tests and lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] `ruff check` and `mypy --strict` pass
-- [ ] Coverage over 80% for `engine` and the query route
-- [ ] A grouped query and a two-fact query both execute on DuckDB and return the expected rows
-- [ ] An RLS predicate survives `ALL`
-- [ ] KB 06 updated to match the implementation
+- [x] Code is written and passes all local tests and lints (447 tests on Windows/Python 3.14.7, ruff, ruff format)
+- [x] Single-sentence commit rule followed for all commits (commit-msg hook)
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist (section 5)
+- [x] `ruff check` and `mypy --strict` pass (`mypy magbi`: 72 source files, no issues)
+- [x] Coverage over 80% for `engine` and the query route (88% combined, 612 statements; `magbi.api.query` 80%)
+- [x] A grouped query and a two-fact query both execute on DuckDB and return the expected rows
+- [x] An RLS predicate survives `ALL`
+- [x] KB 06 updated to match the implementation
+
+### Deviations from the plan
+1. The route is `POST /api/v1/workspaces/{workspace_id}/datasets/{dataset_id}/query`. The bare `POST /api/v1/query` and the batch endpoint are not implemented.
+2. The wire JSON is `web/src/types/query.ts`. The shape in the query-engine spec section 2 is not accepted.
+3. `contains` and `startsWith` use DuckDB `CONTAINS` and `STARTS_WITH`, so the search text is literal.
+4. `pipeline.py` stays a stub. `executor.run_query` and `cache.run_cached` run the steps.
+5. The test environment does not open Redis. Other environments do, and a Redis error still returns the query.
+6. There is no embed token. Roles are a field on the request.
+
+### Findings and open items
+- DirectQuery, matrix subtotals, calculated columns, and display formatting stay later.
+- The cache key has no user id until Sprint 7. It does include the role names.
+- Each query opens `live.duckdb` read-only and closes it.
+- The admin API stays unauthenticated until Sprint 7 (`MAGBI_INSECURE_ADMIN_API`).
+- This regression was not repeated inside the Python 3.11 Linux image. CI runs that job.
+
+---
+
+## 5. PR Description
+
+**feat: query engine for a semantic query (MAGBI-005)**
+
+Turn a visual's semantic query into DuckDB SQL and return a DataShapeResult.
+
+### What changed
+- **Query pipeline** (`magbi/engine`): bind the TypeScript query to the model, compile each measure with the Sprint 4 compiler, join through `join_path`, and group. Two fact tables become two grouped subqueries combined with `FULL OUTER JOIN`.
+- **Result**: rows, blank-row removal, ungrouped totals, ISO dates, and `truncated` when the limit cuts the result. The default limit is 10,000.
+- **Cache**: Redis, keyed by dataset id and `current_version`. A cache failure still runs the query.
+- **RLS**: roles named on the request add a `WHERE` that `ALL` cannot remove.
+- **API**: `POST /api/v1/workspaces/{workspace_id}/datasets/{dataset_id}/query`. Missing dataset is 404, no imported file is 409, a bad query is 422.
+- **Docs**: KB 06 and the query-engine spec status note the contract and the limits.
+
+### How it was verified
+- `ruff`, `ruff format`, and `mypy` strict on Windows/Python 3.14.7.
+- 447 tests. DuckDB runs cover a grouped query, a two-fact query, `CALCULATE` replacement, totals, and a role filter that survives `ALL`.
+- Coverage of `magbi.engine` and `magbi.api.query` is 88%.
+
+### Risks and follow-ups
+DirectQuery is not executed. Subtotals and the batch endpoint are not built. Role filters must be a comparison, `IN`, or `AND` of those. Sprint 7 should take those roles from the embed token instead of the request body.

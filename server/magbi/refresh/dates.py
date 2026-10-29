@@ -39,6 +39,30 @@ _ARROW = {
 }
 
 
+def apply_date_table(
+    definition: DatasetDefinition, start: dt.date, end: dt.date
+) -> DatasetDefinition:
+    """Return a definition that includes the generated date dimension.
+
+    Rows are written later, on refresh, because ``auto_generate`` is turned on.
+    """
+    generated = generate_date_table(start, end, definition.date_table, name=DATE_TABLE)
+    updated = _with_date_table(definition, generated.table, _date_columns(definition))
+    payload = updated.model_dump(mode="json", by_alias=True)
+    payload["date_table"]["auto_generate"] = True
+    return DatasetDefinition.model_validate(payload)
+
+
+def infer_date_bounds(
+    definition: DatasetDefinition, live: duckdb.DuckDBPyConnection
+) -> tuple[dt.date, dt.date] | None:
+    """Min and max of the model's date columns in an imported file, or None."""
+    columns = _date_columns(definition)
+    if not columns:
+        return None
+    return _bounds(live, columns)
+
+
 def attach_date_table(
     staging: duckdb.DuckDBPyConnection, definition: DatasetDefinition
 ) -> tuple[TableResult | None, DatasetDefinition]:

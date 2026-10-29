@@ -65,6 +65,32 @@ class DefinitionOut(BaseModel):
     validation: dict[str, Any] | None = None
 
 
+class RelationshipIn(BaseModel):
+    model_version: int = Field(ge=1)
+    relationship: dict[str, Any]
+
+
+class MeasureIn(BaseModel):
+    model_version: int = Field(ge=1)
+    table: str = Field(min_length=1, max_length=128)
+    measure: dict[str, Any]
+
+
+class MeasureUpdate(BaseModel):
+    model_version: int = Field(ge=1)
+    measure: dict[str, Any]
+
+
+class DateTableIn(BaseModel):
+    model_version: int = Field(ge=1)
+    start: dt.date | None = None
+    end: dt.date | None = None
+
+
+class ValidateIn(BaseModel):
+    definition: dict[str, Any]
+
+
 class DatasetOut(BaseModel):
     id: uuid.UUID
     workspace_id: uuid.UUID

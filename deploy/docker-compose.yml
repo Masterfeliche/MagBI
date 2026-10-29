@@ -1,0 +1,54 @@
+services:
+  api:
+    build: ../server
+    ports:
+      - "8000:8000"
+    environment:
+      MAGBI_DATABASE_URL: postgresql+asyncpg://magbi:magbi@postgres:5432/magbi
+      MAGBI_REDIS_URL: redis://redis:6379/0
+      MAGBI_DUCKDB_DATA_DIR: /data/datasets
+    volumes:
+      - duckdb-data:/data/datasets
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build: ../server
+    command: celery -A magbi.refresh.orchestrator worker --loglevel=info
+    environment:
+      MAGBI_DATABASE_URL: postgresql+asyncpg://magbi:magbi@postgres:5432/magbi
+      MAGBI_REDIS_URL: redis://redis:6379/0
+      MAGBI_DUCKDB_DATA_DIR: /data/datasets
+    volumes:
+      - duckdb-data:/data/datasets
+    depends_on:
+      - postgres
+      - redis
+
+  web:
+    build: ../web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: magbi
+      POSTGRES_PASSWORD: magbi
+      POSTGRES_DB: magbi
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pg-data:
+  duckdb-data:

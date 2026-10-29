@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import duckdb
+import pytest
 
 from magbi.connectors.types import DataType
 from magbi.dax.compiler import compile_measure
+from magbi.dax.errors import DaxError
 from magbi.model.schema import ColumnDef, DatasetDefinition, RelationshipDef, TableDef
 
 
@@ -77,3 +79,46 @@ def test_a_related_table_is_joined() -> None:
     con = _db()
     got = con.execute(sql).fetchone()
     assert got is not None and float(got[0]) == 20
+
+
+def _amounts() -> tuple[DatasetDefinition, duckdb.DuckDBPyConnection]:
+    model = DatasetDefinition(
+        tables=[
+            TableDef(
+                name="Sales",
+                columns=[
+                    ColumnDef(name="Amount", data_type=DataType.DECIMAL),
+                    ColumnDef(name="Qty", data_type=DataType.INTEGER),
+                ],
+            ),
+            TableDef(
+                name="Other",
+                columns=[ColumnDef(name="Amount", data_type=DataType.DECIMAL)],
+            ),
+        ]
+    )
+    con = duckdb.connect()
+    con.execute('CREATE TABLE "Sales" ("Amount" DECIMAL(10, 2), "Qty" INTEGER)')
+    con.execute('CREATE TABLE "Other" ("Amount" DECIMAL(10, 2))')
+    return model, con
+
+
+def test_divide_if_and_blank_arithmetic() -> None:
+    model, con = _amounts()
+    con.execute('INSERT INTO "Sales" VALUES (10, 0), (10, 0)')
+    divided = compile_measure(model, "DIVIDE(SUM(Sales[Amount]), SUM(Sales[Qty]))")
+    assert con.execute(divided).fetchone() == (None,)
+    alt = compile_measure(model, "DIVIDE(SUM(Sales[Amount]), SUM(Sales[Qty]), 0)")
+    assert con.execute(alt).fetchone() == (0,)
+    flagged = compile_measure(model, "IF(SUM(Sales[Amount]) > 10, 1, 0)")
+    assert con.execute(flagged).fetchone() == (1,)
+    con.execute('DELETE FROM "Sales"')
+    con.execute('INSERT INTO "Sales" VALUES (NULL, NULL), (NULL, NULL)')
+    added = compile_measure(model, "SUM(Sales[Amount]) + 1")
+    assert con.execute(added).fetchone() == (1,)
+
+
+def test_two_fact_tables_are_rejected() -> None:
+    model, _con = _amounts()
+    with pytest.raises(DaxError, match="two fact tables"):
+        compile_measure(model, "SUM(Sales[Amount]) + SUM(Other[Amount])")

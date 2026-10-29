@@ -9,17 +9,27 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import cast
 
+import sqlglot
 from sqlglot import exp
 
 from magbi.transforms.errors import TransformError
 from magbi.transforms.steps import (
+    AddColumnStep,
     ChangeTypeStep,
+    ExtractDateStep,
+    FillValueStep,
     FilterRowsStep,
+    LowercaseStep,
+    MergeColumnsStep,
     RemoveColumnsStep,
     RemoveRowsStep,
     RenameColumnStep,
+    ReplaceValuesStep,
     SelectColumnsStep,
+    SplitColumnStep,
     TransformStep,
+    TrimTextStep,
+    UppercaseStep,
 )
 
 _COMPARISON = {
@@ -125,8 +135,110 @@ def _apply(_state: _State, step: TransformStep, dialect: str) -> _State | None:
             for name in _state.columns
         ]
         return _wrap(_state, cast_pairs)
-    del dialect
+    return _value(_state, step, dialect)
+
+
+def _value(state: _State, step: TransformStep, dialect: str) -> _State | None:
+    if isinstance(step, ReplaceValuesStep):
+        _require(state, step.column)
+        replaced = exp.Case(
+            ifs=[
+                exp.If(
+                    this=exp.EQ(this=_col(step.column), expression=_literal(step.find)),
+                    true=_literal(step.replace_with),
+                )
+            ],
+            default=_col(step.column),
+        )
+        return _wrap(state, _override(state.columns, step.column, replaced))
+    if isinstance(step, FillValueStep):
+        _require(state, step.column)
+        filled = exp.Coalesce(
+            this=_col(step.column), expressions=[_literal(step.value)]
+        )
+        return _wrap(state, _override(state.columns, step.column, filled))
+    if isinstance(step, MergeColumnsStep):
+        for name in step.columns:
+            _require(state, name)
+        if step.new_column_name in state.columns:
+            raise TransformError(
+                "DUPLICATE_COLUMN", f"column {step.new_column_name!r} already exists"
+            )
+        merged = exp.Anonymous(
+            this="concat_ws",
+            expressions=[
+                _literal(step.separator),
+                *[_col(name) for name in step.columns],
+            ],
+        )
+        pairs = [
+            *_keep(state.columns),
+            (cast(exp.Expression, merged), step.new_column_name),
+        ]
+        return _wrap(state, pairs)
+    if isinstance(step, TrimTextStep | UppercaseStep | LowercaseStep):
+        _require(state, step.column)
+        function = {
+            TrimTextStep: exp.Trim,
+            UppercaseStep: exp.Upper,
+            LowercaseStep: exp.Lower,
+        }[type(step)]
+        return _wrap(
+            state,
+            _override(
+                state.columns,
+                step.column,
+                cast(exp.Expression, function(this=_col(step.column))),
+            ),
+        )
+    if isinstance(step, ExtractDateStep):
+        _require(state, step.column)
+        name = step.name or f"{step.column}_{step.part}"
+        if name in state.columns:
+            raise TransformError("DUPLICATE_COLUMN", f"column {name!r} already exists")
+        extracted = exp.Extract(
+            this=exp.Var(this=step.part.upper()), expression=_col(step.column)
+        )
+        pairs = [*_keep(state.columns), (cast(exp.Expression, extracted), name)]
+        return _wrap(state, pairs)
+    if isinstance(step, AddColumnStep):
+        if step.name in state.columns:
+            raise TransformError(
+                "DUPLICATE_COLUMN", f"column {step.name!r} already exists"
+            )
+        pairs = [*_keep(state.columns), (parse_expression(step.expression), step.name)]
+        return _wrap(state, pairs)
+    if isinstance(step, SplitColumnStep):
+        if dialect != "duckdb":
+            return None
+        _require(state, step.column)
+        for name in step.new_column_names:
+            if name in state.columns:
+                raise TransformError(
+                    "DUPLICATE_COLUMN", f"column {name!r} already exists"
+                )
+        parts = list(_keep(state.columns))
+        for index, name in enumerate(step.new_column_names, start=1):
+            piece = exp.Anonymous(
+                this="split_part",
+                expressions=[
+                    _col(step.column),
+                    exp.Literal.string(step.delimiter),
+                    exp.Literal.number(index),
+                ],
+            )
+            parts.append((cast(exp.Expression, piece), name))
+        return _wrap(state, parts)
     return None
+
+
+def _override(
+    columns: list[str], column: str, expr: exp.Expression
+) -> list[tuple[exp.Expression, str]]:
+    return [
+        (expr, name) if name == column else (cast(exp.Expression, _col(name)), name)
+        for name in columns
+    ]
 
 
 def _keep(columns: list[str]) -> list[tuple[exp.Expression, str]]:
@@ -206,3 +318,20 @@ def _col(name: str) -> exp.Column:
 
 def _as(expr: exp.Expression, name: str) -> exp.Expression:
     return cast(exp.Expression, expr.as_(name, quoted=True))
+
+
+def parse_expression(source: str) -> exp.Expression:
+    """Parse one DuckDB expression. A statement is rejected."""
+    try:
+        parsed = sqlglot.parse(source, read="duckdb")
+    except sqlglot.errors.ParseError as exc:
+        raise TransformError(
+            "BAD_EXPRESSION", "addColumn expression is not valid SQL"
+        ) from exc
+    if (
+        len(parsed) != 1
+        or parsed[0] is None
+        or isinstance(parsed[0], exp.Query | exp.Command)
+    ):
+        raise TransformError("BAD_EXPRESSION", "addColumn expression must be one value")
+    return cast(exp.Expression, parsed[0])

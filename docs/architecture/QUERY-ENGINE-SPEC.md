@@ -8,7 +8,7 @@ CALCULATE, time intelligence) is implemented here.
 | | |
 |---|---|
 | Written | 29 October 2026 |
-| Status | Draft — not implemented |
+| Status | Implemented for one Import-mode query (MAGBI-005). The wire contract is `web/src/types/query.ts`, not the JSON shape in section 2. DuckDB only. Roles come from the request, not an embed token. DirectQuery, subtotals, and the batch endpoint are later. |
 | Depends on | [DAX-LITE-SPEC.md](DAX-LITE-SPEC.md), [POWERBI-V2-ARCHITECTURE.md](POWERBI-V2-ARCHITECTURE.md) §10 |
 | Reference engines | Power BI (formula engine + storage engine), Cube.js (semantic → SQL), Apache Superset (dataset → SQLAlchemy), DuckDB (optimizer) |
 

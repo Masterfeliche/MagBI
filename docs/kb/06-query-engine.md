@@ -1,6 +1,12 @@
 # 06 — Query Engine
 
-> **Status: Planned**
+> **Status: Implemented for Import mode (MAGBI-005).**
+>
+> `POST /api/v1/workspaces/{workspace_id}/datasets/{dataset_id}/query` takes the semantic query in `web/src/types/query.ts` and returns a DataShapeResult (`columns`, `rows`, `rowCount`, plus `totals` and `truncated`). Execution is DuckDB on `live.duckdb` only.
+>
+> **Supported now:** group columns, stored measures, and `SUM` / `COUNT` / `COUNTA` / `COUNTROWS` / `AVERAGE` / `MIN` / `MAX` / `DISTINCTCOUNT` on a column. Filters are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `contains`, `startsWith`, `isBlank`, and `isNotBlank`. Two fact tables are grouped separately and combined with `FULL OUTER JOIN`. `includeTotals` re-runs the measures without grouping. Results are cached in Redis by dataset id and `current_version`. Roles named on the request add a `WHERE` that `ALL` cannot remove.
+>
+> **Later:** DirectQuery and T-SQL, matrix subtotals, the batch endpoint, embed-token RLS, display formatting, and calculated columns. The test environment does not contact Redis.
 
 ---
 

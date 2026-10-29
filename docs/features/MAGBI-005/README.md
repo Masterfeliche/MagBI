@@ -63,7 +63,7 @@ Deliverable: a semantic query JSON returns a DataShapeResult from the dataset's 
 | SUB-4.1 | Cache | A second identical query is served from the cache; a new `current_version` misses; Redis being down still returns the query | 3h | [x] |
 | SUB-4.2 | RLS | Named roles add a `WHERE` that `ALL` does not remove; an unknown role and a non-comparison filter are errors | 4h | [x] |
 | SUB-5.1 | API | `POST` the workspace dataset query route returns the DSR; a missing dataset is 404; no `live.duckdb` is 409; a bad query is 422 and does not run SQL | 3h | [x] |
-| SUB-5.2 | Docs | KB 06 and the query-engine spec status note the TypeScript contract, DuckDB-only execution, request-supplied roles, and what stays later | 1.5h | [ ] |
+| SUB-5.2 | Docs | KB 06 and the query-engine spec status note the TypeScript contract, DuckDB-only execution, request-supplied roles, and what stays later | 1.5h | [x] |
 | SUB-5.3 | Finalization | ruff, mypy strict, coverage over 80% for `engine` and the query route; full regression; PR description | 1.5h | [ ] |
 
 Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 5.3. Each subtask is code, tests, and one single-sentence commit. About 35 hours.
@@ -80,7 +80,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 5.3. Each subtask is co
 - [x] SUB-4.1: see git log. A repeated query is served from the cache. A new dataset version misses. A cache that raises still returns the query.
 - [x] SUB-4.2: see git log. Named roles add a WHERE on every subquery. ALL does not remove it. An unknown role or a non-comparison filter is an error.
 - [x] SUB-5.1: see git log. POST the workspace dataset query route returns the result. A missing dataset is 404. No imported file is 409. A bad field is 422.
-- [ ] SUB-5.2: (Commit hash)
+- [x] SUB-5.2: see git log. KB 06 and the query-engine spec name the TypeScript contract, DuckDB-only execution, request-supplied roles, and what stays later.
 - [ ] SUB-5.3: (Commit hash)
 
 ---

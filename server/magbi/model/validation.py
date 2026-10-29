@@ -1,8 +1,8 @@
 """Model validation. Errors block a save; warnings do not.
 
-Rules that need the DAX parser are not run. ``checks_deferred`` names them so a
-caller can see what was skipped. Structural problems that the schema already
-rejects are reported with a stable code when a raw document is checked.
+Measure and calculated-column expressions are compiled here. Row-level security
+filters are still deferred. Structural problems that the schema already rejects
+are reported with a stable code when a raw document is checked.
 """
 
 from __future__ import annotations
@@ -14,10 +14,28 @@ from typing import Any, Literal
 import duckdb
 from pydantic import ValidationError
 
+from magbi.dax.binder import bind_calculated_column
+from magbi.dax.compiler import compile_measure
+from magbi.dax.errors import DaxError
 from magbi.model.relationships import find_cycle, join_path
 from magbi.model.schema import DatasetDefinition, ModelSchemaError
 
-DEFERRED = ("measure_expressions", "rls_expressions")
+DEFERRED = ("rls_expressions",)
+
+_DAX_CODES: tuple[tuple[str, str], ...] = (
+    ("circular reference", "CIRCULAR_REFERENCE"),
+    ("must aggregate", "MEASURE_SHAPE"),
+    ("cannot contain aggregations", "CALC_COLUMN_SHAPE"),
+    ("not supported", "UNSUPPORTED_FUNCTION"),
+    ("unknown function", "UNSUPPORTED_FUNCTION"),
+    ("requires a numeric", "TYPE_MISMATCH"),
+    ("requires a number", "TYPE_MISMATCH"),
+    ("expects a table", "TYPE_MISMATCH"),
+    ("does not exist", "MISSING_REFERENCE"),
+    ("ambiguous", "MISSING_REFERENCE"),
+    ("date table", "DATE_TABLE"),
+    ("date filter", "DATE_TABLE"),
+)
 
 _SCHEMA_CODES: tuple[tuple[str, str], ...] = (
     ("defined more than once", "DUPLICATE_MEASURE"),
@@ -121,7 +139,42 @@ def validate_model(
         _ambiguous(model, report)
     _warnings(model, report)
     _date_tables(model, live, report)
+    _expressions(model, report)
     return report
+
+
+def _dax_code(message: str) -> str:
+    lowered = message.lower()
+    for needle, code in _DAX_CODES:
+        if needle in lowered:
+            return code
+    return "DAX_ERROR"
+
+
+def _expressions(model: DatasetDefinition, report: ValidationReport) -> None:
+    for table in model.tables:
+        for measure in table.measures:
+            try:
+                compile_measure(model, measure.expression)
+            except DaxError as exc:
+                report.errors.append(
+                    Issue(
+                        _dax_code(exc.message),
+                        f"{measure.name}: {exc.message} (line {exc.line}, column {exc.col})",
+                        "error",
+                    )
+                )
+        for column in table.calculated_columns:
+            try:
+                bind_calculated_column(model, column.expression)
+            except DaxError as exc:
+                report.errors.append(
+                    Issue(
+                        _dax_code(exc.message),
+                        f"{column.name}: {exc.message} (line {exc.line}, column {exc.col})",
+                        "error",
+                    )
+                )
 
 
 def _ambiguous(model: DatasetDefinition, report: ValidationReport) -> None:

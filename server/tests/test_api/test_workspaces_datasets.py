@@ -200,7 +200,7 @@ def test_definition_get_and_put(api: ApiEnv) -> None:
     assert body["definition"]["tables"][0]["name"] == "Orders"
     assert body["validation"]["ok"] is True
     assert any(w["code"] == "ISOLATED_TABLE" for w in body["validation"]["warnings"])
-    assert "measure_expressions" in body["validation"]["checks_deferred"]
+    assert body["validation"]["checks_deferred"] == ["rls_expressions"]
     again = c.get(url).json()
     assert (
         again["model_version"] == 2
@@ -230,3 +230,27 @@ def test_definition_rejects_a_stale_version_and_structural_errors(api: ApiEnv) -
         for e in bad.json()["error"]["validation"]["errors"]
     )
     assert c.get(url).json()["definition"] is None
+
+
+def test_definition_rejects_an_invalid_measure(api: ApiEnv) -> None:
+    c = api.client
+    wid = api.workspace()
+    created = c.post(f"{V1}/workspaces/{wid}/datasets", json={"name": "d"}).json()
+    url = f"{V1}/workspaces/{wid}/datasets/{created['id']}/definition"
+    bad = {
+        "tables": [
+            {
+                "name": "Sales",
+                "columns": [{"name": "Status", "data_type": "string"}],
+                "measures": [{"name": "Total", "expression": "SUM(Sales[Status])"}],
+            }
+        ]
+    }
+    put = c.put(url, json={"model_version": 1, "definition": bad})
+    assert put.status_code == 422
+    body = put.json()
+    assert body["error"]["code"] == "VALIDATION_FAILED"
+    assert any(
+        e["code"] == "TYPE_MISMATCH" for e in body["error"]["validation"]["errors"]
+    )
+    assert c.get(url).json()["model_version"] == 1

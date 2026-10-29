@@ -2,8 +2,14 @@ import datetime as dt
 
 import duckdb
 
+from magbi.connectors.types import DataType
 from magbi.model.date_table import generate_date_table
-from magbi.model.schema import DatasetDefinition, MeasureDef, RelationshipDef
+from magbi.model.schema import (
+    CalculatedColumnDef,
+    DatasetDefinition,
+    MeasureDef,
+    RelationshipDef,
+)
 from magbi.model.validation import validate_document, validate_model
 from tests.test_model.test_paths import chain, rel
 from tests.test_model.test_schema import col, definition, key, table
@@ -12,7 +18,7 @@ from tests.test_model.test_schema import col, definition, key, table
 def test_a_clean_chain_has_no_errors() -> None:
     report = validate_model(chain())
     assert report.ok and report.errors == []
-    assert report.checks_deferred == ("measure_expressions", "rls_expressions")
+    assert report.checks_deferred == ("rls_expressions",)
     assert report.to_dict()["ok"] is True
 
 
@@ -160,6 +166,48 @@ def test_date_table_gaps_duplicates_and_missing_data() -> None:
         "INSERT INTO \"Date\" VALUES (DATE '2024-01-01'), (DATE '2024-01-02'), (DATE '2024-01-03')"
     )
     assert validate_model(model, whole).errors == []
+
+
+def test_a_measure_that_does_not_compile_is_an_error() -> None:
+    model = definition(
+        table(
+            "Sales",
+            col("Status", DataType.STRING),
+            measures=[MeasureDef(name="Total", expression="SUM(Sales[Status])")],
+        )
+    )
+    report = validate_model(model)
+    assert report.errors[0].code == "TYPE_MISMATCH"
+    assert "line 1, column" in report.errors[0].message
+
+
+def test_a_valid_measure_compiles() -> None:
+    model = definition(
+        table(
+            "Sales",
+            col("Amount", DataType.INTEGER),
+            measures=[MeasureDef(name="Total", expression="SUM(Sales[Amount])")],
+        )
+    )
+    assert validate_model(model).errors == []
+
+
+def test_a_calculated_column_cannot_aggregate() -> None:
+    model = definition(
+        table(
+            "Sales",
+            col("Amount", DataType.INTEGER),
+            calculated_columns=[
+                CalculatedColumnDef(
+                    name="Twice",
+                    expression="SUM(Sales[Amount])",
+                    data_type=DataType.INTEGER,
+                )
+            ],
+        )
+    )
+    report = validate_model(model)
+    assert report.errors[0].code == "CALC_COLUMN_SHAPE"
 
 
 def test_validate_document_accepts_a_round_trip() -> None:

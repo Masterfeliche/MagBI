@@ -76,7 +76,7 @@ Deliverable: point MagBI at a SQL Server, browse tables, import a table, find th
 | SUB-4.1 | Image and compose | Dockerfile installs ODBC Driver 18; `docker compose build api` ok; api container connects to the SQL Server container | 3h | [x] |
 | SUB-4.2 | End-to-end verification | Seeded SQL Server to API to import to `live.duckdb`, queried with plain DuckDB; counts and sampled values match; integration test plus runbook in `docs/guides/` | 3h | [x] |
 | SUB-4.3 | Docs | KB 02 and 10 updated; spec corrections (`live.duckdb`, `/api/v1` paths, no-Parquet note) | 1.5h | [x] |
-| SUB-4.4 | Finalization | ruff, mypy strict, coverage over 80% for `connectors`, `refresh`, `api`; PR description | 1.5h | [ ] |
+| SUB-4.4 | Finalization | ruff, mypy strict, coverage over 80% for `connectors`, `refresh`, `api`; PR description | 1.5h | [x] |
 
 Order: 1.1 -> 1.2 -> 1.3 -> 1.4 -> 2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 3.1 -> 3.2 -> 3.3 -> 4.1 -> 4.2 -> 4.3 -> 4.4. Each subtask is Code + Test + one single-sentence commit. About 53 hours.
 
@@ -98,17 +98,64 @@ Order: 1.1 -> 1.2 -> 1.3 -> 1.4 -> 2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 3.1 -> 3.2
 - [x] SUB-4.1: see git log (build(docker): install Microsoft ODBC Driver 18 in the api image). Verified: image builds on python:3.11-slim-bookworm with msodbcsql18 (drivers: ODBC Driver 18 for SQL Server); api container as non-root user connects to the SQL Server container by name and reads all 200000 rows; container startup applied migration 0002 on Postgres.
 - [x] SUB-4.2: see git log (test(e2e): verify API to SQL Server to live DuckDB and add runbook). Verified against the running compose stack: script drove API container to SQL Server container, 257147 rows from 4 tables in 2.3s; live.duckdb read with plain DuckDB inside the container matched the source (200000 rows, sum 599997, extreme and unicode values); Postgres holds only v1: ciphertext. Added integration tests (e2e API, wrong credentials), scripts/e2e_import.py, runbook docs/guides/sql-server-import.md.
 - [x] SUB-4.3: see git log (docs(kb): align connectors, storage and API docs with implementation). KB 02/09/10, IMPORT-PIPELINE-SPEC and DATASET-MODEL-SPEC corrected (live.duckdb, staging.duckdb, /api/v1, no-Parquet, sync connectors), SRS FR-081 path and plan row 2.2 updated, compose passes MAGBI_CONNECTOR_ALLOWED_HOSTS and MAGBI_INSECURE_ADMIN_API.
-- [ ] SUB-4.4: (Commit hash)
+- [x] SUB-4.4: see git log (docs(features): finalize MAGBI-002 with DoD and PR description). Regression on Windows/3.14 and Linux/3.11: 333 passed; ruff and mypy strict clean; coverage 98 percent. DoD, deviations, open items and PR description written.
+
+---
 
 ---
 
 ## 4. Definition of Done (DoD)
-- [ ] Code is written and passes all local tests/lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] `ruff check` and `mypy --strict` pass
-- [ ] Coverage > 80% for `connectors`, `refresh`, `api`
-- [ ] Integration tests pass against the SQL Server container
-- [ ] Docker image builds with ODBC Driver 18 and imports a table end to end
-- [ ] KB chapters 02 and 10 and the import spec updated to match the implementation
+- [x] Code is written and passes all local tests/lints (333 tests on Windows/Python 3.14 and on Linux/Python 3.11, ruff, ruff format)
+- [x] Single-sentence commit rule followed for all commits (enforced by the commit-msg hook, which rejected one 73-character message)
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist (section 5)
+- [x] `ruff check` and `mypy --strict` pass (`mypy magbi`: 67 source files, no issues)
+- [x] Coverage > 80% for `connectors`, `refresh`, `api` (unit run: 98% overall; sqlserver 99%, importer 97%, orchestrator 96%, swap 95%, api routers 96-100%)
+- [x] Integration tests pass against the SQL Server container (17 tests, also on Linux/3.11 over the compose network)
+- [x] Docker image builds with ODBC Driver 18 and imports a table end to end (257,147 rows from 4 tables in 2.3 s through the running api container)
+- [x] KB chapters 02 and 10 and the import spec updated to match the implementation
+
+### Deviations from the plan
+1. SUB-1.1 and SUB-1.2 were committed together (2b93546).
+2. No Parquet intermediate (decision 5): Arrow batches go straight into DuckDB.
+3. Row-count mismatch between the pre-import count and rows imported is a warning, not a failure, because the source is a live system. A mismatch between rows read and rows written fails the import.
+4. `datasets.import_spec` carries `connection_id` as a string inside JSON (transitional, replaced in Sprint 3).
+5. Cancel endpoint (`DELETE .../refresh/{id}`) and connection DELETE are not implemented.
+6. Refresh progress is logged, not persisted.
+
+### Findings and open items
+- **DuckDB caches open databases per path inside a process.** After a swap, a new connection to `live.duckdb` keeps seeing the old data until every older connection is closed. The Sprint 4 query engine must close its live connections when `current_version` changes (documented in KB 10 and a test).
+- **Windows does not block renaming an open DuckDB file** (the Sprint 1 worry). The swap retry stays for other lockers (antivirus, backup).
+- `datetimeoffset(7)` loses the 7th fractional digit (SQL Server rounds); reported as a warning.
+- The admin API is unauthenticated until Sprint 7; it is gated off outside dev (`MAGBI_INSECURE_ADMIN_API`) and can be restricted with `MAGBI_CONNECTOR_ALLOWED_HOSTS`.
+- Windows integrated authentication cannot work in the Linux container.
+- Not verified: the new `server-integration` GitHub Actions job has not run on GitHub (the same steps pass locally in a Python 3.11 Linux container). The real MSD_ERP server was not touched.
+- Known test noise: occasionally one run emits a `PytestUnhandledThreadExceptionWarning` from an aiosqlite worker thread whose event loop already closed. It is a warning (all tests pass), was not reproducible with a forced GC after each test, and the culprit test is not identified.
+- Line endings: git warns about LF to CRLF on Windows; a `.gitattributes` is still advisable.
+- `deploy/.env` (git-ignored) was created locally with a generated credential key for the verification run.
+
+---
+
+## 5. PR Description
+
+**feat: SQL Server connector, import pipeline, atomic swap and refresh API (MAGBI-002)**
+
+Point MagBI at a SQL Server, browse its tables, import them into a dataset's `live.duckdb` and query the result with plain DuckDB SQL.
+
+### What changed
+- **Connectors** (`magbi/connectors`): synchronous `Connector` contract, `ConnectorError` codes, SQL Server connector (brace-escaped ODBC string, read-only intent, sqlglot-generated quoted `SELECT`s, streaming reads, error mapping with secret scrubbing) and a source-to-Arrow/DuckDB type mapping (unsupported types degrade to text with a warning).
+- **Import** (`magbi/refresh`): streaming Arrow batches into the staging DuckDB file with row-count checks and warnings; `swap_with_retry` and `publish_version`; `run_refresh` lifecycle (`queued`, `running`, `succeeded`, `failed`) with sanitised errors, one active refresh per dataset (partial unique index) and a startup sweep of stale refreshes.
+- **Metadata**: migration `0002` (`connections`, `dataset_refreshes`, `datasets.import_spec`), verified on SQLite and PostgreSQL 16.
+- **Credentials** (`magbi/connections.py`): AES-GCM bound to the connection id, `"password": "***"` in every response, optional host allow-list.
+- **API** under `/api/v1`: workspaces, datasets, connections (test, CRUD, schemas, tables, preview) and refresh (202, status, history); unified JSON errors; non-dev gate for the unauthenticated admin API.
+- **Image and compose**: Microsoft ODBC Driver 18 in the api image; `mssql-test` service behind the `test` profile; new settings passed through.
+- **Tests and CI**: 333 tests (17 need the SQL Server container and skip without it), new `server-integration` CI job.
+- **Docs**: runbook `docs/guides/sql-server-import.md`, KB 02/09/10 and the import, dataset-model, SRS and plan documents aligned with the implementation. `scripts/e2e_import.py` drives the API end to end.
+
+### How it was verified
+- `ruff`, `mypy` strict, 333 tests on Windows/3.14 and Linux/3.11, 98% coverage (unit run).
+- Live: seeded SQL Server 2022 container, 200,000-row table, every mapped type, NULLs, unicode and extreme values round-trip.
+- Compose stack: script to api container to SQL Server container; `live.duckdb` read with plain DuckDB matches the source (count and sum); PostgreSQL holds only `v1:` ciphertext.
+
+### Risks and follow-ups
+See "Findings and open items" above. Most important: the Sprint 4 query engine must close live DuckDB connections when a dataset's version changes, and the API needs real authentication (Sprint 7) before it is exposed.

@@ -89,7 +89,7 @@ Order: 1.1, 2.1, 2.2, 2.3, 3.1, 4.1, 4.2, 4.3. Each subtask is code, tests, and 
 5. SUB-3.1 is in the same commit as SUB-2.3.
 
 ### Findings and open items
-- A step after the fold boundary that is not `fillDown`, `pivot`, or `unpivot` is an error. The preview does not re-fold those later steps yet.
+- Steps after `fillDown`, `pivot`, or `unpivot` are folded again. The rows are staged as text first, so a later numeric comparison sees text.
 - `addColumn` is one SQL expression, not DAX.
 - The admin API stays unauthenticated until Sprint 7 (`MAGBI_INSECURE_ADMIN_API`).
 - This regression was not repeated inside the Python 3.11 Linux image. CI runs that job.
@@ -115,4 +115,4 @@ Compile a list of transform steps to DuckDB SQL where possible, and preview the 
 - Coverage of `magbi.transforms` and `magbi.api.transforms` is 89%.
 
 ### Risks and follow-ups
-Refresh does not apply the recipe, so a preview can disagree with the imported table until a later sprint stores the steps and folds them during import. A foldable step placed after `fillDown` is rejected rather than folded against the Python result. DirectQuery is not executed.
+Refresh does not apply the recipe, so a preview can disagree with the imported table until a later sprint stores the steps and folds them during import. Rows staged after a Python step are text. DirectQuery is not executed.

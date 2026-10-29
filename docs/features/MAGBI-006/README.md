@@ -46,7 +46,7 @@ Deliverable: a step list compiles to SQL where it can, and a preview returns 200
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
 | SUB-1.1 | Step models | All 22 type strings parse into a discriminated union; a missing field and an unknown type fail; `uppercase` and `lowercase` are distinct | 3h | [x] |
-| SUB-2.1 | Fold projection and filters | `filterRows`, `removeRows`, `selectColumns`, `removeColumns`, `renameColumn`, and `changeType` compile to DuckDB SQL and return the expected rows | 4h | [ ] |
+| SUB-2.1 | Fold projection and filters | `filterRows`, `removeRows`, `selectColumns`, `removeColumns`, `renameColumn`, and `changeType` compile to DuckDB SQL and return the expected rows | 4h | [x] |
 | SUB-2.2 | Fold value steps | `replaceValues`, `fillValue`, `mergeColumns`, `trimText`, `uppercase`, `lowercase`, `extractDate`, `addColumn`, and `splitColumn` fold; a bad `addColumn` expression is rejected | 4h | [ ] |
 | SUB-2.3 | Fold shape steps and the boundary | `sortRows`, `distinctRows`, `topN`, and `groupBy` fold; `fillDown`, `pivot`, and `unpivot` stop the fold and leave themselves and every later step unfolder | 3h | [ ] |
 | SUB-3.1 | Python steps | `fillDown`, `unpivot`, and `pivot` run on the rows of the folded SQL; a sort before `fillDown` is the order that fills; a mixed list reports the boundary | 4h | [ ] |
@@ -60,7 +60,7 @@ Order: 1.1, 2.1, 2.2, 2.3, 3.1, 4.1, 4.2, 4.3. Each subtask is code, tests, and 
 
 ## 3. Execution Log
 - [x] SUB-1.1: see git log. All 22 step types parse. An unknown type or a missing field is rejected. Uppercase and lowercase are distinct.
-- [ ] SUB-2.1: (Commit hash)
+- [x] SUB-2.1: see git log. Filters, projection, rename, and casts compile to DuckDB SQL and return the expected rows. A missing column is an error.
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-2.3: (Commit hash)
 - [ ] SUB-3.1: (Commit hash)

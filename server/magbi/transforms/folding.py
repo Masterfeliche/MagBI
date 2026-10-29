@@ -16,19 +16,26 @@ from magbi.transforms.errors import TransformError
 from magbi.transforms.steps import (
     AddColumnStep,
     ChangeTypeStep,
+    DistinctRowsStep,
     ExtractDateStep,
+    FillDownStep,
     FillValueStep,
     FilterRowsStep,
+    GroupByStep,
     LowercaseStep,
     MergeColumnsStep,
+    PivotStep,
     RemoveColumnsStep,
     RemoveRowsStep,
     RenameColumnStep,
     ReplaceValuesStep,
     SelectColumnsStep,
+    SortRowsStep,
     SplitColumnStep,
+    TopNStep,
     TransformStep,
     TrimTextStep,
+    UnpivotStep,
     UppercaseStep,
 )
 
@@ -56,6 +63,7 @@ class FoldResult:
     columns: tuple[str, ...]
     folded_count: int
     remaining: tuple[TransformStep, ...]
+    limited: bool = False
 
 
 @dataclass
@@ -85,11 +93,21 @@ def fold(
         nxt = _apply(state, step, dialect)
         if nxt is None:
             return FoldResult(
-                _sql(state, dialect), tuple(state.columns), folded, steps[index:]
+                _sql(state, dialect),
+                tuple(state.columns),
+                folded,
+                steps[index:],
+                state.limit is not None,
             )
         state = nxt
         folded += 1
-    return FoldResult(_sql(state, dialect), tuple(state.columns), folded, ())
+    return FoldResult(
+        _sql(state, dialect),
+        tuple(state.columns),
+        folded,
+        (),
+        state.limit is not None,
+    )
 
 
 def _apply(_state: _State, step: TransformStep, dialect: str) -> _State | None:
@@ -135,7 +153,83 @@ def _apply(_state: _State, step: TransformStep, dialect: str) -> _State | None:
             for name in _state.columns
         ]
         return _wrap(_state, cast_pairs)
+    if isinstance(step, FillDownStep | PivotStep | UnpivotStep):
+        return None
+    shaped = _shape(_state, step)
+    if shaped is not None:
+        return shaped
     return _value(_state, step, dialect)
+
+
+def _shape(state: _State, step: TransformStep) -> _State | None:
+    if isinstance(step, SortRowsStep):
+        for key in step.columns:
+            _require(state, key.column)
+        return _State(
+            state.query,
+            list(state.columns),
+            [(key.column, key.direction) for key in step.columns],
+            state.limit,
+            state.distinct,
+        )
+    if isinstance(step, DistinctRowsStep):
+        if step.columns:
+            for name in step.columns:
+                _require(state, name)
+            projected = _wrap(state, _keep(list(step.columns)))
+            projected.distinct = True
+            return projected
+        return _State(
+            state.query, list(state.columns), list(state.order), state.limit, True
+        )
+    if isinstance(step, TopNStep):
+        _require(state, step.order_by)
+        return _State(
+            state.query,
+            list(state.columns),
+            [(step.order_by, step.direction)],
+            step.count,
+            state.distinct,
+        )
+    if isinstance(step, GroupByStep):
+        for name in step.group_columns:
+            _require(state, name)
+        pairs: list[tuple[exp.Expression, str]] = [
+            (cast(exp.Expression, _col(name)), name) for name in step.group_columns
+        ]
+        names = list(step.group_columns)
+        for item in step.aggregations:
+            if item.function != "count":
+                _require(state, item.column)
+            if item.alias in names:
+                raise TransformError(
+                    "DUPLICATE_COLUMN", f"column {item.alias!r} already exists"
+                )
+            pairs.append((_aggregate(item.column, item.function), item.alias))
+            names.append(item.alias)
+        query = exp.select(*[_as(expr, name) for expr, name in pairs]).from_(
+            _seal(state).subquery(alias="s")
+        )
+        if step.group_columns:
+            query = query.group_by(
+                *[cast(exp.Expression, _col(name)) for name in step.group_columns]
+            )
+        return _State(query, names)
+    return None
+
+
+def _aggregate(column: str, function: str) -> exp.Expression:
+    ref = _col(column)
+    if function == "countDistinct":
+        return exp.Count(this=exp.Distinct(expressions=[ref]))
+    functions = {
+        "sum": exp.Sum,
+        "avg": exp.Avg,
+        "min": exp.Min,
+        "max": exp.Max,
+        "count": exp.Count,
+    }
+    return cast(exp.Expression, functions[function](this=ref))
 
 
 def _value(state: _State, step: TransformStep, dialect: str) -> _State | None:

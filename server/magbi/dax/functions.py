@@ -7,7 +7,7 @@ Handlers that emit SQL arrive with the compiler.
 
 from __future__ import annotations
 
-SUPPORTED = frozenset(
+AGGREGATES = frozenset(
     {
         "sum",
         "count",
@@ -17,6 +17,11 @@ SUPPORTED = frozenset(
         "min",
         "max",
         "distinctcount",
+    }
+)
+
+SUPPORTED = AGGREGATES | frozenset(
+    {
         "divide",
         "if",
         "calculate",

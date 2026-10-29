@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from magbi.connectors.types import DataType
 from magbi.dax.errors import DaxError
+from magbi.dax.functions import AGGREGATES
 from magbi.dax.parser import (
     Binary,
     Call,
@@ -26,18 +27,6 @@ from magbi.model.schema import DatasetDefinition, MeasureDef, TableDef
 
 MAX_DEPTH = 32
 
-_AGGREGATES = frozenset(
-    {
-        "sum",
-        "count",
-        "counta",
-        "countrows",
-        "average",
-        "min",
-        "max",
-        "distinctcount",
-    }
-)
 _NUMERIC = frozenset({DataType.INTEGER, DataType.DECIMAL})
 _ORDERABLE = _NUMERIC | frozenset({DataType.STRING, DataType.DATE, DataType.DATETIME})
 
@@ -67,7 +56,7 @@ def bind_calculated_column(model: DatasetDefinition, source: str) -> Expr:
 
 
 def _aggregates(expr: Expr) -> bool:
-    if isinstance(expr, Call) and expr.name.casefold() in _AGGREGATES:
+    if isinstance(expr, Call) and expr.name.casefold() in AGGREGATES:
         return True
     children: tuple[Expr, ...] = ()
     if isinstance(expr, Call):
@@ -110,7 +99,7 @@ def _check_call(model: DatasetDefinition, expr: Call) -> None:
         if len(expr.args) != 1 or not isinstance(expr.args[0], TableRef):
             raise DaxError("COUNTROWS expects a table", expr.line, expr.col)
         return
-    if name not in _AGGREGATES:
+    if name not in AGGREGATES:
         return
     if len(expr.args) != 1 or not isinstance(expr.args[0], ColumnRef):
         raise DaxError(f"{expr.name} expects one column", expr.line, expr.col)

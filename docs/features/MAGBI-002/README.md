@@ -66,7 +66,7 @@ Deliverable: point MagBI at a SQL Server, browse tables, import a table, find th
 | SUB-1.3 | SQL Server connector | Brace-escaped ODBC string; `test_connection` returns version, schemas, latency; list schemas/tables with columns, PK, estimated rows; streaming `execute_query`; pyodbc errors mapped to codes; sqlglot tsql SELECT builder; unit tests with mocked pyodbc | 6h | [x] |
 | SUB-1.4 | Test harness and CI | `docker compose --profile test up` starts SQL Server with seed; `pytest -m integration` runs the connector against it and skips cleanly without it; CI job added | 4h | [x] |
 | SUB-2.1 | Migration 0002 and models | `connections`, `dataset_refreshes`, `datasets.import_spec`; upgrade, downgrade, drift check pass on SQLite and Postgres | 3h | [x] |
-| SUB-2.2 | Connection service | Create/update encrypts password with AAD = connection id; secrets never in responses, logs or errors; missing key rejected; host allow-list enforced | 3h | [ ] |
+| SUB-2.2 | Connection service | Create/update encrypts password with AAD = connection id; secrets never in responses, logs or errors; missing key rejected; host allow-list enforced | 3h | [x] |
 | SUB-2.3 | Importer | Stream batches to staging DuckDB via Arrow; types per mapping; row count verified against source; warnings surfaced; progress callback; unit tests with fake connector, integration test on seed data | 6h | [ ] |
 | SUB-2.4 | Atomic swap | `swap_with_retry` promotes staging, updates `current_version`; reader-held file retries then fails safely; staging cleaned on any failure; old live untouched on failure | 3h | [ ] |
 | SUB-2.5 | Refresh runner | `run_refresh` drives queued/running/succeeded/failed; sanitized errors; one active refresh per dataset; stale `running` swept at startup | 4h | [ ] |
@@ -88,7 +88,7 @@ Order: 1.1 -> 1.2 -> 1.3 -> 1.4 -> 2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 3.1 -> 3.2
 - [x] SUB-1.3: see git log (feat(connectors): add SQL Server connector)
 - [x] SUB-1.4: see git log (test(connectors): add SQL Server integration harness). Verified on SQL Server 2022: 14 live tests pass incl. geography/hierarchyid/sql_variant/xml degrade-to-string; datetimeoffset(7) rounds to 6 digits (expected, warned)
 - [x] SUB-2.1: see git log (feat(metadata): add connections and dataset refreshes tables). Verified on Postgres 16: upgrade, alembic check, downgrade/upgrade, partial unique index rejects a second active refresh.
-- [ ] SUB-2.2: (Commit hash)
+- [x] SUB-2.2: see git log (feat(connections): add encrypted connection service with host allow-list). 16 tests: AAD binding, redaction, no secret in errors, missing key, allow-list. Settings MAGBI_INSECURE_ADMIN_API and MAGBI_CONNECTOR_ALLOWED_HOSTS added (gate enforced in SUB-3.1).
 - [ ] SUB-2.3: (Commit hash)
 - [ ] SUB-2.4: (Commit hash)
 - [ ] SUB-2.5: (Commit hash)

@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     embed_token_ttl_minutes: int = 15
     max_query_timeout_seconds: int = 30
     max_concurrent_refreshes: int = 10
+    # Until auth lands (Sprint 7) the admin API is open, so outside dev it stays off
+    # unless explicitly enabled. Comma-separated host allow-list for connectors
+    # (empty = any host).
+    insecure_admin_api: bool = False
+    connector_allowed_hosts: str = ""
 
     model_config = {"env_prefix": "MAGBI_"}
 

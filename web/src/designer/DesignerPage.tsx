@@ -8,6 +8,8 @@ import { apiFetch } from "../shared/api";
 import { VISUALS, visualSpec } from "./catalog";
 import { Canvas } from "./Canvas";
 import { DataPane } from "./DataPane";
+import { FilterPane } from "./FilterPane";
+import { type CrossFilter } from "./filters";
 import { PAGE_WIDTH, blankReport } from "./layout";
 import { adaptDataset, type DesignerField, type DesignerTable } from "./model";
 import { useDesignerStore } from "./store";
@@ -23,6 +25,8 @@ export function DesignerPage() {
   const selectedId = useDesignerStore((state) => state.selectedVisualId);
   const addVisual = useDesignerStore((state) => state.addVisual);
   const setWells = useDesignerStore((state) => state.setWells);
+  const setPageFilters = useDesignerStore((state) => state.setPageFilters);
+  const setFormat = useDesignerStore((state) => state.setFormat);
   const replaceReport = useDesignerStore((state) => state.replaceReport);
   const stage = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -30,6 +34,9 @@ export function DesignerPage() {
   const [tab, setTab] = useState<"visuals" | "format">("visuals");
   const [tables, setTables] = useState<DesignerTable[]>([]);
   const [loadError, setLoadError] = useState("");
+  const [cross, setCross] = useState<CrossFilter | null>(null);
+  const [title, setTitle] = useState("");
+  const [color, setColor] = useState("#118DFF");
 
   useEffect(() => {
     if (!workspaceId || !datasetId) return;
@@ -100,19 +107,37 @@ export function DesignerPage() {
             <span className="page-tab">Page 1</span>
           </div>
           {loadError && <p className="hint">{loadError}</p>}
-          <Canvas scale={scale} workspaceId={workspaceId ?? ""} datasetId={datasetId ?? ""} />
+          <Canvas
+            scale={scale}
+            workspaceId={workspaceId ?? ""}
+            datasetId={datasetId ?? ""}
+            cross={cross}
+            onCross={setCross}
+          />
         </div>
         {pane !== "closed" && (
           <aside className="pane">
             {pane === "filters" ? (
-              <p className="pane-title">Filters</p>
+              <FilterPane
+                tables={tables}
+                filters={report.pages[0]?.filters ?? []}
+                onChange={setPageFilters}
+              />
             ) : (
               <>
                 <div className="tabs">
                   <button type="button" className={tab === "visuals" ? "on" : ""} onClick={() => setTab("visuals")}>
                     Visuals
                   </button>
-                  <button type="button" className={tab === "format" ? "on" : ""} onClick={() => setTab("format")}>
+                  <button
+                    type="button"
+                    className={tab === "format" ? "on" : ""}
+                    onClick={() => {
+                      setTab("format");
+                      setTitle(typeof selected?.properties?.title === "string" ? selected.properties.title : "");
+                      setColor(typeof selected?.properties?.color === "string" ? selected.properties.color : "#118DFF");
+                    }}
+                  >
                     Format
                   </button>
                 </div>
@@ -128,6 +153,23 @@ export function DesignerPage() {
                     </div>
                     <WellsPanel wells={spec?.wells ?? []} bindings={selected?.wells ?? {}} />
                   </DndContext>
+                ) : selected ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      setFormat(selected.id, title, color);
+                    }}
+                  >
+                    <label className="stack">
+                      Title
+                      <input value={title} onChange={(event) => setTitle(event.target.value)} />
+                    </label>
+                    <label className="stack">
+                      Color
+                      <input type="color" value={color} onChange={(event) => setColor(event.target.value)} />
+                    </label>
+                    <button type="submit">Apply</button>
+                  </form>
                 ) : (
                   <p className="hint">Select a visual to set its title and color.</p>
                 )}

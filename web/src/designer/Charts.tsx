@@ -17,12 +17,14 @@ export function VisualView({
   datasetId,
   filters,
   onCategory,
+  onSlicer,
 }: {
   visual: VisualDefinition;
   workspaceId: string;
   datasetId: string;
   filters: FilterDefinition[];
   onCategory?: (category: string) => void;
+  onSlicer?: (value: string) => void;
 }) {
   const spec = visualSpec(visual.type);
   const [dsr, setDsr] = useState<DSR | null>(null);
@@ -56,10 +58,36 @@ export function VisualView({
   }, [spec.renders, queryKey, workspaceId, datasetId, query]);
 
   if (spec.renders === "slicer") {
-    return <div className="note">Drop a field, then type a value to filter the page.</div>;
+    return <SlicerField visual={visual} onSlicer={onSlicer} />;
   }
   if (error) return <div className="note">{error}</div>;
   return <Drawn model={renderModel(visual.type, dsr)} title={title} color={color} onCategory={onCategory} />;
+}
+
+function SlicerField({
+  visual,
+  onSlicer,
+}: {
+  visual: VisualDefinition;
+  onSlicer?: (value: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  const binding = visual.wells.field?.[0];
+  return (
+    <form
+      className="note"
+      onPointerDown={(event) => event.stopPropagation()}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (value.trim()) onSlicer?.(value.trim());
+        setValue("");
+      }}
+    >
+      <div>{binding?.column ? `${binding.table}.${binding.column}` : "Drop a field"}</div>
+      <input value={value} onChange={(event) => setValue(event.target.value)} />
+      <button type="submit">Apply</button>
+    </form>
+  );
 }
 
 function Drawn({

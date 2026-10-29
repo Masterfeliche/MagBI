@@ -92,6 +92,17 @@
   border-color: #118dff;
 }
 
+.visual-handle {
+  height: 18px;
+  cursor: move;
+  background: #f3f2f1;
+}
+
+.visual-body {
+  height: calc(100% - 18px);
+  overflow: hidden;
+}
+
 .visual-label {
   position: absolute;
   top: 4px;

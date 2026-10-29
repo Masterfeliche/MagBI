@@ -8,6 +8,8 @@ from alembic.config import Config
 SERVER_DIR = Path(__file__).resolve().parents[2]
 TABLES = {
     "audit_log",
+    "connections",
+    "dataset_refreshes",
     "datasets",
     "reports",
     "users",

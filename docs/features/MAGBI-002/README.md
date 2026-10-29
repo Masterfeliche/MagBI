@@ -66,15 +66,15 @@ Deliverable: point MagBI at a SQL Server, browse tables, import a table, find th
 | SUB-1.3 | SQL Server connector | Brace-escaped ODBC string; `test_connection` returns version, schemas, latency; list schemas/tables with columns, PK, estimated rows; streaming `execute_query`; pyodbc errors mapped to codes; sqlglot tsql SELECT builder; unit tests with mocked pyodbc | 6h | [x] |
 | SUB-1.4 | Test harness and CI | `docker compose --profile test up` starts SQL Server with seed; `pytest -m integration` runs the connector against it and skips cleanly without it; CI job added | 4h | [x] |
 | SUB-2.1 | Migration 0002 and models | `connections`, `dataset_refreshes`, `datasets.import_spec`; upgrade, downgrade, drift check pass on SQLite and Postgres | 3h | [x] |
-| SUB-2.2 | Connection service | Create/update encrypts password with AAD = connection id; secrets never in responses, logs or errors; missing key rejected; host allow-list enforced | 3h | [x] |
-| SUB-2.3 | Importer | Stream batches to staging DuckDB via Arrow; types per mapping; row count verified against source; warnings surfaced; progress callback; unit tests with fake connector, integration test on seed data | 6h | [x] |
-| SUB-2.4 | Atomic swap | `swap_with_retry` promotes staging, updates `current_version`; reader-held file retries then fails safely; staging cleaned on any failure; old live untouched on failure | 3h | [x] |
+| SUB-2.2 | Connection service | Create/update encrypts password with AAD = connection id; secrets never in responses, logs or errors; missing key rejected; host allow-list enforced | 3h | [ ] |
+| SUB-2.3 | Importer | Stream batches to staging DuckDB via Arrow; types per mapping; row count verified against source; warnings surfaced; progress callback; unit tests with fake connector, integration test on seed data | 6h | [ ] |
+| SUB-2.4 | Atomic swap | `swap_with_retry` promotes staging, updates `current_version`; reader-held file retries then fails safely; staging cleaned on any failure; old live untouched on failure | 3h | [ ] |
 | SUB-2.5 | Refresh runner | `run_refresh` drives queued/running/succeeded/failed; sanitized errors; one active refresh per dataset; stale `running` swept at startup | 4h | [ ] |
 | SUB-3.1 | API plumbing | Routers mounted under `/api/v1` per spec; non-dev gate (`MAGBI_INSECURE_ADMIN_API`); `ConnectorError` to JSON with code; stub prefixes removed | 2h | [ ] |
 | SUB-3.2 | Browse and CRUD endpoints | Workspaces and datasets create/list; connections test/create/list/get with `"password": "***"`; tables list, schema, preview (limit capped) | 5h | [ ] |
-| SUB-3.3 | Refresh endpoints | `POST .../datasets/{id}/refresh` returns 202 with refresh id; `GET` status; 409 when one is active; tests with fake connector override | 3h | [x] |
-| SUB-4.1 | Image and compose | Dockerfile installs ODBC Driver 18; `docker compose build api` ok; api container connects to the SQL Server container | 3h | [x] |
-| SUB-4.2 | End-to-end verification | Seeded SQL Server to API to import to `live.duckdb`, queried with plain DuckDB; counts and sampled values match; integration test plus runbook in `docs/guides/` | 3h | [x] |
+| SUB-3.3 | Refresh endpoints | `POST .../datasets/{id}/refresh` returns 202 with refresh id; `GET` status; 409 when one is active; tests with fake connector override | 3h | [ ] |
+| SUB-4.1 | Image and compose | Dockerfile installs ODBC Driver 18; `docker compose build api` ok; api container connects to the SQL Server container | 3h | [ ] |
+| SUB-4.2 | End-to-end verification | Seeded SQL Server to API to import to `live.duckdb`, queried with plain DuckDB; counts and sampled values match; integration test plus runbook in `docs/guides/` | 3h | [ ] |
 | SUB-4.3 | Docs | KB 02 and 10 updated; spec corrections (`live.duckdb`, `/api/v1` paths, no-Parquet note) | 1.5h | [ ] |
 | SUB-4.4 | Finalization | ruff, mypy strict, coverage over 80% for `connectors`, `refresh`, `api`; PR description | 1.5h | [ ] |
 
@@ -87,7 +87,7 @@ Order: 1.1 -> 1.2 -> 1.3 -> 1.4 -> 2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 3.1 -> 3.2
 - [x] SUB-1.2: 2b93546 (see SUB-1.1)
 - [x] SUB-1.3: see git log (feat(connectors): add SQL Server connector)
 - [x] SUB-1.4: see git log (test(connectors): add SQL Server integration harness). Verified on SQL Server 2022: 14 live tests pass incl. geography/hierarchyid/sql_variant/xml degrade-to-string; datetimeoffset(7) rounds to 6 digits (expected, warned)
-- [ ] SUB-2.1: (Commit hash)
+- [x] SUB-2.1: see git log (feat(metadata): add connections and dataset refreshes tables). Verified on Postgres 16: upgrade, alembic check, downgrade/upgrade, partial unique index rejects a second active refresh.
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-2.3: (Commit hash)
 - [ ] SUB-2.4: (Commit hash)

@@ -28,6 +28,7 @@ from sqlalchemy import (
     TypeDecorator,
     UniqueConstraint,
     Uuid,
+    text,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
@@ -84,6 +85,13 @@ class Role(enum.StrEnum):
     EDITOR = "editor"
     VIEWER = "viewer"
     EMBED_ONLY = "embed_only"
+
+
+class RefreshStatus(enum.StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
 
 
 class DatasetMode(enum.StrEnum):
@@ -168,12 +176,68 @@ class Dataset(Base):
     )
     current_version: Mapped[int] = mapped_column(Integer, default=0)
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
+    # Transitional (Sprint 2): {"connection_id": ..., "tables": [{"schema","name","target"}]}.
+    # Replaced by the real dataset definition in Sprint 3.
+    import_spec: Mapped[dict[str, Any] | None] = mapped_column(JsonType)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, default=utcnow, onupdate=utcnow
     )
 
     workspace: Mapped[Workspace] = relationship(back_populates="datasets")
+
+
+class Connection(Base):
+    """A saved data source. The password lives only in ``secret_encrypted``."""
+
+    __tablename__ = "connections"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "name", name="uq_connections_workspace_id_name"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(32))
+    config: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+    secret_encrypted: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow
+    )
+
+
+class DatasetRefresh(Base):
+    __tablename__ = "dataset_refreshes"
+    __table_args__ = (
+        # At most one queued/running refresh per dataset, enforced by the database.
+        Index(
+            "uq_dataset_refreshes_active",
+            "dataset_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running')"),
+            sqlite_where=text("status IN ('queued', 'running')"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", ondelete="CASCADE"), index=True
+    )
+    version: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[RefreshStatus] = mapped_column(
+        _enum(RefreshStatus, "refresh_status"), default=RefreshStatus.QUEUED
+    )
+    trigger: Mapped[str] = mapped_column(String(16), default="manual")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JsonType)
+    error: Mapped[str | None] = mapped_column(Text)
 
 
 class Report(Base):

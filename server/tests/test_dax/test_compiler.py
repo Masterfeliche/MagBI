@@ -118,6 +118,137 @@ def test_divide_if_and_blank_arithmetic() -> None:
     assert con.execute(added).fetchone() == (1,)
 
 
+def test_calculate_replaces_a_filter() -> None:
+    model = DatasetDefinition(
+        tables=[
+            TableDef(
+                name="Sales",
+                columns=[
+                    ColumnDef(name="Amount", data_type=DataType.INTEGER),
+                    ColumnDef(name="Status", data_type=DataType.STRING),
+                ],
+            ),
+            TableDef(
+                name="Other",
+                columns=[
+                    ColumnDef(
+                        name="id",
+                        data_type=DataType.INTEGER,
+                        is_nullable=False,
+                        is_primary_key=True,
+                    ),
+                    ColumnDef(name="Name", data_type=DataType.STRING),
+                ],
+            ),
+        ]
+    )
+    con = duckdb.connect()
+    con.execute('CREATE TABLE "Sales" ("Amount" INTEGER, "Status" VARCHAR)')
+    con.execute(
+        "INSERT INTO \"Sales\" VALUES (10, 'Completed'), (7, 'Open'), (3, 'Completed')"
+    )
+    done = compile_measure(
+        model, 'CALCULATE(SUM(Sales[Amount]), Sales[Status] = "Completed")'
+    )
+    assert con.execute(done).fetchone() == (13,)
+    replaced = compile_measure(
+        model,
+        'CALCULATE(SUM(Sales[Amount]), Sales[Status] = "Completed")',
+        filters=(("Sales", "Status", "=", "Open"),),
+    )
+    assert con.execute(replaced).fetchone() == (13,)
+    opened = compile_measure(
+        model, "SUM(Sales[Amount])", filters=(("Sales", "Status", "=", "Open"),)
+    )
+    assert con.execute(opened).fetchone() == (7,)
+    cleared = compile_measure(
+        model,
+        "CALCULATE(SUM(Sales[Amount]), ALL(Sales))",
+        filters=(("Sales", "Status", "=", "Open"),),
+    )
+    assert con.execute(cleared).fetchone() == (20,)
+    added = compile_measure(
+        model,
+        'CALCULATE(SUM(Sales[Amount]), FILTER(Sales, Sales[Status] = "Completed"))',
+    )
+    assert con.execute(added).fetchone() == (13,)
+    with pytest.raises(DaxError, match="no relationship"):
+        compile_measure(model, 'CALCULATE(SUM(Sales[Amount]), Other[Name] = "A")')
+
+
+def test_an_ambiguous_filter_path_is_rejected() -> None:
+    def key(name: str = "id") -> ColumnDef:
+        return ColumnDef(
+            name=name,
+            data_type=DataType.INTEGER,
+            is_nullable=False,
+            is_primary_key=True,
+        )
+
+    model = DatasetDefinition(
+        tables=[
+            TableDef(
+                name="Sales",
+                columns=[
+                    ColumnDef(name="Amount", data_type=DataType.INTEGER),
+                    ColumnDef(name="a_id", data_type=DataType.INTEGER),
+                    ColumnDef(name="b_id", data_type=DataType.INTEGER),
+                ],
+            ),
+            TableDef(
+                name="A",
+                columns=[
+                    key(),
+                    ColumnDef(name="region_id", data_type=DataType.INTEGER),
+                ],
+            ),
+            TableDef(
+                name="B",
+                columns=[
+                    key(),
+                    ColumnDef(name="region_id", data_type=DataType.INTEGER),
+                ],
+            ),
+            TableDef(
+                name="Region",
+                columns=[key(), ColumnDef(name="Name", data_type=DataType.STRING)],
+            ),
+        ],
+        relationships=[
+            RelationshipDef.model_validate(
+                {
+                    "from": {"table": "Sales", "column": "a_id"},
+                    "to": {"table": "A", "column": "id"},
+                    "cardinality": "many-to-one",
+                }
+            ),
+            RelationshipDef.model_validate(
+                {
+                    "from": {"table": "Sales", "column": "b_id"},
+                    "to": {"table": "B", "column": "id"},
+                    "cardinality": "many-to-one",
+                }
+            ),
+            RelationshipDef.model_validate(
+                {
+                    "from": {"table": "A", "column": "region_id"},
+                    "to": {"table": "Region", "column": "id"},
+                    "cardinality": "many-to-one",
+                }
+            ),
+            RelationshipDef.model_validate(
+                {
+                    "from": {"table": "B", "column": "region_id"},
+                    "to": {"table": "Region", "column": "id"},
+                    "cardinality": "many-to-one",
+                }
+            ),
+        ],
+    )
+    with pytest.raises(DaxError, match="ambiguous"):
+        compile_measure(model, 'CALCULATE(SUM(Sales[Amount]), Region[Name] = "East")')
+
+
 def test_two_fact_tables_are_rejected() -> None:
     model, _con = _amounts()
     with pytest.raises(DaxError, match="two fact tables"):

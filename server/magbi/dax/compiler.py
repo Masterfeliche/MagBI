@@ -1,12 +1,14 @@
 """Compile a measure to one DuckDB SELECT.
 
 Aggregates on different tables are rejected. ``+`` and ``-`` treat NULL as 0.
-``DIVIDE`` by zero is NULL. A table named in ``also`` is joined on the active
-relationship path. CALCULATE is the next step.
+``DIVIDE`` by zero is NULL. CALCULATE replaces filters on the columns it
+mentions; ALL removes them. A table named by a filter or by ``also`` is joined
+on the active relationship path.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import cast
 
 from sqlglot import exp
@@ -31,12 +33,36 @@ from magbi.dax.parser import (
 from magbi.model.relationships import join_path
 from magbi.model.schema import DatasetDefinition, ModelSchemaError, RelationshipDef
 
+_OPS = {"=", "<>", "<", ">", "<=", ">="}
+_FLIP = {"=": "<>", "<>": "=", "<": ">=", ">": "<=", "<=": ">", ">=": "<"}
+
+
+@dataclass(frozen=True, slots=True)
+class Constraint:
+    """One filter. ``columns`` are the ones a later CALCULATE argument replaces."""
+
+    columns: tuple[tuple[str, str], ...]
+    op: str
+    value: object
+
 
 def compile_measure(
-    model: DatasetDefinition, source: str, *, also: tuple[str, ...] = ()
+    model: DatasetDefinition,
+    source: str,
+    *,
+    also: tuple[str, ...] = (),
+    filters: tuple[tuple[str, str, str, object], ...] = (),
 ) -> str:
-    """Return DuckDB SQL for a measure. ``also`` tables are joined in."""
+    """Return DuckDB SQL for a measure. ``also`` tables are joined in.
+
+    ``filters`` is the incoming filter context, each item
+    ``(table, column, operator, value)``.
+    """
     expr = bind_measure(model, source)
+    context = tuple(
+        Constraint(((table, column),), op, value)
+        for table, column, op, value in filters
+    )
     facts: set[str] = set()
     _facts(expr, facts)
     if len(facts) != 1:
@@ -46,9 +72,15 @@ def compile_measure(
             expr.col,
         )
     fact = next(iter(facts))
-    query: exp.Select = exp.select(_scalar(expr, {})).from_(_table(fact))
+    query: exp.Select = exp.select(_scalar(expr, {}, context)).from_(_table(fact))
     joined = {fact}
-    for extra in dict.fromkeys(also):
+    mentioned: set[str] = set()
+    _filter_tables(expr, context, mentioned)
+    extras = list(also)
+    for table in mentioned:
+        if table != fact and table not in extras:
+            extras.append(table)
+    for extra in dict.fromkeys(extras):
         if extra in joined:
             continue
         try:
@@ -120,7 +152,9 @@ def _children(expr: Expr) -> tuple[Expr, ...]:
     return ()
 
 
-def _scalar(expr: Expr, scope: dict[str, Expr]) -> exp.Expression:
+def _scalar(
+    expr: Expr, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+) -> exp.Expression:
     if isinstance(expr, NumberLit):
         return exp.Literal.number(expr.value)
     if isinstance(expr, StringLit):
@@ -130,36 +164,45 @@ def _scalar(expr: Expr, scope: dict[str, Expr]) -> exp.Expression:
     if isinstance(expr, NameRef):
         if expr.name.casefold() not in scope:
             raise DaxError(f"name {expr.name!r} does not exist", expr.line, expr.col)
-        return _scalar(scope[expr.name.casefold()], scope)
+        return _scalar(scope[expr.name.casefold()], scope, filters)
     if isinstance(expr, Unary):
-        operand = _scalar(expr.expr, scope)
+        operand = _scalar(expr.expr, scope, filters)
         if expr.op == "+":
             return operand
         if expr.op == "-":
             return exp.Neg(this=operand)
         return exp.Not(this=operand)
     if isinstance(expr, Binary):
-        return _binary(expr, scope)
+        return _binary(expr, scope, filters)
     if isinstance(expr, InExpr):
         return exp.In(
-            this=_scalar(expr.expr, scope),
-            expressions=[_scalar(value, scope) for value in expr.values],
+            this=_scalar(expr.expr, scope, filters),
+            expressions=[_scalar(value, scope, filters) for value in expr.values],
         )
     if isinstance(expr, VarBlock):
         local = dict(scope)
         for name, value in expr.bindings:
             local[name.casefold()] = value
-        return _scalar(expr.body, local)
+        return _scalar(expr.body, local, filters)
     if isinstance(expr, Call):
-        return _call(expr, scope)
+        return _call(expr, scope, filters)
     raise DaxError("this expression cannot be compiled", expr.line, expr.col)
 
 
-def _call(expr: Call, scope: dict[str, Expr]) -> exp.Expression:
+def _call(
+    expr: Call, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+) -> exp.Expression:
     name = expr.name.casefold()
+    if name == "calculate":
+        if not expr.args:
+            raise DaxError("CALCULATE expects an expression", expr.line, expr.col)
+        updated = filters
+        for modifier in expr.args[1:]:
+            updated = _apply(updated, modifier, expr)
+        return _scalar(expr.args[0], scope, updated)
     if name in AGGREGATES:
-        return _aggregate(expr)[1]
-    args = [_scalar(arg, scope) for arg in expr.args]
+        return _where(_aggregate(expr)[1], filters)
+    args = [_scalar(arg, scope, filters) for arg in expr.args]
     if name == "blank":
         return exp.Null()
     if name == "isblank":
@@ -178,20 +221,22 @@ def _call(expr: Call, scope: dict[str, Expr]) -> exp.Expression:
         otherwise = args[2] if len(args) == 3 else exp.Null()
         return exp.If(this=args[0], true=args[1], false=otherwise)
     if name == "divide":
-        return _divide(expr, scope)
+        return _divide(expr, scope, filters)
     raise DaxError(f"{expr.name} cannot be compiled yet", expr.line, expr.col)
 
 
-def _divide(expr: Call, scope: dict[str, Expr]) -> exp.Expression:
+def _divide(
+    expr: Call, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+) -> exp.Expression:
     if len(expr.args) not in {2, 3}:
         raise DaxError("DIVIDE expects two or three arguments", expr.line, expr.col)
-    num = _scalar(expr.args[0], scope)
-    den = _scalar(expr.args[1], scope)
+    num = _scalar(expr.args[0], scope, filters)
+    den = _scalar(expr.args[1], scope, filters)
     zero = exp.Literal.number(0)
     if len(expr.args) == 2:
         return exp.Div(this=num, expression=exp.Nullif(this=den, expression=zero))
-    alt = _scalar(expr.args[2], scope)
-    den_again = _scalar(expr.args[1], scope)
+    alt = _scalar(expr.args[2], scope, filters)
+    den_again = _scalar(expr.args[1], scope, filters)
     blank = exp.or_(
         exp.EQ(this=den, expression=zero),
         exp.Is(this=den_again, expression=exp.Null()),
@@ -199,9 +244,11 @@ def _divide(expr: Call, scope: dict[str, Expr]) -> exp.Expression:
     return exp.If(this=blank, true=alt, false=exp.Div(this=num, expression=den.copy()))
 
 
-def _binary(expr: Binary, scope: dict[str, Expr]) -> exp.Expression:
-    left = _scalar(expr.left, scope)
-    right = _scalar(expr.right, scope)
+def _binary(
+    expr: Binary, scope: dict[str, Expr], filters: tuple[Constraint, ...]
+) -> exp.Expression:
+    left = _scalar(expr.left, scope, filters)
+    right = _scalar(expr.right, scope, filters)
     if expr.op in {"+", "-"}:
         left = _zero(left)
         right = _zero(right)
@@ -249,6 +296,143 @@ def _eq(left: exp.Expression, right: exp.Expression) -> exp.Expression:
             ),
         ),
     )
+
+
+def _filter_tables(
+    expr: Expr, filters: tuple[Constraint, ...], found: set[str]
+) -> None:
+    if isinstance(expr, Call) and expr.name.casefold() == "calculate":
+        updated = filters
+        for modifier in expr.args[1:]:
+            updated = _apply(updated, modifier, expr)
+        if expr.args:
+            _filter_tables(expr.args[0], updated, found)
+        return
+    for item in filters:
+        for table, _column in item.columns:
+            found.add(table)
+    for child in _children(expr):
+        _filter_tables(child, filters, found)
+
+
+def _apply(
+    filters: tuple[Constraint, ...], modifier: Expr, at: Call
+) -> tuple[Constraint, ...]:
+    if isinstance(modifier, Call) and modifier.name.casefold() in {
+        "all",
+        "removefilters",
+    }:
+        return _remove(filters, modifier)
+    if isinstance(modifier, Call) and modifier.name.casefold() == "filter":
+        if len(modifier.args) != 2:
+            raise DaxError("FILTER expects a table and a predicate", at.line, at.col)
+        return filters + _constraints(modifier.args[1], at)
+    added = _constraints(modifier, at)
+    covered = {column for item in added for column in item.columns}
+    kept = tuple(item for item in filters if not covered.intersection(item.columns))
+    return kept + added
+
+
+def _remove(filters: tuple[Constraint, ...], call: Call) -> tuple[Constraint, ...]:
+    if len(call.args) == 1 and isinstance(call.args[0], TableRef):
+        table = call.args[0].name
+        return tuple(
+            item
+            for item in filters
+            if any(name != table for name, _column in item.columns)
+        )
+    columns: list[tuple[str, str]] = []
+    for arg in call.args:
+        if not isinstance(arg, ColumnRef):
+            raise DaxError("ALL expects a table or columns", call.line, call.col)
+        columns.append((arg.table, arg.column))
+    blocked = set(columns)
+    return tuple(item for item in filters if not blocked.intersection(item.columns))
+
+
+def _constraints(expr: Expr, at: Call) -> tuple[Constraint, ...]:
+    if isinstance(expr, Binary) and expr.op == "and":
+        return _constraints(expr.left, at) + _constraints(expr.right, at)
+    if isinstance(expr, Unary) and expr.op == "not":
+        inner = _constraints(expr.expr, at)
+        flipped: list[Constraint] = []
+        for item in inner:
+            if item.op not in _FLIP or len(item.columns) != 1:
+                raise DaxError("NOT can only invert a comparison", at.line, at.col)
+            flipped.append(Constraint(item.columns, _FLIP[item.op], item.value))
+        return tuple(flipped)
+    if (
+        isinstance(expr, Binary)
+        and expr.op in _OPS
+        and isinstance(expr.left, ColumnRef)
+    ):
+        return (
+            Constraint(
+                ((expr.left.table, expr.left.column),),
+                expr.op,
+                _literal(expr.right, at),
+            ),
+        )
+    if isinstance(expr, InExpr) and isinstance(expr.expr, ColumnRef):
+        return (
+            Constraint(
+                ((expr.expr.table, expr.expr.column),),
+                "in",
+                tuple(_literal(value, at) for value in expr.values),
+            ),
+        )
+    raise DaxError("CALCULATE filter is not a comparison", at.line, at.col)
+
+
+def _literal(expr: Expr, at: Call) -> object:
+    if isinstance(expr, NumberLit | StringLit | BoolLit):
+        return expr.value
+    raise DaxError("filter value must be a literal", at.line, at.col)
+
+
+def _where(
+    aggregate: exp.Expression, filters: tuple[Constraint, ...]
+) -> exp.Expression:
+    if not filters:
+        return aggregate
+    condition: exp.Expression | None = None
+    for item in filters:
+        piece = _render(item)
+        condition = (
+            piece if condition is None else exp.And(this=condition, expression=piece)
+        )
+    return cast(exp.Expression, exp.Filter(this=aggregate, expression=condition))
+
+
+def _render(item: Constraint) -> exp.Expression:
+    table, column = item.columns[0]
+    ref = exp.column(column, table=table, quoted=True)
+    if item.op == "in":
+        values = item.value if isinstance(item.value, tuple) else (item.value,)
+        return cast(
+            exp.Expression,
+            exp.In(this=ref, expressions=[_sql_literal(value) for value in values]),
+        )
+    compared = {
+        "=": exp.EQ,
+        "<>": exp.NEQ,
+        "<": exp.LT,
+        ">": exp.GT,
+        "<=": exp.LTE,
+        ">=": exp.GTE,
+    }
+    return cast(
+        exp.Expression,
+        compared[item.op](this=ref, expression=_sql_literal(item.value)),
+    )
+
+
+def _sql_literal(value: object) -> exp.Expression:
+    if isinstance(value, bool):
+        return exp.Boolean(this=value)
+    if isinstance(value, int | float):
+        return exp.Literal.number(value)
+    return exp.Literal.string(str(value))
 
 
 def _table(name: str) -> exp.Table:

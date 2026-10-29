@@ -7,9 +7,11 @@ rejects are reported with a stable code when a raw document is checked.
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+import duckdb
 from pydantic import ValidationError
 
 from magbi.model.relationships import find_cycle, join_path
@@ -101,15 +103,28 @@ def _schema_issues(raw: dict[str, Any]) -> list[Issue] | DatasetDefinition:
         return issues
 
 
-def validate_model(model: DatasetDefinition) -> ValidationReport:
-    """Graph checks on a document the schema has already accepted."""
+def validate_model(
+    model: DatasetDefinition, live: duckdb.DuckDBPyConnection | None = None
+) -> ValidationReport:
+    """Graph checks on a document the schema has already accepted.
+
+    ``live`` is the imported DuckDB file. Date-table gap checks run only when it
+    is passed; otherwise a date table produces a warning that it was not checked.
+    """
     report = ValidationReport()
     cycle = find_cycle(model)
     if cycle is not None:
         report.errors.append(
             Issue("CYCLE", "relationship cycle: " + " -> ".join(cycle), "error")
         )
-        return report
+    else:
+        _ambiguous(model, report)
+    _warnings(model, report)
+    _date_tables(model, live, report)
+    return report
+
+
+def _ambiguous(model: DatasetDefinition, report: ValidationReport) -> None:
     names = [table.name for table in model.tables]
     reported: set[frozenset[str]] = set()
     for i, left in enumerate(names):
@@ -125,12 +140,123 @@ def validate_model(model: DatasetDefinition) -> ValidationReport:
                     continue
                 reported.add(pair)
                 report.errors.append(Issue("AMBIGUOUS_PATH", message, "error"))
-    return report
 
 
-def validate_document(raw: dict[str, Any]) -> ValidationReport:
+def _warnings(model: DatasetDefinition, report: ValidationReport) -> None:
+    linked = {rel.from_.table for rel in model.relationships} | {
+        rel.to.table for rel in model.relationships
+    }
+    facts = {rel.from_.table for rel in model.relationships if rel.cardinality == "many-to-one"}
+    for table in model.tables:
+        if table.name not in linked:
+            report.warnings.append(
+                Issue(
+                    "ISOLATED_TABLE",
+                    f"table {table.name!r} has no relationships",
+                    "warning",
+                )
+            )
+        if table.name in facts and not table.measures:
+            report.warnings.append(
+                Issue(
+                    "FACT_WITHOUT_MEASURES",
+                    f"table {table.name!r} is on the many side of a relationship and has no measures",
+                    "warning",
+                )
+            )
+        if table.is_hidden and any(not measure.is_hidden for measure in table.measures):
+            report.warnings.append(
+                Issue(
+                    "HIDDEN_TABLE_VISIBLE_MEASURE",
+                    f"table {table.name!r} is hidden but has a visible measure",
+                    "warning",
+                )
+            )
+    for rel in model.relationships:
+        source = model.table(rel.from_.table)
+        column = source.column(rel.from_.column) if source is not None else None
+        if column is not None and column.is_nullable and rel.join_type == "inner":
+            report.warnings.append(
+                Issue(
+                    "NULLABLE_INNER_JOIN",
+                    f"{rel.from_.table}.{rel.from_.column} is nullable and the relationship uses an inner join",
+                    "warning",
+                )
+            )
+
+
+def _date_tables(
+    model: DatasetDefinition,
+    live: duckdb.DuckDBPyConnection | None,
+    report: ValidationReport,
+) -> None:
+    for table in model.tables:
+        if not table.is_date_table or table.date_column is None:
+            continue
+        if live is None:
+            report.warnings.append(
+                Issue(
+                    "DATE_TABLE_NOT_CHECKED",
+                    f"date table {table.name!r} was not checked against imported data",
+                    "warning",
+                )
+            )
+            continue
+        quoted = _quote(table.name)
+        exists = live.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+            [table.name],
+        ).fetchone()
+        if exists is None or exists[0] == 0:
+            report.warnings.append(
+                Issue(
+                    "DATE_TABLE_NOT_IMPORTED",
+                    f"date table {table.name!r} is not in the imported data yet",
+                    "warning",
+                )
+            )
+            continue
+        column = _quote(table.date_column)
+        row = live.execute(
+            f"SELECT COUNT(*), COUNT(DISTINCT {column}), MIN({column}), MAX({column}) FROM {quoted}"
+        ).fetchone()
+        if row is None:
+            continue
+        count, distinct, low, high = int(row[0]), int(row[1]), row[2], row[3]
+        if count != distinct:
+            report.errors.append(
+                Issue(
+                    "DATE_TABLE_DUPLICATES",
+                    f"date table {table.name!r} has duplicate dates",
+                    "error",
+                )
+            )
+        if isinstance(low, dt.datetime):
+            low = low.date()
+        if isinstance(high, dt.datetime):
+            high = high.date()
+        if isinstance(low, dt.date) and isinstance(high, dt.date):
+            expected = (high - low).days + 1
+            if count != expected:
+                report.errors.append(
+                    Issue(
+                        "DATE_TABLE_GAPS",
+                        f"date table {table.name!r} has {expected - count} missing dates "
+                        f"between {low.isoformat()} and {high.isoformat()}",
+                        "error",
+                    )
+                )
+
+
+def _quote(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def validate_document(
+    raw: dict[str, Any], live: duckdb.DuckDBPyConnection | None = None
+) -> ValidationReport:
     """Validate an untrusted document. Schema problems come back as errors."""
     built = _schema_issues(raw)
     if isinstance(built, list):
         return ValidationReport(errors=built)
-    return validate_model(built)
+    return validate_model(built, live)

@@ -54,7 +54,7 @@ Deliverable: an ERP sends a service token, receives an embed token, and a query 
 | SUB-3.1 | Service tokens | Migration `0004` stores a hash; create returns the secret once; a later call accepts it; revoke makes the next call fail | 3h | [x] |
 | SUB-3.2 | Embed tokens | A service token mints an embed token scoped to its workspace; a user token cannot mint one; a dataset outside the workspace is rejected | 3h | [x] |
 | SUB-4.1 | Gate and query | Outside test mode a missing token is 401; an embed token's roles are applied to the query and body roles are ignored; a viewer cannot set roles | 4h | [x] |
-| SUB-4.2 | Docs | KB 09 and the API spec status note the three token kinds, the test-mode bypass, and what stays later | 1.5h | [ ] |
+| SUB-4.2 | Docs | KB 09 and the API spec status note the three token kinds, the test-mode bypass, and what stays later | 1.5h | [x] |
 | SUB-4.3 | Finalization | ruff, mypy strict, coverage over 80% for `auth` and the new routes; full regression; PR description | 1.5h | [ ] |
 
 Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 4.3. Each subtask is code, tests, and one single-sentence commit. About 25 hours.
@@ -69,7 +69,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 4.3. Each subtask is code, tests,
 - [x] SUB-3.1: see git log. Migration 0004 marks platform admins and 0005 stores a service-token hash. Create shows the secret once. Revoke makes the next call fail.
 - [x] SUB-3.2: see git log. A service token mints an embed token for datasets in its workspace. A user token cannot mint one. A dataset in another workspace is rejected.
 - [x] SUB-4.1: see git log. Outside test mode a missing token is 401. An embed token's roles are applied to the query and body roles are ignored. A viewer cannot set roles.
-- [ ] SUB-4.2: (Commit hash)
+- [x] SUB-4.2: see git log. KB 09 and the API spec name the three token kinds, the test-mode bypass, and what stays later.
 - [ ] SUB-4.3: (Commit hash)
 
 ---

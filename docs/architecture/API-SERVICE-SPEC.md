@@ -8,7 +8,7 @@ console manages workspaces through it.
 | | |
 |---|---|
 | Written | 29 October 2026 |
-| Status | Draft — not implemented |
+| Status | Tokens and workspace roles implemented (MAGBI-007). HS256 by default, RS256 when a private key is set. Service tokens are opaque and hashed. Embed tokens carry RLS roles into the query. Test mode and `MAGBI_INSECURE_ADMIN_API` still allow a missing token. The iframe SDK, SSO, and rate limits are later. |
 | Depends on | Every other spec (dataset, query engine, report designer, visuals) |
 | Stack | Python 3.12+, FastAPI, Uvicorn, PostgreSQL (metadata), Redis (cache + sessions), DuckDB (data) |
 

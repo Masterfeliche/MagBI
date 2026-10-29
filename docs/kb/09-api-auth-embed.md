@@ -1,6 +1,10 @@
 # 09 — API, Authentication & Embedding
 
-> **Status: Planned**
+> **Status: Implemented for tokens and roles (MAGBI-007).**
+>
+> A user logs in with email and password and receives an HS256 JWT (RS256 when `MAGBI_JWT_PRIVATE_KEY_PEM` is set). A host holds an opaque `v2_svc_` service token, stored only as a hash, and calls `POST /api/v1/embed/token`. The embed token carries RLS role names. A query applies those roles and ignores roles on the body. Workspace roles are admin, editor, and viewer.
+>
+> In the test environment, and when `MAGBI_INSECURE_ADMIN_API` is set, a request with no token is still allowed. Otherwise a missing token is 401. JWTs are not blocklisted; the TTL is the revocation window. The embed iframe and the JavaScript SDK are Sprint 10. SSO, WebSockets, and rate limits are later.
 
 ---
 

@@ -73,7 +73,7 @@ Deliverable: point MagBI at a SQL Server, browse tables, import a table, find th
 | SUB-3.1 | API plumbing | Routers mounted under `/api/v1` per spec; non-dev gate (`MAGBI_INSECURE_ADMIN_API`); `ConnectorError` to JSON with code; stub prefixes removed | 2h | [x] |
 | SUB-3.2 | Browse and CRUD endpoints | Workspaces and datasets create/list; connections test/create/list/get with `"password": "***"`; tables list, schema, preview (limit capped) | 5h | [x] |
 | SUB-3.3 | Refresh endpoints | `POST .../datasets/{id}/refresh` returns 202 with refresh id; `GET` status; 409 when one is active; tests with fake connector override | 3h | [x] |
-| SUB-4.1 | Image and compose | Dockerfile installs ODBC Driver 18; `docker compose build api` ok; api container connects to the SQL Server container | 3h | [ ] |
+| SUB-4.1 | Image and compose | Dockerfile installs ODBC Driver 18; `docker compose build api` ok; api container connects to the SQL Server container | 3h | [x] |
 | SUB-4.2 | End-to-end verification | Seeded SQL Server to API to import to `live.duckdb`, queried with plain DuckDB; counts and sampled values match; integration test plus runbook in `docs/guides/` | 3h | [ ] |
 | SUB-4.3 | Docs | KB 02 and 10 updated; spec corrections (`live.duckdb`, `/api/v1` paths, no-Parquet note) | 1.5h | [ ] |
 | SUB-4.4 | Finalization | ruff, mypy strict, coverage over 80% for `connectors`, `refresh`, `api`; PR description | 1.5h | [ ] |
@@ -95,7 +95,7 @@ Order: 1.1 -> 1.2 -> 1.3 -> 1.4 -> 2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 3.1 -> 3.2
 - [x] SUB-3.1: see git log (feat(api): mount v1 router with admin gate and JSON error mapping). Routers under /api/v1 via api_router, admin gate (503 ADMIN_API_DISABLED outside dev), unified JSON errors with status map, Services moved to magbi/services.py, startup stale-refresh sweep. Known flake: one run showed an aiosqlite thread warning at GC time (not reproducible).
 - [x] SUB-3.2: see git log (feat(api): add workspace, dataset and connection browse endpoints). 24 API tests: workspace/dataset CRUD, import_spec normalisation and workspace scoping, connections test/create/list/get/update with masked passwords (verified absent from responses and the DB file), schemas/tables with type plans, capped JSON-safe preview, catalog-only table access, source errors to 502/504. No connection DELETE yet (datasets may reference them).
 - [x] SUB-3.3: see git log (feat(api): add dataset refresh trigger, status and history endpoints). 9 API tests: 202 plus status polling, version bump, history, failure then retry, redaction, 409 with refresh_id, per-dataset independence, unconfigured dataset 422, cross-workspace 404s. Cancel endpoint (DELETE) deferred to Sprint 8 with Celery.
-- [ ] SUB-4.1: (Commit hash)
+- [x] SUB-4.1: see git log (build(docker): install Microsoft ODBC Driver 18 in the api image). Verified: image builds on python:3.11-slim-bookworm with msodbcsql18 (drivers: ODBC Driver 18 for SQL Server); api container as non-root user connects to the SQL Server container by name and reads all 200000 rows; container startup applied migration 0002 on Postgres.
 - [ ] SUB-4.2: (Commit hash)
 - [ ] SUB-4.3: (Commit hash)
 - [ ] SUB-4.4: (Commit hash)

@@ -14,6 +14,7 @@ TABLES = {
     "dataset_refreshes",
     "datasets",
     "reports",
+    "service_tokens",
     "users",
     "workspace_members",
     "workspaces",

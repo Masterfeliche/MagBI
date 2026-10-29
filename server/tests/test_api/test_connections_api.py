@@ -153,6 +153,7 @@ def test_storing_password_without_credential_key_is_rejected(tmp_path: Path) -> 
         environment="dev",
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'm.db'}",
         duckdb_data_dir=tmp_path / "d",
+        insecure_admin_api=True,
     )
     import sqlalchemy as sa
 

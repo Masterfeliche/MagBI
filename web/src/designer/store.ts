@@ -17,6 +17,7 @@ interface DesignerState {
   addVisual: (type: string) => void;
   moveVisual: (id: string, x: number, y: number) => void;
   resizeVisual: (id: string, box: Box) => void;
+  removeVisual: (id: string) => void;
   setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
   setPageFilters: (filters: FilterDefinition[]) => void;
   setFormat: (id: string, title: string, color: string) => void;
@@ -52,6 +53,16 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   },
   resizeVisual: (id, box) => {
     updateVisual(set, get, id, (visual) => ({ ...visual, ...box }));
+  },
+  removeVisual: (id) => {
+    const report = get().report;
+    const page = report.pages[0];
+    if (!page) return;
+    commit(set, get, {
+      ...report,
+      pages: [{ ...page, visuals: page.visuals.filter((visual) => visual.id !== id) }],
+    });
+    if (get().selectedVisualId === id) set({ selectedVisualId: null });
   },
   setWells: (id, wells) => {
     updateVisual(set, get, id, (visual) => ({ ...visual, wells }));

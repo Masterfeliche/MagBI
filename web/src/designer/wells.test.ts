@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { visualSpec } from "./catalog";
 import type { DesignerField } from "./model";
-import { dropField, wellForDrop } from "./wells";
+import { dropField, removeBinding, wellForDrop } from "./wells";
 
 const month: DesignerField = { table: "Trips", name: "Month", kind: "column", dataType: "string" };
 const amount: DesignerField = { table: "Trips", name: "Amount", kind: "column", dataType: "integer" };
@@ -38,5 +38,10 @@ describe("wells", () => {
     const full = dropField({}, column.wells.find((well) => well.name === "x-axis")!, month);
     expect(wellForDrop(column, month, full.wells)?.name).toBe("legend");
     expect(wellForDrop(visualSpec("table"), month, {})?.name).toBe("columns");
+  });
+
+  it("removes one field from a well", () => {
+    const filled = dropField({}, visualSpec("column").wells[0], trips);
+    expect(removeBinding(filled.wells, "y-axis", 0)["y-axis"]).toEqual([]);
   });
 });

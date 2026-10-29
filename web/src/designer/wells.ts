@@ -24,6 +24,17 @@ export function wellForDrop(
   return null;
 }
 
+export function removeBinding(
+  wells: Record<string, FieldBinding[]>,
+  wellName: string,
+  index: number,
+): Record<string, FieldBinding[]> {
+  return {
+    ...wells,
+    [wellName]: (wells[wellName] ?? []).filter((_, item) => item !== index),
+  };
+}
+
 export function dropField(
   wells: Record<string, FieldBinding[]>,
   well: WellSpec,

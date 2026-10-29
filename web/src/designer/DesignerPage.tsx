@@ -14,7 +14,7 @@ import { type CrossFilter } from "./filters";
 import { PAGE_WIDTH, blankReport } from "./layout";
 import { adaptDataset, type DesignerField, type DesignerTable } from "./model";
 import { useDesignerStore } from "./store";
-import { dropField, wellForDrop } from "./wells";
+import { dropField, removeBinding, wellForDrop } from "./wells";
 import { WellsPanel } from "./WellsPanel";
 import "./designer.css";
 
@@ -27,6 +27,7 @@ export function DesignerPage() {
   const addVisual = useDesignerStore((state) => state.addVisual);
   const setWells = useDesignerStore((state) => state.setWells);
   const selectVisual = useDesignerStore((state) => state.selectVisual);
+  const removeVisual = useDesignerStore((state) => state.removeVisual);
   const setPageFilters = useDesignerStore((state) => state.setPageFilters);
   const setFormat = useDesignerStore((state) => state.setFormat);
   const replaceReport = useDesignerStore((state) => state.replaceReport);
@@ -117,6 +118,11 @@ export function DesignerPage() {
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
         return;
       }
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedId) {
+        event.preventDefault();
+        removeVisual(selectedId);
+        return;
+      }
       const key = event.key.toLowerCase();
       if (!(event.ctrlKey || event.metaKey)) return;
       if (key === "z") {
@@ -130,7 +136,7 @@ export function DesignerPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo]);
+  }, [undo, redo, removeVisual, selectedId]);
 
   async function publish() {
     if (!workspaceId || !datasetId) return;
@@ -227,7 +233,14 @@ export function DesignerPage() {
                         </button>
                       ))}
                     </div>
-                    <WellsPanel wells={spec?.wells ?? []} bindings={selected?.wells ?? {}} />
+                    <WellsPanel
+                      wells={spec?.wells ?? []}
+                      bindings={selected?.wells ?? {}}
+                      onRemove={(wellName, index) => {
+                        if (!selected) return;
+                        setWells(selected.id, removeBinding(selected.wells, wellName, index));
+                      }}
+                    />
                   </>
                 ) : selected ? (
                   <form

@@ -53,7 +53,7 @@ Deliverable: open the designer on a dataset, place a bar chart, drop fields into
 | SUB-2.2 | Filters and properties | A chart category becomes a page cross-filter and is cleared by a second click; a page filter is added to every visual query; title and color patch the visual | 4h | [x] |
 | SUB-2.3 | Undo and publish | Ctrl+Z restores the previous document and Ctrl+Y reapplies it; `POST` and `PUT` reports store the definition and `is_published` | 4h | [x] |
 | SUB-3.1 | Docs | KB 07 names the designer route, the live query, the visuals that render, and what stays in Sprint 10 | 1.5h | [x] |
-| SUB-3.2 | Finalization | ESLint, `tsc`, Vitest, the report API tests, and a browser pass of the designer flow; PR description | 1.5h | [ ] |
+| SUB-3.2 | Finalization | ESLint, `tsc`, Vitest, the report API tests, and a browser pass of the designer flow; PR description | 1.5h | [x] |
 
 Order: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2. Each subtask is code, tests, and one single-sentence commit. About 28 hours.
 
@@ -66,22 +66,50 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2. Each subtask is code, tests, and 
 - [x] SUB-2.1: 2fb76cf
 - [x] SUB-2.2: 6cfffbb
 - [x] SUB-2.3: 0516b7d
-- [x] SUB-3.1: (this commit)
+- [x] SUB-3.1: fb41ede
+- [x] SUB-3.2: see git log
 
 Layout deviation from the first three-pane draft: Filters and Build are right-side rails and only one is open. The ribbon is the report name, Undo, Redo, and Publish. The gallery keeps later visual types, and only column, bar, line, pie, card, and table draw a query. Format is a title and one color. No component library.
-- [ ] SUB-2.3: (Commit hash)
-- [ ] SUB-3.1: (Commit hash)
-- [ ] SUB-3.2: (Commit hash)
 
 ---
 
 ## 4. Definition of Done (DoD)
-- [ ] Code is written and passes local tests and lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] ESLint and `tsc` pass
-- [ ] Vitest covers the query builder, snap, wells, cross-filter, and undo
-- [ ] A bar visual built from wells renders rows from the query API
-- [ ] Publish stores the report and marks it published
-- [ ] KB 07 updated to match the implementation
+- [x] Code is written and passes local tests and lints
+- [x] Single-sentence commit rule followed for all commits
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist
+- [x] ESLint and `tsc` pass
+- [x] Vitest covers the query builder, snap, wells, cross-filter, and undo
+- [x] A bar visual built from wells renders rows from the query API
+- [x] Publish stores the report and marks it published
+- [x] KB 07 updated to match the implementation
+
+### Findings and open items
+- The browser pass added a column, applied the title Trips, undid and redid it, and switched from Build to Filters so only one rail stayed open.
+- That pass had no imported dataset, so the page showed API 404 and the empty-query note. The bar render test uses the same DSR shape the query route returns.
+- The report API test stored a definition and `is_published`. It did not run the SQL Server integration tests.
+- This pass was Windows with the web toolchain and the server venv. It was not repeated in the Python 3.11 Linux image.
+- Conditional formatting, the report viewer, and the embed SDK are not in this sprint.
+
+---
+
+## 5. PR Description
+
+**feat: report designer (MAGBI-009)**
+
+Open a dataset in a Power BI-style designer, place a visual, and publish the report definition.
+
+### What changed
+- **Page**: `/workspaces/:workspaceId/datasets/:datasetId/designer` loads the dataset. The page is 1760 by 990, scaled to the stage, and positions snap to 10px. Pointer math divides by that scale. A drag records one undo patch when the pointer goes up.
+- **Build**: fields drop into Y-axis, X-axis, and Legend. A numeric column on a values well becomes `sum`. A full well refuses the next drop. Column, bar, line, pie, card, and table draw the query result. Map asks for coordinates. Slicer adds a page filter. The other gallery types are not drawn as a column chart.
+- **Filters and format**: page filters (`eq` and `in`) go on every visual query. A category click sets one cross-filter and a second click clears it. Format sets a title and one color.
+- **Publish**: `POST` and `PUT /api/v1/workspaces/{id}/reports` store `definition` and `is_published`. Ctrl+Z and Ctrl+Y walk JSON patches.
+
+### How it was verified
+- Vitest: 8 tests for the adapter, snap, wells, render models, filters, and undo.
+- `tsc` and ESLint pass.
+- Report API test: create stores the definition unpublished, and update stores the new definition with `is_published` true.
+- Browser: Build adds a column, Format shows the title on the visual, Undo and Redo restore the document, and Filters replaces Build.
+
+### Risks and follow-ups
+There is no batch query, so each visual is its own POST. The viewer and embed SDK are Sprint 10. Conditional formatting is not in this build. A live imported dataset was not queried in the browser.

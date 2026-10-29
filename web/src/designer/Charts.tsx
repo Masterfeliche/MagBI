@@ -101,7 +101,14 @@ function Drawn({
   color: string;
   onCategory?: (category: string) => void;
 }) {
-  if (model.kind === "note") return <div className="note">{model.message}</div>;
+  if (model.kind === "note") {
+    return (
+      <div className="note">
+        {title && <strong>{title}</strong>}
+        <div>{model.message}</div>
+      </div>
+    );
+  }
   if (model.kind === "card") {
     return (
       <div className="card-value">

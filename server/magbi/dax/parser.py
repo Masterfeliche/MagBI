@@ -105,6 +105,15 @@ class NameRef:
 
 
 @dataclass(frozen=True, slots=True)
+class TableRef:
+    """A physical table. The parser never emits this; the binder does."""
+
+    name: str
+    line: int
+    col: int
+
+
+@dataclass(frozen=True, slots=True)
 class Call:
     name: str
     args: tuple[Expr, ...]
@@ -152,6 +161,7 @@ Expr: TypeAlias = (
     | ColumnRef
     | MeasureRef
     | NameRef
+    | TableRef
     | Call
     | Unary
     | Binary

@@ -56,7 +56,7 @@ Deliverable: `SUM(Sales[Amount])` compiles to `SELECT SUM(amount) FROM sales`. `
 | SUB-1.1 | Lexer | Tokens for whitespace, comments, strings with doubled quotes, numbers, booleans, `Table[Column]`, `[Measure]`, keywords, operators, punctuation; each token has a 1-based line and column; table-driven tests | 3h | [x] |
 | SUB-1.2 | Pratt parser | AST for literals, refs, calls, the precedence table, `IN {…}`, and `VAR` / `RETURN`; parentheses; the input is not mutated | 4h | [x] |
 | SUB-1.3 | Parse errors | A known-unsupported function names itself and says it is not supported; an unknown call name says unknown function; errors carry line and column | 2h | [x] |
-| SUB-2.1 | Name binding | Columns, measures, and tables resolve against `DatasetDefinition`; a missing name is an error; a measure cycle is an error naming the loop | 3h | [ ] |
+| SUB-2.1 | Name binding | Columns, measures, and tables resolve against `DatasetDefinition`; a missing name is an error; a measure cycle is an error naming the loop | 3h | [x] |
 | SUB-2.2 | Types and shape | Numeric aggregations reject strings; `MIN`/`MAX` allow date and string; a measure without an aggregation is an error; a calculated column with an aggregation is an error | 3h | [ ] |
 | SUB-3.1 | Aggregate SQL | `SUM`, `COUNT`, `COUNTA`, `COUNTROWS`, `AVERAGE`, `MIN`, `MAX`, `DISTINCTCOUNT` emit DuckDB SQL; a column on a related table adds the join from `join_path`; the SQL runs on an in-memory DuckDB table and returns the expected number | 4h | [ ] |
 | SUB-3.2 | Scalars and BLANK | `DIVIDE`, `IF`, arithmetic, comparisons, and `IN` compile; NULL in `+` and `-` acts as 0; `DIVIDE` by zero is NULL; a DuckDB run covers `DIVIDE` and `IF` | 3h | [ ] |
@@ -74,7 +74,7 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3. Each subtask 
 - [x] SUB-1.1: see git log. Column and measure references are one token. A keyword followed by a parenthesis stays an identifier.
 - [x] SUB-1.2: see git log. Comparisons do not chain. AND binds tighter than OR. VAR / RETURN and IN sets are expressions.
 - [x] SUB-1.3: see git log. Known DAX names that this sprint does not compile say they are not supported. Any other call name is an unknown function.
-- [ ] SUB-2.1: (Commit hash)
+- [x] SUB-2.1: see git log. Exact names win. A case-insensitive match is used only when one model name folds to the text. Measure cycles name the loop.
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-3.1: (Commit hash)
 - [ ] SUB-3.2: (Commit hash)

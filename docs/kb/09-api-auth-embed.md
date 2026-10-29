@@ -94,13 +94,13 @@ hostile to enterprises who already have SSO.
 ### REST API Overview
 
 ```
-/api/workspaces          — CRUD workspaces, member management
-/api/datasets            — CRUD datasets, model definition, connections
-/api/reports             — CRUD reports, report definition JSON
-/api/query               — Execute semantic queries, batch queries
-/api/embed               — Generate embed tokens, embed configuration
-/api/refresh             — Trigger refresh, view history, cancel jobs
-/api/admin               — User management, audit log, metrics, service tokens
+/api/v1/workspaces      — CRUD workspaces, member management
+/api/v1/workspaces/{wid}/datasets —  CRUD datasets, model definition, connections
+/api/v1/workspaces/{wid}/reports —  CRUD reports, report definition JSON
+/api/v1/query          — Execute semantic queries, batch queries
+/api/v1/embed          — Generate embed tokens, embed configuration
+/api/v1/workspaces/{wid}/datasets/{did}/refresh — Trigger refresh, view history, cancel jobs
+/api/v1/admin          — User management, audit log, metrics, service tokens
 ```
 
 ### Authentication Flow (Standalone Mode)

@@ -487,7 +487,7 @@ Requirements are numbered FR-XXX and prioritised:
 | ID | Requirement | Priority | Acceptance Criteria |
 |----|-------------|----------|---------------------|
 | FR-080 | Scheduled automatic refresh | P1 | Admin configures a cron schedule; data refreshes automatically |
-| FR-081 | Manual refresh via API | P1 | POST to /api/refresh/{datasetId} triggers an immediate refresh |
+| FR-081 | Manual refresh via API | P1 | POST to /api/v1/workspaces/{wid}/datasets/{did}/refresh triggers an immediate refresh |
 | FR-082 | Zero-downtime refresh | P1 | Users continue querying old data while new data imports; swap is atomic |
 | FR-083 | Refresh history and status | P1 | API returns last N refreshes with status, duration, and error details |
 | FR-084 | Refresh failure notification | P2 | On failure, system logs the error and optionally sends a webhook notification |

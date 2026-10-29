@@ -1,5 +1,13 @@
 # Import pipeline specification
 
+> **Implementation status (Sprint 2):** the SQL Server connector, type mapping, streaming import,
+> atomic swap and refresh runner exist. Corrections to this spec: the live file is `live.duckdb` and
+> the work file is `staging.duckdb` (older text says `current.duckdb` / `refreshing.duckdb` and
+> has been updated); archives are `vN.duckdb` in the dataset directory; connectors are synchronous;
+> there is **no Parquet step** yet (batches go Arrow to DuckDB, see section on Parquet below as a
+> possible future optimisation); import is sequential per table; the API is under `/api/v1`.
+> Details: `docs/features/MAGBI-002/README.md` and `docs/guides/sql-server-import.md`.
+
 How data gets from a source database into a DuckDB file that the query engine
 can read. This covers connectors, the browser-based transform editor, query
 folding (compiling transforms to SQL), the refresh orchestrator, incremental
@@ -106,8 +114,8 @@ version live.
                               │
                     ┌─────────▼──────────────────┐
                     │  7. Atomic swap               │
-                    │     refreshing.duckdb         │
-                    │       → current.duckdb        │
+                    │     staging.duckdb         │
+                    │       → live.duckdb        │
                     └─────────┬──────────────────┘
                               │
                     ┌─────────▼──────────────────┐
@@ -845,8 +853,8 @@ This runs in DuckDB after both Trip and Vehicle are loaded.
 
 ```
 datasets/{dataset-id}/
-  current.duckdb              ← live file (served to queries)
-  refreshing.duckdb           ← being built (write-only during refresh)
+  live.duckdb              ← live file (served to queries)
+  staging.duckdb           ← being built (write-only during refresh)
   model.json                  ← current model definition
   model-history/
     v14.json
@@ -863,8 +871,8 @@ import os
 import shutil
 
 def atomic_swap(dataset_path: str, version: int):
-    current = f"{dataset_path}/current.duckdb"
-    refreshing = f"{dataset_path}/refreshing.duckdb"
+    current = f"{dataset_path}/live.duckdb"
+    refreshing = f"{dataset_path}/staging.duckdb"
     history = f"{dataset_path}/data-history"
     timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H")
 
@@ -886,7 +894,7 @@ def atomic_swap(dataset_path: str, version: int):
 ### 10.3 Zero-downtime
 
 During the swap:
-- Existing query connections that opened `current.duckdb` before the rename
+- Existing query connections that opened `live.duckdb` before the rename
   continue to read from the old file (the OS keeps the file handle open).
 - New query connections after the rename open the new file.
 - There is no moment when queries fail — the old file exists until all
@@ -901,7 +909,7 @@ POST /api/v1/workspaces/{wid}/datasets/{did}/rollback
 { "dataVersion": 14 }
 ```
 
-This copies `data-history/v14_*.duckdb` back to `current.duckdb`.
+This copies `data-history/v14_*.duckdb` back to `live.duckdb`.
 
 ---
 
@@ -1067,8 +1075,8 @@ def run_with_retry(func, max_retries, retry_delay_seconds=60):
 
 ### 13.3 Partial failure
 
-If one table fails to import, the entire refresh fails. The `refreshing.duckdb`
-file is deleted. The `current.duckdb` remains untouched.
+If one table fails to import, the entire refresh fails. The `staging.duckdb`
+file is deleted. The `live.duckdb` remains untouched.
 
 Rationale: partial refreshes can leave the model in an inconsistent state
 (e.g., Trip rows referencing Directorate rows that weren't imported). A full
@@ -1181,7 +1189,7 @@ Every refresh writes a structured log:
           Referential spot-check: Trip.DepartmentGuid → Directorate: 100% match ✓
           Referential spot-check: Trip.VehicleGuid → Vehicle: 99.8% match (9 NULLs) ✓
 
-06:00:06  Atomic swap: refreshing.duckdb → current.duckdb
+06:00:06  Atomic swap: staging.duckdb → live.duckdb
           Archived: data-history/v14_2026-10-29T06.duckdb
           New file: 12.4 MB
 

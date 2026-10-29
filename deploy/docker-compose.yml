@@ -14,6 +14,8 @@ services:
       MAGBI_DUCKDB_DATA_DIR: /data/datasets
       MAGBI_CREDENTIAL_KEY: ${MAGBI_CREDENTIAL_KEY:-}
       MAGBI_JWT_SECRET: ${MAGBI_JWT_SECRET:-change-me-in-production}
+      MAGBI_CONNECTOR_ALLOWED_HOSTS: ${MAGBI_CONNECTOR_ALLOWED_HOSTS:-}
+      MAGBI_INSECURE_ADMIN_API: ${MAGBI_INSECURE_ADMIN_API:-false}
     volumes:
       - duckdb-data:/data/datasets
     depends_on:
@@ -34,6 +36,8 @@ services:
       MAGBI_DUCKDB_DATA_DIR: /data/datasets
       MAGBI_CREDENTIAL_KEY: ${MAGBI_CREDENTIAL_KEY:-}
       MAGBI_JWT_SECRET: ${MAGBI_JWT_SECRET:-change-me-in-production}
+      MAGBI_CONNECTOR_ALLOWED_HOSTS: ${MAGBI_CONNECTOR_ALLOWED_HOSTS:-}
+      MAGBI_INSECURE_ADMIN_API: ${MAGBI_INSECURE_ADMIN_API:-false}
     volumes:
       - duckdb-data:/data/datasets
     depends_on:

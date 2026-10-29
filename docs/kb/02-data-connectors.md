@@ -1,6 +1,24 @@
 # 02 — Data Connectors
 
-> **Status: Planned**
+> **Status: In Progress** — the SQL Server connector, type mapping and streaming import are built
+> (MAGBI-002, Sprint 2). PostgreSQL, MySQL, CSV/Excel and DuckDB connectors are still planned.
+>
+> **Implemented (Sprint 2), where it differs from the text below:**
+> - Connectors are **synchronous** (pyodbc blocks); the API runs them in worker threads.
+>   Interface: `connect`, `list_schemas`, `list_tables`, `execute_query` (streams tuples),
+>   `get_row_count`, `get_dialect`, `build_select`, plus `test_connection` and `preview`.
+>   Errors are `ConnectorError` with codes `AUTH_FAILED`, `UNREACHABLE`, `TIMEOUT`,
+>   `NOT_FOUND`, `INVALID_CONFIG`, `UNSUPPORTED`, `NOT_CONNECTED`, `QUERY_FAILED`.
+> - **No Parquet intermediate.** Rows are read in 10,000-row batches, converted to Arrow and inserted
+>   straight into the staging DuckDB file. Parquet can be added behind one function if profiling asks.
+> - SQL is generated with sqlglot (`tsql`) with quoted identifiers and only for tables that exist in
+>   the source catalog. ODBC connection-string values are brace-escaped. The connection is read-only
+>   (`ApplicationIntent=ReadOnly`, `SELECT`-only guard).
+> - Unsupported types (`xml`, `geography`, `hierarchyid`, `sql_variant`) are imported as text with
+>   a warning, never dropped. Verified on SQL Server 2022. `datetimeoffset` becomes UTC and is rounded
+>   to microseconds; `decimal` above 38 digits becomes double.
+> - Passwords are encrypted with AES-256-GCM bound to the connection id and shown as `***`.
+> - Runbook: `docs/guides/sql-server-import.md`.
 
 ---
 

@@ -62,7 +62,7 @@ PostgreSQL has the schema, `data/datasets/` directory is ready.
 | # | Task | Package | Files | FR |
 |---|------|---------|-------|-----|
 | 2.1 | SQL Server connector — `test_connection`, `get_tables`, `get_schema`, `read_table` | connectors | `sqlserver.py` | FR-001 |
-| 2.2 | Import pipeline — stream from connector → Parquet buffer → DuckDB bulk load | refresh | `importer.py` | — |
+| 2.2 | Import pipeline — stream from connector → Arrow batches → staging DuckDB (Parquet buffer deferred, see MAGBI-002) | refresh | `importer.py` | — |
 | 2.3 | Atomic swap — write new DuckDB file, rename to replace current | refresh | `swap.py` | FR-082 |
 | 2.4 | API endpoints: `POST /connections/test`, `GET /connections/{id}/tables`, `GET /connections/{id}/tables/{name}/schema`, `GET /connections/{id}/tables/{name}/preview` | api | `datasets.py` | FR-005, FR-007 |
 | 2.5 | API endpoint: `POST /datasets/{id}/refresh` (manual trigger) | api | `refresh.py` | FR-081 |

@@ -1,8 +1,23 @@
 # 10 — Storage & Data Refresh
 
-> **Status: In Progress** — storage layer built (MAGBI-001, Sprint 1).
-> The import pipeline, atomic swap orchestration and refresh scheduling are
-> still planned (Sprints 2 and 8). See "Implementation notes" near the end.
+> **Status: In Progress** — storage layer (MAGBI-001) and the import pipeline, atomic swap and refresh
+> runner (MAGBI-002, Sprint 2) are built. Scheduling, Celery workers, incremental refresh and
+> cancellation are still planned (Sprint 8). See "Implementation notes" near the end.
+>
+> **Implemented in Sprint 2, where it differs from the text below:**
+> - **No Parquet buffer.** Batches go from Arrow straight into the staging file (`INSERT ... SELECT`).
+> - Files per dataset: `live.duckdb`, `vN.duckdb` (archives, newest 5), `staging.duckdb`.
+> - `run_refresh` is a coroutine driven by FastAPI background tasks; blocking work runs in a thread.
+>   Status: `queued` -> `running` -> `succeeded` | `failed` (table `dataset_refreshes`).
+>   A partial unique index allows one queued/running refresh per dataset (API answers 409).
+>   Refreshes left queued/running by a crash are failed at startup and their staging file removed.
+> - Swap retries with backoff, deletes staging on final failure and updates `current_version` only
+>   after the files moved. The old live file keeps serving on any failure.
+> - Tables import one after another (DuckDB has one writer).
+> - **Open item for the query engine (Sprint 4):** DuckDB caches open databases per path inside a
+>   process, so a new connection to `live.duckdb` keeps seeing the old data until every old connection
+>   is closed. Close live connections when a dataset's `current_version` changes.
+> - Trigger endpoint: `POST /api/v1/workspaces/{wid}/datasets/{did}/refresh` (202).
 
 ---
 
@@ -104,7 +119,7 @@ step by step:
 ```
 1. TRIGGER
    User clicks "Refresh" or the scheduler fires
-   → POST /api/refresh/{dataset-id}/trigger
+   → POST /api/v1/workspaces/{wid}/datasets/{did}/refresh
 
 2. ENQUEUE
    The API creates a Celery task: refresh_dataset(dataset_id)

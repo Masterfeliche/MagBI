@@ -589,8 +589,8 @@ Data is extracted from the source database and stored in a DuckDB file:
 ```
 datasets/
   {dataset-id}/
-    current.duckdb          ← the live file (read-only for queries)
-    refreshing.duckdb       ← being built during refresh (write)
+    live.duckdb          ← the live file (read-only for queries)
+    staging.duckdb       ← being built during refresh (write)
     model.json              ← the DatasetDefinition
     history/
       v3_2026-10-29T10.duckdb  ← previous version (kept for rollback)
@@ -603,12 +603,12 @@ datasets/
 2. For each table (in dependency order):
    a. Connect to the source database
    b. Execute the source query (or SELECT * FROM source table)
-   c. Write rows into refreshing.duckdb
+   c. Write rows into staging.duckdb
    d. Compute calculated columns (topological order)
 3. Build indexes (if configured)
 4. Validate: row counts, null checks, referential integrity spot-checks
-5. Atomic swap: rename current.duckdb → history/vN.duckdb,
-                rename refreshing.duckdb → current.duckdb
+5. Atomic swap: rename live.duckdb → history/vN.duckdb,
+                rename staging.duckdb → live.duckdb
 6. Increment dataset version → invalidates query cache
 7. Notify connected clients (WebSocket) to re-query
 ```

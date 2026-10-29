@@ -47,7 +47,7 @@ Deliverable: a dataset cron schedule queues a refresh, the existing runner swaps
 |-------------|---------|---------------------|------|--------|
 | SUB-1.1 | Schedule API | A five-field cron is stored and returned; a bad expression is 422; delete clears it | 3h | [x] |
 | SUB-1.2 | Due scan | A dataset due at `now` is queued with trigger `schedule`; one already queued is skipped; a second scan in the same fire does not queue again after success | 4h | [x] |
-| SUB-2.1 | Concurrency limits | A second refresh for one dataset stays 409; the fourth in a workspace and the one past the platform cap are 429 and do not insert a row | 3h | [ ] |
+| SUB-2.1 | Concurrency limits | A second refresh for one dataset stays 409; the fourth in a workspace and the one past the platform cap are 429 and do not insert a row | 3h | [x] |
 | SUB-2.2 | Calculated columns | A scalar calculated column is present in `live.duckdb` after a successful refresh; a bad expression fails the refresh and leaves the previous live file unchanged | 4h | [ ] |
 | SUB-3.1 | Celery task and duration | A Celery task calls `run_refresh`; history includes `duration_seconds` | 2h | [ ] |
 | SUB-3.2 | Docs | KB 10 says schedules queue the existing runner, calculated columns are scalar only, and recipes are not applied | 1.5h | [ ] |
@@ -60,7 +60,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3. Each subtask is code, tests, and one s
 ## 3. Execution Log
 - [x] SUB-1.1: see git log. A five-field cron is stored on the dataset and returned. A bad expression is 422. Delete clears it.
 - [x] SUB-1.2: see git log. A due dataset is queued with trigger schedule. An active refresh is skipped. A success in the same fire is not queued again.
-- [ ] SUB-2.1: (Commit hash)
+- [x] SUB-2.1: see git log. A second refresh for one dataset is still 409. The fourth in a workspace and the one past the platform cap raise a limit and do not insert a row.
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-3.1: (Commit hash)
 - [ ] SUB-3.2: (Commit hash)

@@ -85,7 +85,9 @@ async def trigger_refresh(
             "DATASET_NOT_CONFIGURED",
             "dataset has no definition; set the connection and tables first",
         )
-    refresh = await queue_refresh(session, dataset.id)  # 409 if one is active
+    refresh = await queue_refresh(
+        session, dataset.id, platform_limit=svc.settings.max_concurrent_refreshes
+    )
     background.add_task(run_refresh, svc.refresh, refresh.id)
     return {"refresh_id": str(refresh.id), "status": refresh.status.value}
 

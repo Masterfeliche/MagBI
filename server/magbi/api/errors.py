@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from magbi.connectors.errors import ConnectorError, ErrorCode
 from magbi.refresh.importer import ImportPipelineError
-from magbi.refresh.orchestrator import RefreshConflict
+from magbi.refresh.orchestrator import RefreshConflict, RefreshLimit
 
 # AUTH_FAILED is the *source* rejecting the saved credentials, not the caller's
 # token, so it is a client error (400) and not a 401 that would trigger a re-login.
@@ -60,6 +60,12 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ImportPipelineError)
     async def _pipeline(_: Request, exc: ImportPipelineError) -> JSONResponse:
         return JSONResponse(error_body("IMPORT_FAILED", str(exc)), status_code=422)
+
+    @app.exception_handler(RefreshLimit)
+    async def _limit(_: Request, exc: RefreshLimit) -> JSONResponse:
+        return JSONResponse(
+            error_body("REFRESH_LIMIT", str(exc), scope=exc.scope), status_code=429
+        )
 
     @app.exception_handler(RefreshConflict)
     async def _conflict(_: Request, exc: RefreshConflict) -> JSONResponse:

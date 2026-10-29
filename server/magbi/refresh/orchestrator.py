@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -59,6 +59,18 @@ class RefreshConflict(Exception):
         self.refresh_id = refresh_id
 
 
+class RefreshLimit(Exception):
+    """The workspace or the platform already has too many active refreshes."""
+
+    def __init__(self, scope: str) -> None:
+        super().__init__(f"the {scope} refresh limit has been reached")
+        self.scope = scope
+
+
+WORKSPACE_REFRESH_LIMIT = 3
+_ACTIVE = (RefreshStatus.QUEUED, RefreshStatus.RUNNING)
+
+
 class RefreshSetupError(Exception):
     """The dataset cannot be refreshed as configured. Message is user-safe."""
 
@@ -84,21 +96,44 @@ def sanitize_error(message: str, secrets: tuple[str, ...] = ()) -> str:
 
 
 async def queue_refresh(
-    session: AsyncSession, dataset_id: uuid.UUID, trigger: str = "manual"
+    session: AsyncSession,
+    dataset_id: uuid.UUID,
+    trigger: str = "manual",
+    *,
+    platform_limit: int = 10,
 ) -> DatasetRefresh:
-    """Create a queued refresh, or raise ``RefreshConflict`` if one is active."""
+    """Create a queued refresh, or raise if one is active or a cap is full."""
+    dataset = await session.get(Dataset, dataset_id)
+    if dataset is None:
+        raise RefreshSetupError("dataset does not exist")
     active = (
         await session.execute(
             select(DatasetRefresh.id).where(
                 DatasetRefresh.dataset_id == dataset_id,
-                DatasetRefresh.status.in_(
-                    [RefreshStatus.QUEUED, RefreshStatus.RUNNING]
-                ),
+                DatasetRefresh.status.in_(_ACTIVE),
             )
         )
     ).scalar_one_or_none()
     if active is not None:
         raise RefreshConflict(active)
+    platform = await session.scalar(
+        select(func.count())
+        .select_from(DatasetRefresh)
+        .where(DatasetRefresh.status.in_(_ACTIVE))
+    )
+    if int(platform or 0) >= platform_limit:
+        raise RefreshLimit("platform")
+    workspace = await session.scalar(
+        select(func.count())
+        .select_from(DatasetRefresh)
+        .join(Dataset, Dataset.id == DatasetRefresh.dataset_id)
+        .where(
+            Dataset.workspace_id == dataset.workspace_id,
+            DatasetRefresh.status.in_(_ACTIVE),
+        )
+    )
+    if int(workspace or 0) >= WORKSPACE_REFRESH_LIMIT:
+        raise RefreshLimit("workspace")
     refresh = DatasetRefresh(dataset_id=dataset_id, trigger=trigger)
     session.add(refresh)
     try:
@@ -247,6 +282,9 @@ def _import_job(
         if job.definition:
             model = DatasetDefinition.model_validate(job.definition)
             extra, new_model = attach_date_table(staging, model)
+            from magbi.refresh.calculated import apply_calculated_columns
+
+            apply_calculated_columns(staging, new_model)
             if extra is not None:
                 result.tables.append(extra)
             if new_model != model:

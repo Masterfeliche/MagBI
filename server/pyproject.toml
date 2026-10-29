@@ -47,6 +47,7 @@ packages = ["magbi"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+markers = ["integration: needs a real SQL Server (docker compose --profile test up -d --wait mssql-test)"]
 
 [tool.ruff]
 target-version = "py311"

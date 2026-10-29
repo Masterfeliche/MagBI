@@ -64,7 +64,7 @@ Deliverable: point MagBI at a SQL Server, browse tables, import a table, find th
 | SUB-1.1 | Connector contract and errors | New `Connector` ABC per spec 3.1 with `SourceColumn/SourceTable`; `ConnectorError` with codes; fake connector in tests; old async stub removed | 2h | [x] |
 | SUB-1.2 | Type mapping (`connectors/types.py`) | Every mapped SQL Server type resolves to DataType, Arrow and DuckDB types; decimal precision rules; unsupported types yield a CONVERT-to-string plan plus warning; table-driven tests | 3h | [x] |
 | SUB-1.3 | SQL Server connector | Brace-escaped ODBC string; `test_connection` returns version, schemas, latency; list schemas/tables with columns, PK, estimated rows; streaming `execute_query`; pyodbc errors mapped to codes; sqlglot tsql SELECT builder; unit tests with mocked pyodbc | 6h | [x] |
-| SUB-1.4 | Test harness and CI | `docker compose --profile test up` starts SQL Server with seed; `pytest -m integration` runs the connector against it and skips cleanly without it; CI job added | 4h | [ ] |
+| SUB-1.4 | Test harness and CI | `docker compose --profile test up` starts SQL Server with seed; `pytest -m integration` runs the connector against it and skips cleanly without it; CI job added | 4h | [x] |
 | SUB-2.1 | Migration 0002 and models | `connections`, `dataset_refreshes`, `datasets.import_spec`; upgrade, downgrade, drift check pass on SQLite and Postgres | 3h | [x] |
 | SUB-2.2 | Connection service | Create/update encrypts password with AAD = connection id; secrets never in responses, logs or errors; missing key rejected; host allow-list enforced | 3h | [x] |
 | SUB-2.3 | Importer | Stream batches to staging DuckDB via Arrow; types per mapping; row count verified against source; warnings surfaced; progress callback; unit tests with fake connector, integration test on seed data | 6h | [x] |
@@ -86,7 +86,7 @@ Order: 1.1 -> 1.2 -> 1.3 -> 1.4 -> 2.1 -> 2.2 -> 2.3 -> 2.4 -> 2.5 -> 3.1 -> 3.2
 - [x] SUB-1.1: 2b93546 (committed together with SUB-1.2 as one commit; deviation from one-subtask-per-commit)
 - [x] SUB-1.2: 2b93546 (see SUB-1.1)
 - [x] SUB-1.3: see git log (feat(connectors): add SQL Server connector)
-- [ ] SUB-1.4: (Commit hash)
+- [x] SUB-1.4: see git log (test(connectors): add SQL Server integration harness). Verified on SQL Server 2022: 14 live tests pass incl. geography/hierarchyid/sql_variant/xml degrade-to-string; datetimeoffset(7) rounds to 6 digits (expected, warned)
 - [ ] SUB-2.1: (Commit hash)
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-2.3: (Commit hash)

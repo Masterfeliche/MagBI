@@ -23,6 +23,42 @@ jobs:
       - run: pytest
         working-directory: server
 
+  server-integration:
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "MagBI_Test_Passw0rd!"
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P $MSSQL_SA_PASSWORD -Q 'SELECT 1' -b"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 15s
+    env:
+      MAGBI_TEST_MSSQL_HOST: localhost
+      MAGBI_TEST_MSSQL_PORT: "1433"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Microsoft ODBC Driver 18
+        run: |
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+      - run: pip install -e ".[dev]"
+        working-directory: server
+      - run: pytest -m integration
+        working-directory: server
+
   web:
     runs-on: ubuntu-latest
     steps:

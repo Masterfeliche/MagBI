@@ -153,7 +153,9 @@ class WorkspaceMember(Base):
 
 class Dataset(Base):
     __tablename__ = "datasets"
-    __table_args__ = (UniqueConstraint("workspace_id", "name"),)
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "name", name="uq_datasets_workspace_id_name"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     workspace_id: Mapped[uuid.UUID] = mapped_column(
@@ -176,7 +178,9 @@ class Dataset(Base):
 
 class Report(Base):
     __tablename__ = "reports"
-    __table_args__ = (UniqueConstraint("workspace_id", "name"),)
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "name", name="uq_reports_workspace_id_name"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     workspace_id: Mapped[uuid.UUID] = mapped_column(

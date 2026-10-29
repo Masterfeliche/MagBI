@@ -61,7 +61,7 @@ Deliverable: point MagBI at a SQL Server, browse tables, import a table, find th
 ## 2. Implementation Plan
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
-| SUB-1.1 | Connector contract and errors | New `Connector` ABC per spec 3.1 with `SourceColumn/SourceTable`; `ConnectorError` with codes; fake connector in tests; old async stub removed | 2h | [ ] |
+| SUB-1.1 | Connector contract and errors | New `Connector` ABC per spec 3.1 with `SourceColumn/SourceTable`; `ConnectorError` with codes; fake connector in tests; old async stub removed | 2h | [x] |
 | SUB-1.2 | Type mapping (`connectors/types.py`) | Every mapped SQL Server type resolves to DataType, Arrow and DuckDB types; decimal precision rules; unsupported types yield a CONVERT-to-string plan plus warning; table-driven tests | 3h | [ ] |
 | SUB-1.3 | SQL Server connector | Brace-escaped ODBC string; `test_connection` returns version, schemas, latency; list schemas/tables with columns, PK, estimated rows; streaming `execute_query`; pyodbc errors mapped to codes; sqlglot tsql SELECT builder; unit tests with mocked pyodbc | 6h | [ ] |
 | SUB-1.4 | Test harness and CI | `docker compose --profile test up` starts SQL Server with seed; `pytest -m integration` runs the connector against it and skips cleanly without it; CI job added | 4h | [ ] |

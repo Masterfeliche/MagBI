@@ -16,6 +16,7 @@ dependencies = [
     "asyncpg>=0.29",
     "alembic>=1.13",
     "duckdb>=1.1",
+    "pyarrow>=17.0",
     "sqlglot>=25.0",
     "redis>=5.0",
     "celery>=5.4",
@@ -54,3 +55,8 @@ line-length = 88
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+[[tool.mypy.overrides]]
+# pyarrow ships no type information
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true

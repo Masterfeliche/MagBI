@@ -57,6 +57,13 @@ class Constraint:
     value: object
 
 
+def compile_row_expression(model: DatasetDefinition, source: str) -> exp.Expression:
+    """Compile a calculated column. Aggregations are rejected by the binder."""
+    from magbi.dax.binder import bind_calculated_column
+
+    return _scalar(bind_calculated_column(model, source), {}, (), model)
+
+
 def compile_aggregate(
     model: DatasetDefinition,
     source: str,
@@ -224,6 +231,8 @@ def _scalar(
         return _scalar(expr.body, local, filters, model)
     if isinstance(expr, Call):
         return _call(expr, scope, filters, model)
+    if isinstance(expr, ColumnRef):
+        return exp.column(expr.column, table=expr.table, quoted=True)
     raise DaxError("this expression cannot be compiled", expr.line, expr.col)
 
 

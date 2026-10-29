@@ -57,6 +57,6 @@ python_version = "3.11"
 strict = true
 
 [[tool.mypy.overrides]]
-# pyarrow ships no type information
-module = ["pyarrow", "pyarrow.*"]
+# pyarrow and pyodbc ship no type information
+module = ["pyarrow", "pyarrow.*", "pyodbc"]
 ignore_missing_imports = true

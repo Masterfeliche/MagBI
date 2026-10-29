@@ -1,0 +1,18 @@
+workflow:
+  jira_style: true
+  commit_rule: "single-sentence, imperative, max-72-chars, no-period"
+  phases:
+    - analysis
+    - plan
+    - execute
+    - final
+  templates:
+    source: "docs/features/template/README.md"
+    manifest: "docs/features/{{ticket_id}}/README.md"
+  docs_organization:
+    root: "docs/"
+    features: "docs/features/"
+    knowledge_base: "docs/kb/"
+    architecture: "docs/architecture/"
+    guides: "docs/guides/"
+    api: "docs/api/"

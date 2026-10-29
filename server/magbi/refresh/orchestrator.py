@@ -34,6 +34,7 @@ from magbi.metadata.models import (
     utcnow,
 )
 from magbi.model.schema import DatasetDefinition, SqlQuerySource, SqlTableSource
+from magbi.refresh.dates import attach_date_table
 from magbi.refresh.importer import (
     DEFAULT_BATCH_SIZE,
     ImportPipelineError,
@@ -165,6 +166,7 @@ class _Job:
     kind: str
     config: dict[str, Any]
     tables: list[TableSpec]
+    definition: dict[str, Any]
 
 
 def _import_plan(raw: dict[str, Any] | None) -> tuple[uuid.UUID, list[TableSpec]]:
@@ -214,11 +216,23 @@ async def _prepare(deps: RefreshDeps, refresh_id: uuid.UUID) -> _Job | None:
         if connection is None or connection.workspace_id != dataset.workspace_id:
             raise RefreshSetupError("the dataset's connection was not found")
         config = deps.connections.runtime_config(connection)
-        return _Job(dataset.id, refresh.version, connection.kind, config, tables)
+        return _Job(
+            dataset.id,
+            refresh.version,
+            connection.kind,
+            config,
+            tables,
+            dataset.definition or {},
+        )
 
 
-def _import_job(deps: RefreshDeps, job: _Job) -> ImportResult:
-    """Blocking: read the source into the staging file. Always cleans up on error."""
+def _import_job(
+    deps: RefreshDeps, job: _Job
+) -> tuple[ImportResult, dict[str, Any] | None]:
+    """Blocking: read the source into the staging file. Always cleans up on error.
+
+    The second value is the definition to store when a date table was added.
+    """
     dataset_key = str(job.dataset_id)
     deps.store.discard_staging(dataset_key)  # leftovers from an earlier crash
     connector = deps.connections.connector_for(job.kind)
@@ -226,7 +240,18 @@ def _import_job(deps: RefreshDeps, job: _Job) -> ImportResult:
     try:
         connector.connect(job.config)
         staging = deps.store.open_staging(dataset_key)
-        return import_tables(connector, job.tables, staging, batch_size=deps.batch_size)
+        result = import_tables(
+            connector, job.tables, staging, batch_size=deps.batch_size
+        )
+        updated: dict[str, Any] | None = None
+        if job.definition:
+            model = DatasetDefinition.model_validate(job.definition)
+            extra, new_model = attach_date_table(staging, model)
+            if extra is not None:
+                result.tables.append(extra)
+            if new_model != model:
+                updated = new_model.model_dump(mode="json", by_alias=True)
+        return result, updated
     except BaseException:
         if staging is not None:
             staging.close()
@@ -265,9 +290,18 @@ async def run_refresh(deps: RefreshDeps, refresh_id: uuid.UUID) -> None:
             return
         secrets = (str(job.config.get("password") or ""),)
         started = datetime.now()
-        result = await asyncio.to_thread(_import_job, deps, job)
+        result, definition = await asyncio.to_thread(_import_job, deps, job)
         async with deps.sessions() as session:
             await publish_version(session, deps.store, job.dataset_id, job.version)
+            if definition is not None:
+                await session.execute(
+                    update(Dataset)
+                    .where(Dataset.id == job.dataset_id)
+                    .values(
+                        definition=definition, model_version=Dataset.model_version + 1
+                    )
+                )
+                await session.commit()
         summary = result.to_dict()
         summary["version"] = job.version
         summary["seconds"] = round((datetime.now() - started).total_seconds(), 3)

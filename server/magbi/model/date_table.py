@@ -39,9 +39,16 @@ class GeneratedDateTable:
     rows: list[dict[str, object]]
 
 
+def _shift_year(day: dt.date, years: int) -> dt.date:
+    try:
+        return day.replace(year=day.year + years)
+    except ValueError:  # 29 February has no image in the neighbouring year
+        return day.replace(year=day.year + years, day=28)
+
+
 def with_padding(start: dt.date, end: dt.date) -> tuple[dt.date, dt.date]:
     """One year of padding on each side, as the spec requires."""
-    return start.replace(year=start.year - 1), end.replace(year=end.year + 1)
+    return _shift_year(start, -1), _shift_year(end, 1)
 
 
 def generate_date_table(

@@ -1,0 +1,99 @@
+/** Power BI-style designer. Filters and Build are rails; only one pane is open. */
+
+import { useEffect, useRef, useState } from "react";
+
+import { VISUALS } from "./catalog";
+import { Canvas } from "./Canvas";
+import { PAGE_WIDTH } from "./layout";
+import { useDesignerStore } from "./store";
+import "./designer.css";
+
+type Pane = "closed" | "filters" | "build";
+
+export function DesignerPage() {
+  const report = useDesignerStore((state) => state.report);
+  const addVisual = useDesignerStore((state) => state.addVisual);
+  const stage = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [pane, setPane] = useState<Pane>("closed");
+  const [tab, setTab] = useState<"visuals" | "format">("visuals");
+
+  useEffect(() => {
+    const node = stage.current;
+    if (!node) return;
+    const measure = () => {
+      const width = node.clientWidth - 32;
+      setScale(width > 0 ? width / PAGE_WIDTH : 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [pane]);
+
+  function toggle(next: Pane) {
+    setPane((current) => (current === next ? "closed" : next));
+  }
+
+  return (
+    <div className="designer">
+      <header className="ribbon">
+        <strong className="report-name">{report.name}</strong>
+        <button type="button" disabled>
+          Undo
+        </button>
+        <button type="button" disabled>
+          Redo
+        </button>
+        <button type="button" className="publish" disabled>
+          Publish
+        </button>
+      </header>
+      <div className="desk">
+        <div className="stage" ref={stage}>
+          <div className="page-tabs">
+            <span className="page-tab">Page 1</span>
+          </div>
+          <Canvas scale={scale} />
+        </div>
+        {pane !== "closed" && (
+          <aside className="pane">
+            {pane === "filters" ? (
+              <p className="pane-title">Filters</p>
+            ) : (
+              <>
+                <div className="tabs">
+                  <button type="button" className={tab === "visuals" ? "on" : ""} onClick={() => setTab("visuals")}>
+                    Visuals
+                  </button>
+                  <button type="button" className={tab === "format" ? "on" : ""} onClick={() => setTab("format")}>
+                    Format
+                  </button>
+                </div>
+                {tab === "visuals" ? (
+                  <div className="gallery">
+                    {VISUALS.map((spec) => (
+                      <button key={spec.type} type="button" onClick={() => addVisual(spec.type)}>
+                        {spec.displayName}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="hint">Select a visual to set its title and color.</p>
+                )}
+              </>
+            )}
+          </aside>
+        )}
+        <div className="rails">
+          <button type="button" className={pane === "filters" ? "rail on" : "rail"} onClick={() => toggle("filters")}>
+            Filters
+          </button>
+          <button type="button" className={pane === "build" ? "rail on" : "rail"} onClick={() => toggle("build")}>
+            Build
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

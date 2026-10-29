@@ -48,7 +48,7 @@ Deliverable: an ERP sends a service token, receives an embed token, and a query 
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
 | SUB-1.1 | User tokens | A password hash verifies, an HS256 user token round-trips, and a wrong password, a wrong audience, and an expired token fail | 3h | [x] |
-| SUB-1.2 | RS256 | When a PEM key is configured, tokens are signed and checked with RS256, and an HS256 token is rejected in that mode | 2h | [ ] |
+| SUB-1.2 | RS256 | When a PEM key is configured, tokens are signed and checked with RS256, and an HS256 token is rejected in that mode | 2h | [x] |
 | SUB-2.1 | Role checks | Admin, editor, and viewer match the permission order; a viewer is refused an editor action; an embed token is refused a management action | 3h | [ ] |
 | SUB-2.2 | Login and members | Login returns a token; a platform admin creates a user; a workspace admin adds and removes a member; a duplicate email is 409 | 4h | [ ] |
 | SUB-3.1 | Service tokens | Migration `0004` stores a hash; create returns the secret once; a later call accepts it; revoke makes the next call fail | 3h | [ ] |
@@ -63,7 +63,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 4.3. Each subtask is code, tests,
 
 ## 3. Execution Log
 - [x] SUB-1.1: see git log. Passwords use PBKDF2. An HS256 user token round-trips. A wrong audience and an expired token fail.
-- [ ] SUB-1.2: (Commit hash)
+- [x] SUB-1.2: see git log. RS256 signs with a PEM private key. An HS256 token is rejected while that algorithm is active.
 - [ ] SUB-2.1: (Commit hash)
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-3.1: (Commit hash)

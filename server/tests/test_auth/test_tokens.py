@@ -1,5 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
 from magbi.auth.tokens import (
     USER_AUDIENCE,
     TokenError,
@@ -49,3 +52,39 @@ def test_a_wrong_audience_and_an_expired_token_fail() -> None:
         assert exc.code == "TOKEN_EXPIRED"
     else:
         raise AssertionError("expected TOKEN_EXPIRED")
+
+
+def test_rs256_rejects_an_hs256_token() -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    public = (
+        key.public_key()
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode()
+    )
+    claims = user_claims("user-1", "ada@example.com", "Ada", [], ttl_minutes=15)
+    signed = issue_token(claims, secret="", algorithm="RS256", private_key=private)
+    payload = read_token(
+        signed, secret="", algorithm="RS256", public_key=public, audience=USER_AUDIENCE
+    )
+    assert payload["email"] == "ada@example.com"
+    hs = issue_token(claims, secret=SECRET, algorithm="HS256")
+    try:
+        read_token(
+            hs,
+            secret=SECRET,
+            algorithm="RS256",
+            public_key=public,
+            audience=USER_AUDIENCE,
+        )
+    except TokenError as exc:
+        assert exc.code == "TOKEN_INVALID"
+    else:
+        raise AssertionError("expected TOKEN_INVALID")

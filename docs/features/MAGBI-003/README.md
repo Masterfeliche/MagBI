@@ -66,7 +66,7 @@ Deliverable: a dataset built from imported tables, with relationships (Invoices 
 | SUB-1.2 | Persistence | Migration 0003 adds `definition` and `model_version`, backfills from `import_spec`, drops it; upgrade, downgrade, and drift check pass on SQLite and Postgres; refresh reads the definition | 3h | [x] |
 | SUB-2.1 | Relationship edits | Add and remove; many-to-one and one-to-one only; one active per table pair; "one" side must be a key; unknown table or column rejected | 3h | [x] |
 | SUB-2.2 | Join paths | Shortest path over active relationships; ambiguous path and cycle reported; inactive relationships ignored | 3h | [x] |
-| SUB-3.1 | Date table generator | One row per day, no gaps, columns and hierarchy from spec 9.2; fiscal year and first day of week; range capped | 3h | [ ] |
+| SUB-3.1 | Date table generator | One row per day, no gaps, columns and hierarchy from spec 9.2; fiscal year and first day of week; range capped | 3h | [x] |
 | SUB-3.2 | Date table in the import | Refresh writes the generated table into staging and adds relationships from date columns; imported file queried with plain DuckDB | 3h | [ ] |
 | SUB-4.1 | Validation errors | Every structural error in the decisions list blocks save; result lists errors with stable codes; expression checks reported as deferred | 4h | [ ] |
 | SUB-4.2 | Validation warnings | The four warnings; date-table gap and duplicate checks against `live.duckdb`; clean model produces no errors | 3h | [ ] |
@@ -84,7 +84,7 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 6.1, 6.2. Each subtask 
 - [x] SUB-1.2: see git log. API create still accepts import_spec and stores a definition. Postgres drift check recorded after this commit.
 - [x] SUB-2.1: see git log. add_relationship and remove_relationship return a new document; the schema rejects an illegal result.
 - [x] SUB-2.2: see git log. Paths are undirected. Cycles are directed many-to-one, so a snowflake diamond is ambiguous and not a cycle. A length-2 cycle is already impossible.
-- [ ] SUB-3.1: (Commit hash)
+- [x] SUB-3.1: see git log. Fiscal year is the year the fiscal year ends. Weekend is the last two days of the configured week.
 - [ ] SUB-3.2: (Commit hash)
 - [ ] SUB-4.1: (Commit hash)
 - [ ] SUB-4.2: (Commit hash)

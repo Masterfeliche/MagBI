@@ -40,7 +40,7 @@ Pointer math already divides by the CSS scale. A resize or a guide snap must use
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
 | SUB-1.1 | Resize | Dragging the left or right handle changes width and x. A corner changes both axes. The box stays at least 80 by 60 and inside the page. One undo patch is recorded on pointer up | 4h | [x] |
-| SUB-1.2 | Alignment lines | Moving or resizing within 4px of another visual's edge or center, or the 20px page margin, snaps to it and draws that line. Farther away, the 10px grid is unchanged | 4h | [ ] |
+| SUB-1.2 | Alignment lines | Moving or resizing within 4px of another visual's edge or center, or the 20px page margin, snaps to it and draws that line. Farther away, the 10px grid is unchanged | 4h | [x] |
 | SUB-1.3 | Drop on the visual | Dropping Month on a column chart fills X-axis. Dropping Revenue fills Y-axis. A full well refuses the drop. The Build wells show the same fields | 3h | [ ] |
 | SUB-1.4 | Remove | Delete removes the selected visual. A control on a well chip removes that field | 2h | [ ] |
 | SUB-2.1 | Docs | KB 07 names resize handles, the 4px guides, and drop-on-visual | 1h | [ ] |
@@ -51,7 +51,8 @@ Order: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2. Each subtask is code, tests, and one single
 ---
 
 ## 3. Execution Log
-- [x] SUB-1.1: (this commit)
+- [x] SUB-1.1: 5570230
+- [x] SUB-1.2: (this commit)
 - [ ] SUB-1.2: (Commit hash)
 - [ ] SUB-1.3: (Commit hash)
 - [ ] SUB-1.4: (Commit hash)

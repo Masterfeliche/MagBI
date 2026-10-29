@@ -4,10 +4,10 @@ import { useRef, useState } from "react";
 
 import { VisualView } from "./Charts";
 import { filtersForVisual, groupingOf, toggleCrossFilter, type CrossFilter } from "./filters";
+import { axisTargets, moveWithGuides, snapAxis, type Guide } from "./guides";
 import {
   PAGE_HEIGHT,
   PAGE_WIDTH,
-  clampPosition,
   pageOffset,
   pagePoint,
   resizeBox,
@@ -41,9 +41,11 @@ export function Canvas({
   const dragRef = useRef<({ id: string } & Box) | null>(null);
   const resizeRef = useRef<{ id: string; handle: ResizeHandle; start: Box } | null>(null);
   const [drag, setDrag] = useState<({ id: string } & Box) | null>(null);
-  function placeDrag(next: ({ id: string } & Box) | null) {
+  const [guides, setGuides] = useState<Guide[]>([]);
+  function placeDrag(next: ({ id: string } & Box) | null, lines: Guide[] = []) {
     dragRef.current = next;
     setDrag(next);
+    setGuides(lines);
   }
   const grip = Math.min(18, Math.max(10, Math.round(12 / scale)));
 
@@ -54,6 +56,13 @@ export function Canvas({
       style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT, transform: `scale(${scale})` }}
       onPointerDown={() => selectVisual(null)}
     >
+      {guides.map((guide) => (
+        <div
+          key={`${guide.axis}:${guide.at}`}
+          className={guide.axis === "x" ? "guide vertical" : "guide horizontal"}
+          style={guide.axis === "x" ? { left: guide.at } : { top: guide.at }}
+        />
+      ))}
       {page?.visuals.map((visual) => (
         <div
           key={visual.id}
@@ -91,14 +100,20 @@ export function Canvas({
               if (dragRef.current?.id !== visual.id) return;
               const rect = frame.current?.getBoundingClientRect();
               if (!rect) return;
-              const point = pagePoint(event.clientX, event.clientY, rect.left, rect.top, scale);
-              const clamped = clampPosition(
-                point.x - offset.current.dx,
-                point.y - offset.current.dy,
-                visual.width,
-                visual.height,
+              const point = pageOffset(event.clientX, event.clientY, rect.left, rect.top, scale);
+              const others = (page?.visuals ?? [])
+                .filter((item) => item.id !== visual.id)
+                .map((item) => ({ x: item.x, y: item.y, width: item.width, height: item.height }));
+              const aligned = moveWithGuides(
+                {
+                  x: point.x - offset.current.dx,
+                  y: point.y - offset.current.dy,
+                  width: visual.width,
+                  height: visual.height,
+                },
+                others,
               );
-              placeDrag({ id: visual.id, ...clamped, width: visual.width, height: visual.height });
+              placeDrag({ id: visual.id, ...aligned.box }, aligned.guides);
             }}
             onPointerUp={() => {
               const current = dragRef.current;
@@ -135,7 +150,19 @@ export function Canvas({
                   const rect = frame.current?.getBoundingClientRect();
                   if (!rect) return;
                   const point = pageOffset(event.clientX, event.clientY, rect.left, rect.top, scale);
-                  placeDrag({ id: visual.id, ...resizeBox(session.start, session.handle, point.x, point.y) });
+                  const others = (page?.visuals ?? [])
+                    .filter((item) => item.id !== visual.id)
+                    .map((item) => ({ x: item.x, y: item.y, width: item.width, height: item.height }));
+                  const lines: Guide[] = [];
+                  const box = resizeBox(session.start, session.handle, point.x, point.y, (value, axis) => {
+                    const snapped = snapAxis(
+                      value,
+                      axisTargets(others, axis, axis === "x" ? PAGE_WIDTH : PAGE_HEIGHT),
+                    );
+                    if (snapped.guide !== null) lines.push({ axis, at: snapped.guide });
+                    return snapped.value;
+                  });
+                  placeDrag({ id: visual.id, ...box }, lines);
                 }}
                 onPointerUp={() => {
                   const current = dragRef.current;

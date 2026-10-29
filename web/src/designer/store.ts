@@ -6,7 +6,7 @@ import { create } from "zustand";
 import type { FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
 import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
-import { blankReport, clampPosition, placeVisual, type Box } from "./layout";
+import { blankReport, PAGE_HEIGHT, PAGE_WIDTH, placeVisual, type Box } from "./layout";
 
 interface DesignerState {
   report: ReportDefinition;
@@ -97,5 +97,9 @@ function updateVisual(
 }
 
 function moved(visual: VisualDefinition, x: number, y: number): VisualDefinition {
-  return { ...visual, ...clampPosition(x, y, visual.width, visual.height) };
+  return {
+    ...visual,
+    x: Math.min(Math.max(x, 0), Math.max(PAGE_WIDTH - visual.width, 0)),
+    y: Math.min(Math.max(y, 0), Math.max(PAGE_HEIGHT - visual.height, 0)),
+  };
 }

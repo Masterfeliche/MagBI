@@ -109,6 +109,25 @@
 .resize-handle.se { bottom: 0; right: 0; transform: translate(50%, 50%); cursor: nwse-resize; }
 .resize-handle.sw { bottom: 0; left: 0; transform: translate(-50%, 50%); cursor: nesw-resize; }
 
+.guide {
+  position: absolute;
+  background: #118dff;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.guide.vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.guide.horizontal {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
 .visual-handle {
   height: 18px;
   cursor: move;

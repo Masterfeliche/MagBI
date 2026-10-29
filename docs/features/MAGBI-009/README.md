@@ -49,7 +49,7 @@ Deliverable: open the designer on a dataset, place a bar chart, drop fields into
 | SUB-1.1 | Query and dataset adapter | A snake_case definition becomes tables, columns, and measures; wells become a semantic query with `sum` on a numeric column; Vitest covers both | 4h | [x] |
 | SUB-1.2 | Canvas and palette | The page is 1760 by 990; a dropped position snaps to 10px; choosing a palette type adds a visual at the next snapped cell | 4h | [x] |
 | SUB-1.3 | Data pane and wells | The pane lists the adapted model; dropping a field fills the matching well; a second drop past the well's max is refused | 4h | [x] |
-| SUB-2.1 | Visual rendering | Bar, line, pie, card, and table turn a DSR into a render model; the other chart types reuse the category-and-value model; the map explains the missing coordinates | 5h | [ ] |
+| SUB-2.1 | Visual rendering | Bar, line, pie, card, and table turn a DSR into a render model; the other chart types stay notes instead of a fake column chart; the map explains the missing coordinates | 5h | [x] |
 | SUB-2.2 | Filters and properties | A chart category becomes a page cross-filter and is cleared by a second click; a page filter is added to every visual query; title and color patch the visual | 4h | [ ] |
 | SUB-2.3 | Undo and publish | Ctrl+Z restores the previous document and Ctrl+Y reapplies it; `POST` and `PUT` reports store the definition and `is_published` | 4h | [ ] |
 | SUB-3.1 | Docs | KB 07 names the designer route, the live query, the visuals that render, and what stays in Sprint 10 | 1.5h | [ ] |

@@ -100,7 +100,7 @@ export function DesignerPage() {
             <span className="page-tab">Page 1</span>
           </div>
           {loadError && <p className="hint">{loadError}</p>}
-          <Canvas scale={scale} />
+          <Canvas scale={scale} workspaceId={workspaceId ?? ""} datasetId={datasetId ?? ""} />
         </div>
         {pane !== "closed" && (
           <aside className="pane">

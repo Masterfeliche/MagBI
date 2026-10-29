@@ -31,7 +31,8 @@ export function buildQuery(
   filters: FilterDefinition[] = [],
 ): SemanticQueryBody {
   const select: SemanticQueryBody["select"] = [];
-  for (const binding of [...(wells["x-axis"] ?? []), ...(wells["y-axis"] ?? [])]) {
+  const ordered = ["x-axis", "legend", "y-axis", "columns"].flatMap((name) => wells[name] ?? []);
+  for (const binding of ordered) {
     if (binding.measure) {
       select.push({ measure: { table: binding.table, measure: binding.measure } });
       continue;

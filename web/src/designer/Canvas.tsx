@@ -2,10 +2,19 @@
 
 import { useRef, useState } from "react";
 
+import { VisualView } from "./Charts";
 import { PAGE_HEIGHT, PAGE_WIDTH, pagePoint } from "./layout";
 import { useDesignerStore } from "./store";
 
-export function Canvas({ scale }: { scale: number }) {
+export function Canvas({
+  scale,
+  workspaceId,
+  datasetId,
+}: {
+  scale: number;
+  workspaceId: string;
+  datasetId: string;
+}) {
   const report = useDesignerStore((state) => state.report);
   const selectedId = useDesignerStore((state) => state.selectedVisualId);
   const selectVisual = useDesignerStore((state) => state.selectVisual);
@@ -49,7 +58,7 @@ export function Canvas({ scale }: { scale: number }) {
           }}
           onPointerUp={() => setDrag(null)}
         >
-          <span className="visual-label">{visual.type}</span>
+          <VisualView visual={visual} workspaceId={workspaceId} datasetId={datasetId} filters={[]} />
         </div>
       ))}
     </div>

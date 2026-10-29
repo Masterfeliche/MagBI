@@ -131,6 +131,8 @@ export function Canvas({
                 key={handle}
                 className={`resize-handle ${handle}`}
                 style={{ width: grip, height: grip }}
+                role="button"
+                aria-label={`Resize ${handle}`}
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   selectVisual(visual.id);

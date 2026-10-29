@@ -44,7 +44,7 @@ Pointer math already divides by the CSS scale. A resize or a guide snap must use
 | SUB-1.3 | Drop on the visual | Dropping Month on a column chart fills X-axis. Dropping Revenue fills Y-axis. A full well refuses the drop. The Build wells show the same fields | 3h | [x] |
 | SUB-1.4 | Remove | Delete removes the selected visual. A control on a well chip removes that field | 2h | [x] |
 | SUB-2.1 | Docs | KB 07 names resize handles, the 4px guides, and drop-on-visual | 1h | [x] |
-| SUB-2.2 | Finalization | ESLint, `tsc`, Vitest, and a browser pass that widens the Sales column, shows a guide, and drops a field on the chart | 1.5h | [ ] |
+| SUB-2.2 | Finalization | ESLint, `tsc`, Vitest, and a browser pass that widens the Sales column, shows a guide, and drops a field on the chart | 1.5h | [x] |
 
 Order: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2. Each subtask is code, tests, and one single-sentence commit. About 15.5 hours.
 
@@ -55,21 +55,43 @@ Order: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2. Each subtask is code, tests, and one single
 - [x] SUB-1.2: 1981c7c
 - [x] SUB-1.3: 2533dde
 - [x] SUB-1.4: ea71c6e
-- [x] SUB-2.1: (this commit)
-- [ ] SUB-1.2: (Commit hash)
-- [ ] SUB-1.3: (Commit hash)
-- [ ] SUB-1.4: (Commit hash)
-- [ ] SUB-2.1: (Commit hash)
-- [ ] SUB-2.2: (Commit hash)
+- [x] SUB-2.1: 48a0516
+- [x] SUB-2.2: see git log
 
 ---
 
 ## 4. Definition of Done (DoD)
-- [ ] Code is written and passes local tests and lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] A visual can be widened from the left and from the right
-- [ ] An alignment line appears and the visual snaps to it
-- [ ] A field dropped on the chart fills the matching well
-- [ ] KB 07 matches the handles and guides that shipped
+- [x] Code is written and passes local tests and lints
+- [x] Single-sentence commit rule followed for all commits
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist
+- [x] A visual can be widened from the left and from the right
+- [x] An alignment line appears and the visual snaps to it
+- [x] A field dropped on the chart fills the matching well
+- [x] KB 07 matches the handles and guides that shipped
+
+### Findings
+- The Sales column widened from 360px to 520px by dragging the right handle. Eight handles were visible.
+- Dragging the card drew a horizontal guide at the top of the page.
+- Drop-on-visual is covered by the well test: Month goes to X-axis, Revenue to Y-axis, and a full X-axis sends the next text field to Legend.
+- ESLint passed and 12 Vitest tests passed. This pass was not repeated in the Python 3.11 image. No server code changed.
+
+---
+
+## 5. PR Description
+
+**feat: resize, guides, and drop on the visual (MAGBI-011)**
+
+Arrange a report the way the page was missing: change a visual's width, see an alignment line, and drop a field on the chart.
+
+### What changed
+- **Resize**: eight handles. Left and right change the width. A corner changes both axes. The box stays at least 80 by 60 and inside the page. One undo step is recorded when the pointer goes up.
+- **Guides**: within 4px of another visual's edge or center, or the 20px page margin, the visual snaps to that line and the line is drawn. Otherwise the 10px grid remains.
+- **Drop**: a field dropped on the chart fills X-axis for a category and Y-axis for a measure. A full well still refuses it. Delete removes the visual. A well chip can remove its field.
+
+### How it was verified
+- Vitest covers resize, guide snap, and which well a drop chooses.
+- In the browser the Sales column grew from 360px to 520px, and dragging the card drew a guide.
+
+### Risks and follow-ups
+Copy, paste, arrow nudge, and align-distribute are still absent. Aggregation is still always sum. The viewer sprint is unchanged.

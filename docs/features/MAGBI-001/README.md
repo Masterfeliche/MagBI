@@ -75,7 +75,7 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 ## 3. Execution Log
 - [x] SUB-0.1: cd03665 (hook verified: rejects multi-sentence and bad format)
 - [x] SUB-0.2: 357d194 (also fixed 3 baseline ruff/mypy errors that would fail CI)
-- [ ] SUB-1.1: (Commit hash)
+- [x] SUB-1.1: 804d6d3
 - [ ] SUB-1.2: (Commit hash)
 - [ ] SUB-1.3: (Commit hash)
 - [ ] SUB-1.4: (Commit hash)

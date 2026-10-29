@@ -3,7 +3,7 @@
  */
 import { create } from "zustand";
 
-import type { ReportDefinition, VisualDefinition } from "../types/report";
+import type { FieldBinding, ReportDefinition, VisualDefinition } from "../types/report";
 import { blankReport, clampPosition, placeVisual } from "./layout";
 
 interface DesignerState {
@@ -13,6 +13,7 @@ interface DesignerState {
   replaceReport: (report: ReportDefinition) => void;
   addVisual: (type: string) => void;
   moveVisual: (id: string, x: number, y: number) => void;
+  setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
 }
 
 export const useDesignerStore = create<DesignerState>((set, get) => ({
@@ -37,6 +38,13 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     const visuals = page.visuals.map((visual) =>
       visual.id === id ? moved(visual, x, y) : visual,
     );
+    set({ report: { ...report, pages: [{ ...page, visuals }] } });
+  },
+  setWells: (id, wells) => {
+    const report = get().report;
+    const page = report.pages[0];
+    if (!page) return;
+    const visuals = page.visuals.map((visual) => (visual.id === id ? { ...visual, wells } : visual));
     set({ report: { ...report, pages: [{ ...page, visuals }] } });
   },
 }));

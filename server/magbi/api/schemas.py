@@ -54,6 +54,17 @@ class DatasetUpdate(BaseModel):
     import_spec: ImportSpec | None = None
 
 
+class DefinitionIn(BaseModel):
+    model_version: int = Field(ge=1)
+    definition: dict[str, Any]
+
+
+class DefinitionOut(BaseModel):
+    model_version: int
+    definition: dict[str, Any] | None
+    validation: dict[str, Any] | None = None
+
+
 class DatasetOut(BaseModel):
     id: uuid.UUID
     workspace_id: uuid.UUID

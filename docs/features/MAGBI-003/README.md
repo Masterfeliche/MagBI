@@ -69,8 +69,8 @@ Deliverable: a dataset built from imported tables, with relationships (Invoices 
 | SUB-3.1 | Date table generator | One row per day, no gaps, columns and hierarchy from spec 9.2; fiscal year and first day of week; range capped | 3h | [x] |
 | SUB-3.2 | Date table in the import | Refresh writes the generated table into staging and adds relationships from date columns; imported file queried with plain DuckDB | 3h | [x] |
 | SUB-4.1 | Validation errors | Every structural error in the decisions list blocks save; result lists errors with stable codes; expression checks reported as deferred | 4h | [x] |
-| SUB-4.2 | Validation warnings | The four warnings; date-table gap and duplicate checks against `live.duckdb`; clean model produces no errors | 3h | [ ] |
-| SUB-5.1 | Definition API | `GET` and `PUT` definition with `model_version` and 409 on conflict; dataset create converts a legacy `import_spec`; Sprint 2 API tests updated | 4h | [ ] |
+| SUB-4.2 | Validation warnings | The four warnings; date-table gap and duplicate checks against `live.duckdb`; clean model produces no errors | 3h | [x] |
+| SUB-5.1 | Definition API | `GET` and `PUT` definition with `model_version` and 409 on conflict; dataset create converts a legacy `import_spec`; Sprint 2 API tests updated | 4h | [x] |
 | SUB-5.2 | Relationship, measure, date-table, validate endpoints | Add and delete relationship, add, update, delete measure, generate date table, validate; errors block the write and return the validation body | 4h | [ ] |
 | SUB-6.1 | Docs | KB 04 updated; spec status note (definition column, deferred rules, no many-to-many) | 1.5h | [ ] |
 | SUB-6.2 | Finalization | ruff, mypy strict, coverage over 80% for `model` and the changed API; regression of the full suite; PR description | 1.5h | [ ] |
@@ -87,8 +87,8 @@ Order: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 6.1, 6.2. Each subtask 
 - [x] SUB-3.1: see git log. Fiscal year is the year the fiscal year ends. Weekend is the last two days of the configured week.
 - [x] SUB-3.2: see git log. First date column on a table is the active link; further ones are inactive. A 29 February pads to the 28th.
 - [x] SUB-4.1: see git log. Codes include CYCLE, AMBIGUOUS_PATH, DUPLICATE_TABLE, MISSING_REFERENCE, UNSUPPORTED. Expression checks are listed as deferred.
-- [ ] SUB-4.2: (Commit hash)
-- [ ] SUB-5.1: (Commit hash)
+- [x] SUB-4.2: see git log. Warnings ISOLATED_TABLE, FACT_WITHOUT_MEASURES, NULLABLE_INNER_JOIN, HIDDEN_TABLE_VISIBLE_MEASURE. Date checks DATE_TABLE_GAPS, DATE_TABLE_DUPLICATES, DATE_TABLE_NOT_IMPORTED, DATE_TABLE_NOT_CHECKED.
+- [x] SUB-5.1: see git log. PUT returns 409 MODEL_VERSION_CONFLICT or 422 VALIDATION_FAILED and leaves the stored definition unchanged. A successful save returns warnings.
 - [ ] SUB-5.2: (Commit hash)
 - [ ] SUB-6.1: (Commit hash)
 - [ ] SUB-6.2: (Commit hash)

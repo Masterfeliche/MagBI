@@ -9,17 +9,31 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+import duckdb
 from fastapi import APIRouter
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from magbi.api.deps import SessionDep
+from magbi.api.deps import ServicesDep, SessionDep
 from magbi.api.errors import ApiError
-from magbi.api.schemas import DatasetIn, DatasetOut, DatasetUpdate, ImportSpec
+from magbi.api.schemas import (
+    DatasetIn,
+    DatasetOut,
+    DatasetUpdate,
+    DefinitionIn,
+    DefinitionOut,
+    ImportSpec,
+)
 from magbi.api.workspaces import get_workspace_or_404
 from magbi.metadata.models import Connection, Dataset
-from magbi.model.schema import ModelSchemaError, definition_from_import_spec
+from magbi.model.schema import (
+    DatasetDefinition,
+    ModelSchemaError,
+    definition_from_import_spec,
+)
+from magbi.model.validation import ValidationReport, validate_document
+from magbi.storage.duckdb_store import DuckDBStore, StoreError
 
 router = APIRouter(tags=["datasets"])
 
@@ -101,6 +115,86 @@ async def get_dataset(
     wid: uuid.UUID, did: uuid.UUID, session: SessionDep
 ) -> DatasetOut:
     return _out(await get_dataset_or_404(session, wid, did))
+
+
+def _open_live(
+    store: DuckDBStore, dataset_id: uuid.UUID
+) -> duckdb.DuckDBPyConnection | None:
+    try:
+        path = store.live_path(str(dataset_id))
+    except StoreError:
+        return None
+    if not path.is_file():
+        return None
+    return duckdb.connect(str(path), read_only=True)
+
+
+def _report(
+    store: DuckDBStore, dataset_id: uuid.UUID, raw: dict[str, Any]
+) -> ValidationReport:
+    live = _open_live(store, dataset_id)
+    try:
+        return validate_document(raw, live)
+    finally:
+        if live is not None:
+            live.close()
+
+
+async def _save_definition(
+    session: AsyncSession,
+    store: DuckDBStore,
+    ds: Dataset,
+    body: DefinitionIn,
+) -> DefinitionOut:
+    if ds.model_version != body.model_version:
+        raise ApiError(
+            409,
+            "MODEL_VERSION_CONFLICT",
+            f"definition is at model_version {ds.model_version}",
+            model_version=ds.model_version,
+        )
+    report = _report(store, ds.id, body.definition)
+    if not report.ok:
+        raise ApiError(
+            422,
+            "VALIDATION_FAILED",
+            "definition has errors",
+            validation=report.to_dict(),
+        )
+    model = DatasetDefinition.model_validate(body.definition)
+    ds.definition = model.model_dump(mode="json", by_alias=True)
+    ds.model_version += 1
+    await _commit(session)
+    return DefinitionOut(
+        model_version=ds.model_version,
+        definition=ds.definition,
+        validation=report.to_dict(),
+    )
+
+
+@router.get("/workspaces/{wid}/datasets/{did}/definition", response_model=DefinitionOut)
+async def get_definition(
+    wid: uuid.UUID, did: uuid.UUID, session: SessionDep, svc: ServicesDep
+) -> DefinitionOut:
+    ds = await get_dataset_or_404(session, wid, did)
+    validation = None
+    if ds.definition is not None:
+        validation = _report(svc.store, ds.id, ds.definition).to_dict()
+    return DefinitionOut(
+        model_version=ds.model_version, definition=ds.definition, validation=validation
+    )
+
+
+@router.put("/workspaces/{wid}/datasets/{did}/definition", response_model=DefinitionOut)
+async def put_definition(
+    wid: uuid.UUID,
+    did: uuid.UUID,
+    body: DefinitionIn,
+    session: SessionDep,
+    svc: ServicesDep,
+) -> DefinitionOut:
+    ds = await get_dataset_or_404(session, wid, did)
+    return await _save_definition(session, svc.store, ds, body)
 
 
 @router.put("/workspaces/{wid}/datasets/{did}", response_model=DatasetOut)

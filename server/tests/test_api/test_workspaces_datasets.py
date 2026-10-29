@@ -166,3 +166,67 @@ def test_dataset_update(api: ApiEnv) -> None:
         c.put(f"{V1}/workspaces/{wid}/datasets/{uuid.uuid4()}", json={}).status_code
         == 404
     )
+
+
+def _orders() -> dict[str, object]:
+    return {
+        "tables": [
+            {
+                "name": "Orders",
+                "columns": [
+                    {
+                        "name": "id",
+                        "data_type": "integer",
+                        "is_nullable": False,
+                        "is_primary_key": True,
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def test_definition_get_and_put(api: ApiEnv) -> None:
+    c = api.client
+    wid = api.workspace()
+    created = c.post(f"{V1}/workspaces/{wid}/datasets", json={"name": "d"}).json()
+    url = f"{V1}/workspaces/{wid}/datasets/{created['id']}/definition"
+    empty = c.get(url).json()
+    assert empty["definition"] is None and empty["model_version"] == 1
+    saved = c.put(url, json={"model_version": 1, "definition": _orders()})
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert body["model_version"] == 2
+    assert body["definition"]["tables"][0]["name"] == "Orders"
+    assert body["validation"]["ok"] is True
+    assert any(w["code"] == "ISOLATED_TABLE" for w in body["validation"]["warnings"])
+    assert "measure_expressions" in body["validation"]["checks_deferred"]
+    again = c.get(url).json()
+    assert (
+        again["model_version"] == 2
+        and again["definition"]["tables"][0]["name"] == "Orders"
+    )
+
+
+def test_definition_rejects_a_stale_version_and_structural_errors(api: ApiEnv) -> None:
+    c = api.client
+    wid = api.workspace()
+    created = c.post(f"{V1}/workspaces/{wid}/datasets", json={"name": "d"}).json()
+    url = f"{V1}/workspaces/{wid}/datasets/{created['id']}/definition"
+    stale = c.put(url, json={"model_version": 9, "definition": _orders()})
+    assert stale.status_code == 409
+    assert stale.json()["error"]["code"] == "MODEL_VERSION_CONFLICT"
+    broken = {
+        "tables": [
+            {"name": "A", "columns": []},
+            {"name": "A", "columns": []},
+        ]
+    }
+    bad = c.put(url, json={"model_version": 1, "definition": broken})
+    assert bad.status_code == 422
+    assert bad.json()["error"]["code"] == "VALIDATION_FAILED"
+    assert any(
+        e["code"] == "DUPLICATE_TABLE"
+        for e in bad.json()["error"]["validation"]["errors"]
+    )
+    assert c.get(url).json()["definition"] is None

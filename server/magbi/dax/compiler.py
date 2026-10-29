@@ -40,12 +40,32 @@ _FLIP = {"=": "<>", "<>": "=", "<": ">=", ">": "<=", "<=": ">", ">=": "<"}
 
 
 @dataclass(frozen=True, slots=True)
+class AggregatePlan:
+    """One measure's aggregate expression and the tables it needs joined."""
+
+    expression: exp.Expression
+    fact: str
+    tables: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Constraint:
     """One filter. ``columns`` are the ones a later CALCULATE argument replaces."""
 
     columns: tuple[tuple[str, str], ...]
     op: str
     value: object
+
+
+def compile_aggregate(
+    model: DatasetDefinition,
+    source: str,
+    *,
+    filters: tuple[tuple[str, str, str, object], ...] = (),
+) -> AggregatePlan:
+    """Return the aggregate expression for a measure, not a full SELECT."""
+    prepared = _prepare(model, source, filters)
+    return AggregatePlan(prepared[1], prepared[0], prepared[2])
 
 
 def compile_measure(
@@ -60,29 +80,12 @@ def compile_measure(
     ``filters`` is the incoming filter context, each item
     ``(table, column, operator, value)``.
     """
-    expr = bind_measure(model, source)
-    context = tuple(
-        Constraint(((table, column),), op, value)
-        for table, column, op, value in filters
-    )
-    facts: set[str] = set()
-    _facts(expr, facts)
-    if len(facts) != 1:
-        raise DaxError(
-            "measures that combine two fact tables are compiled by the query engine",
-            expr.line,
-            expr.col,
-        )
-    fact = next(iter(facts))
-    query: exp.Select = exp.select(_scalar(expr, {}, context, model)).from_(
-        _table(fact)
-    )
+    fact, scalar, tables, expr = _prepare(model, source, filters)
+    query: exp.Select = exp.select(scalar).from_(_table(fact))
     joined = {fact}
-    mentioned: set[str] = set()
-    _filter_tables(expr, context, mentioned, model)
     extras = list(also)
-    for table in mentioned:
-        if table != fact and table not in extras:
+    for table in tables:
+        if table not in extras:
             extras.append(table)
     for extra in dict.fromkeys(extras):
         if extra in joined:
@@ -99,6 +102,32 @@ def compile_measure(
                 joined.add(nxt)
             cursor = nxt
     return query.sql(dialect="duckdb")
+
+
+def _prepare(
+    model: DatasetDefinition,
+    source: str,
+    filters: tuple[tuple[str, str, str, object], ...],
+) -> tuple[str, exp.Expression, tuple[str, ...], Expr]:
+    expr = bind_measure(model, source)
+    context = tuple(
+        Constraint(((table, column),), op, value)
+        for table, column, op, value in filters
+    )
+    facts: set[str] = set()
+    _facts(expr, facts)
+    if len(facts) != 1:
+        raise DaxError(
+            "measures that combine two fact tables are compiled by the query engine",
+            expr.line,
+            expr.col,
+        )
+    fact = next(iter(facts))
+    scalar = _scalar(expr, {}, context, model)
+    mentioned: set[str] = set()
+    _filter_tables(expr, context, mentioned, model)
+    tables = tuple(table for table in mentioned if table != fact)
+    return fact, scalar, tables, expr
 
 
 def _aggregate(call: Call) -> tuple[str, exp.Expression]:

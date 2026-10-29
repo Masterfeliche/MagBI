@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
+import type { ReportDefinition } from "../types/report";
 import { VISUALS, visualSpec } from "./catalog";
 import { Canvas } from "./Canvas";
 import { DataPane } from "./DataPane";
@@ -13,7 +14,7 @@ import { type CrossFilter } from "./filters";
 import { PAGE_WIDTH, blankReport } from "./layout";
 import { adaptDataset, type DesignerField, type DesignerTable } from "./model";
 import { useDesignerStore } from "./store";
-import { dropField } from "./wells";
+import { dropField, wellForDrop } from "./wells";
 import { WellsPanel } from "./WellsPanel";
 import "./designer.css";
 
@@ -25,6 +26,7 @@ export function DesignerPage() {
   const selectedId = useDesignerStore((state) => state.selectedVisualId);
   const addVisual = useDesignerStore((state) => state.addVisual);
   const setWells = useDesignerStore((state) => state.setWells);
+  const selectVisual = useDesignerStore((state) => state.selectVisual);
   const setPageFilters = useDesignerStore((state) => state.setPageFilters);
   const setFormat = useDesignerStore((state) => state.setFormat);
   const replaceReport = useDesignerStore((state) => state.replaceReport);
@@ -46,13 +48,24 @@ export function DesignerPage() {
   useEffect(() => {
     if (!workspaceId || !datasetId) return;
     let cancelled = false;
-    apiFetch<{ name: string; definition: unknown }>(
-      `/workspaces/${workspaceId}/datasets/${datasetId}`,
-    )
-      .then((dataset) => {
+    Promise.all([
+      apiFetch<{ name: string; definition: unknown }>(
+        `/workspaces/${workspaceId}/datasets/${datasetId}`,
+      ),
+      apiFetch<Array<{ id: string; dataset_id: string; definition: ReportDefinition }>>(
+        `/workspaces/${workspaceId}/reports`,
+      ).catch(() => []),
+    ])
+      .then(([dataset, reports]) => {
         if (cancelled) return;
         setTables(adaptDataset(dataset.definition));
         setLoadError("");
+        const saved = reports.find((report) => report.dataset_id === datasetId);
+        if (saved) {
+          replaceReport(saved.definition);
+          setReportId(saved.id);
+          return;
+        }
         replaceReport(blankReport(dataset.name, datasetId));
       })
       .catch((error: unknown) => {
@@ -69,10 +82,20 @@ export function DesignerPage() {
   function onDragEnd(event: DragEndEvent) {
     const field = event.active.data.current?.field as DesignerField | undefined;
     const wellName = event.over?.data.current?.well as string | undefined;
-    const well = spec?.wells.find((item) => item.name === wellName);
-    if (!field || !well || !selected) return;
-    const result = dropField(selected.wells, well, field);
-    if (result.accepted) setWells(selected.id, result.wells);
+    const visualId = event.over?.data.current?.visualId as string | undefined;
+    const target = visualId
+      ? report.pages[0]?.visuals.find((visual) => visual.id === visualId)
+      : selected;
+    if (!field || !target) return;
+    const targetSpec = visualSpec(target.type);
+    const well = wellName
+      ? targetSpec.wells.find((item) => item.name === wellName)
+      : wellForDrop(targetSpec, field, target.wells);
+    if (!well) return;
+    const result = dropField(target.wells, well, field);
+    if (!result.accepted) return;
+    setWells(target.id, result.wells);
+    if (visualId) selectVisual(target.id);
   }
 
   useEffect(() => {
@@ -153,6 +176,7 @@ export function DesignerPage() {
           Publish
         </button>
       </header>
+      <DndContext onDragEnd={onDragEnd}>
       <div className="desk">
         <div className="stage" ref={stage}>
           <div className="page-tabs">
@@ -194,7 +218,7 @@ export function DesignerPage() {
                   </button>
                 </div>
                 {tab === "visuals" ? (
-                  <DndContext onDragEnd={onDragEnd}>
+                  <>
                     <DataPane tables={tables} />
                     <div className="gallery">
                       {VISUALS.map((item) => (
@@ -204,7 +228,7 @@ export function DesignerPage() {
                       ))}
                     </div>
                     <WellsPanel wells={spec?.wells ?? []} bindings={selected?.wells ?? {}} />
-                  </DndContext>
+                  </>
                 ) : selected ? (
                   <form
                     onSubmit={(event) => {
@@ -238,6 +262,7 @@ export function DesignerPage() {
           </button>
         </div>
       </div>
+      </DndContext>
     </div>
   );
 }

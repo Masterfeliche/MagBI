@@ -88,6 +88,10 @@
   overflow: hidden;
 }
 
+.visual.over {
+  outline: 1px solid #118dff;
+}
+
 .visual.selected {
   border-color: #118dff;
 }

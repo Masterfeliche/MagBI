@@ -1,6 +1,7 @@
 /** Free-form page. Positions are page pixels; pointer deltas are divided by the CSS scale. */
 
-import { useRef, useState } from "react";
+import { useDroppable } from "@dnd-kit/core";
+import { useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 
 import { VisualView } from "./Charts";
 import { filtersForVisual, groupingOf, toggleCrossFilter, type CrossFilter } from "./filters";
@@ -64,9 +65,10 @@ export function Canvas({
         />
       ))}
       {page?.visuals.map((visual) => (
-        <div
+        <VisualFrame
           key={visual.id}
-          className={visual.id === selectedId ? "visual selected" : "visual"}
+          id={visual.id}
+          selected={visual.id === selectedId}
           style={{
             left: drag?.id === visual.id ? drag.x : visual.x,
             top: drag?.id === visual.id ? drag.y : visual.y,
@@ -200,8 +202,30 @@ export function Canvas({
             }}
           />
           </div>
-        </div>
+        </VisualFrame>
       ))}
+    </div>
+  );
+}
+
+function VisualFrame({
+  id,
+  selected,
+  style,
+  onPointerDown,
+  children,
+}: {
+  id: string;
+  selected: boolean;
+  style: CSSProperties;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
+  children: ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `visual:${id}`, data: { visualId: id } });
+  const tone = selected ? "visual selected" : "visual";
+  return (
+    <div ref={setNodeRef} className={isOver ? `${tone} over` : tone} style={style} onPointerDown={onPointerDown}>
+      {children}
     </div>
   );
 }

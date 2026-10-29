@@ -1,9 +1,28 @@
 /** Drop a field into a well, or refuse it when the well is full or the kind does not match. */
 
 import type { FieldBinding } from "../types/report";
-import type { WellSpec } from "./catalog";
+import type { VisualSpec, WellSpec } from "./catalog";
 import { isNumeric, type DesignerField } from "./model";
 import { bindingFor } from "./query";
+
+const MEASURE_WELLS = ["y-axis", "columns", "field", "x-axis", "legend"];
+const GROUP_WELLS = ["x-axis", "legend", "columns", "field", "y-axis"];
+
+/** The well a field lands in when it is dropped on the visual itself. */
+export function wellForDrop(
+  spec: VisualSpec,
+  field: DesignerField,
+  wells: Record<string, FieldBinding[]>,
+): WellSpec | null {
+  const numeric = field.kind === "measure" || isNumeric(field.dataType);
+  const order = numeric ? MEASURE_WELLS : GROUP_WELLS;
+  for (const name of order) {
+    const well = spec.wells.find((item) => item.name === name);
+    if (!well) continue;
+    if (dropField(wells, well, field).accepted) return well;
+  }
+  return null;
+}
 
 export function dropField(
   wells: Record<string, FieldBinding[]>,

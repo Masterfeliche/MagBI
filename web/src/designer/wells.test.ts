@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { visualSpec } from "./catalog";
 import type { DesignerField } from "./model";
-import { dropField } from "./wells";
+import { dropField, wellForDrop } from "./wells";
 
 const month: DesignerField = { table: "Trips", name: "Month", kind: "column", dataType: "string" };
 const amount: DesignerField = { table: "Trips", name: "Amount", kind: "column", dataType: "integer" };
@@ -29,5 +29,14 @@ describe("wells", () => {
     expect(summed.wells["y-axis"]?.[0]?.aggregation).toBe("sum");
 
     expect(dropField({}, values, month).accepted).toBe(false);
+  });
+
+  it("puts a category on X-axis and a measure on Y-axis when dropped on the chart", () => {
+    const column = visualSpec("column");
+    expect(wellForDrop(column, month, {})?.name).toBe("x-axis");
+    expect(wellForDrop(column, trips, {})?.name).toBe("y-axis");
+    const full = dropField({}, column.wells.find((well) => well.name === "x-axis")!, month);
+    expect(wellForDrop(column, month, full.wells)?.name).toBe("legend");
+    expect(wellForDrop(visualSpec("table"), month, {})?.name).toBe("columns");
   });
 });

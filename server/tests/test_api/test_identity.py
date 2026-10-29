@@ -1,5 +1,4 @@
 from magbi.auth.bootstrap import ensure_bootstrap_admin
-
 from tests.test_api.conftest import ApiEnv
 
 V1 = "/api/v1"

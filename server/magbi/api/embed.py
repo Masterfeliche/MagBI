@@ -75,9 +75,7 @@ async def _datasets(
     session: SessionDep, ids: list[uuid.UUID], workspace_id: uuid.UUID
 ) -> None:
     rows = await session.scalars(
-        select(Dataset).where(
-            Dataset.id.in_(ids), Dataset.workspace_id == workspace_id
-        )
+        select(Dataset).where(Dataset.id.in_(ids), Dataset.workspace_id == workspace_id)
     )
     found = {row.id for row in rows}
     missing = [item for item in ids if item not in found]

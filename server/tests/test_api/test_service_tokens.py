@@ -21,6 +21,8 @@ def test_a_service_token_works_until_it_is_revoked(api: ApiEnv) -> None:
     assert who.json()["workspaceId"] == workspace["id"]
     revoked = client.delete(f"{V1}/admin/service-tokens/{created.json()['id']}")
     assert revoked.status_code == 204
-    again = client.get(f"{V1}/auth/whoami", headers={"Authorization": f"Bearer {secret}"})
+    again = client.get(
+        f"{V1}/auth/whoami", headers={"Authorization": f"Bearer {secret}"}
+    )
     assert again.status_code == 401
     assert again.json()["error"]["code"] == "TOKEN_INVALID"

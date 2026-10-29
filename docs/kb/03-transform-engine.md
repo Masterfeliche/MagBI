@@ -1,6 +1,6 @@
 # 03 — Transform Engine
 
-> **Status: Planned**
+> **Status: Preview implemented (MAGBI-006).** The 22 step names parse. Foldable steps compile to DuckDB SQL and run on `live.duckdb`. `fillDown`, `pivot`, and `unpivot` run in Python, and every step after the first of those does too. `POST /api/v1/workspaces/{workspace_id}/datasets/{dataset_id}/transforms/preview` returns at most 200 rows, the SQL, and `foldBoundary`. The recipe is not stored on the definition, and import still copies the whole table. DirectQuery and T-SQL execution are later.
 
 ---
 

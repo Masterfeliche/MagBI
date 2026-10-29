@@ -17,7 +17,7 @@ version live.
 | | |
 |---|---|
 | Written | 29 October 2026 |
-| Status | Draft — not implemented |
+| Status | Import pipeline implemented in Sprint 2. Transform preview (MAGBI-006) folds steps to DuckDB SQL on `live.duckdb` and returns the fold boundary. The recipe is not stored, and refresh does not apply it yet. |
 | Depends on | [DATASET-MODEL-SPEC.md](DATASET-MODEL-SPEC.md) §11, [API-SERVICE-SPEC.md](API-SERVICE-SPEC.md) §10 |
 | Reference | [Power Query folding](https://learn.microsoft.com/en-us/power-query/query-folding-basics), [sqlglot](https://github.com/tobymao/sqlglot), [DuckDB Python API](https://duckdb.org/docs/api/python/overview) |
 

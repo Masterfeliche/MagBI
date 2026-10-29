@@ -51,7 +51,7 @@ Deliverable: a step list compiles to SQL where it can, and a preview returns 200
 | SUB-2.3 | Fold shape steps and the boundary | `sortRows`, `distinctRows`, `topN`, and `groupBy` fold; `fillDown`, `pivot`, and `unpivot` stop the fold and leave themselves and every later step unfolder | 3h | [x] |
 | SUB-3.1 | Python steps | `fillDown`, `unpivot`, and `pivot` run on the rows of the folded SQL; a sort before `fillDown` is the order that fills; a mixed list reports the boundary | 4h | [x] |
 | SUB-4.1 | Preview API | The workspace preview route returns at most 200 rows, `truncated`, the fold boundary, and the SQL; a missing dataset is 404; no imported table is 409; a bad step is 422 | 3h | [x] |
-| SUB-4.2 | Docs | KB 03 and the import-spec status note list the foldable steps, DuckDB preview, and that the recipe is not stored yet | 1.5h | [ ] |
+| SUB-4.2 | Docs | KB 03 and the import-spec status note list the foldable steps, DuckDB preview, and that the recipe is not stored yet | 1.5h | [x] |
 | SUB-4.3 | Finalization | ruff, mypy strict, coverage over 80% for `transforms` and the preview route; full regression; PR description | 1.5h | [ ] |
 
 Order: 1.1, 2.1, 2.2, 2.3, 3.1, 4.1, 4.2, 4.3. Each subtask is code, tests, and one single-sentence commit. About 24 hours.
@@ -65,7 +65,7 @@ Order: 1.1, 2.1, 2.2, 2.3, 3.1, 4.1, 4.2, 4.3. Each subtask is code, tests, and 
 - [x] SUB-2.3: see git log. Sort, distinct, top, and group fold. fillDown, pivot, and unpivot stop the fold and keep every later step.
 - [x] SUB-3.1: same commit as SUB-2.3. fillDown, unpivot, and pivot run after the folded SQL. A sort before fillDown is the order that fills. The boundary is the first Python step.
 - [x] SUB-4.1: see git log. The workspace preview route returns at most 200 rows, the fold boundary, and the SQL. A missing dataset is 404. No imported data is 409. A bad step is 422.
-- [ ] SUB-4.2: (Commit hash)
+- [x] SUB-4.2: see git log. KB 03 and the import spec say preview folds to DuckDB, where folding stops, and that the recipe is not stored or applied on import.
 - [ ] SUB-4.3: (Commit hash)
 
 ---

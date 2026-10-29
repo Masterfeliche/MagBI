@@ -232,7 +232,9 @@ interface FileConnection {
 
 Connection credentials (passwords, service account keys) are stored in
 PostgreSQL encrypted with AES-256-GCM. The encryption key is an environment
-variable (`CREDENTIAL_KEY`) that never appears in logs or API responses.
+variable (`MAGBI_CREDENTIAL_KEY`, a urlsafe-base64 encoded 32-byte key) that
+never appears in logs or API responses. Implemented in
+`server/magbi/storage/credentials.py`; stored tokens look like `v1:<base64>`.
 
 The API never returns passwords in GET responses — only `"password": "***"`.
 

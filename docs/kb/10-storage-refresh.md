@@ -1,6 +1,8 @@
 # 10 — Storage & Data Refresh
 
-> **Status: Planned**
+> **Status: In Progress** — storage layer built (MAGBI-001, Sprint 1).
+> The import pipeline, atomic swap orchestration and refresh scheduling are
+> still planned (Sprints 2 and 8). See "Implementation notes" near the end.
 
 ---
 
@@ -149,7 +151,8 @@ step by step:
 7. ATOMIC SWAP
    Close the staging DuckDB file
    Rename: vN+1.duckdb → live.duckdb
-   (os.rename is atomic on Linux ext4/XFS and Windows NTFS)
+   (rename is atomic on Linux ext4/XFS; on Windows it fails while any reader
+   still has the file open — see Implementation notes)
    
    Old live.duckdb is now vN.duckdb (renamed before the swap)
    If > 5 archived versions exist, delete the oldest
@@ -413,6 +416,35 @@ Alerts:
 - **Large file swap** — `os.rename()` is instant, but closing a 10GB DuckDB
   file flushes buffers, which can take seconds. Mitigated by explicit
   `connection.close()` before the rename.
+
+---
+
+## Implementation notes (MAGBI-001)
+
+What the code actually does today, where it differs from the plan above:
+
+- **`DuckDBStore`** (`storage/duckdb_store.py`) owns the file layout:
+  `live.duckdb`, `vN.duckdb`, `staging.duckdb`. Dataset ids must match
+  `[A-Za-z0-9][A-Za-z0-9_-]{0,63}` (UUIDs fit); anything else raises
+  `StoreError`, which blocks path traversal.
+- **Promotion** (`promote_staging`) renames live to `v{max+1}`, then staging to
+  live using `os.replace`, then prunes archives beyond
+  `MAGBI_DUCKDB_ARCHIVE_VERSIONS` (default 5). If the second rename fails the
+  previous live file is restored. Version numbers are derived from the archive
+  files present, so they are monotonic only while at least one archive is kept;
+  the authoritative `current_version` lives in the `datasets` table.
+- **Windows caveat:** `os.replace` cannot replace a file another process or
+  connection still holds open. Promotion then raises `StoreError` and leaves the
+  live file untouched. Readers should open the live file per query and close it
+  promptly; Sprint 2 (swap orchestration) must retry or drain readers.
+- **Readers** use `open_live` (read-only). Only the refresh worker uses
+  `open_staging`.
+- **Credentials** (`storage/credentials.py`): AES-256-GCM, random 96-bit nonce
+  per encryption, optional associated data (for example a connection id) so a
+  token cannot be moved to another row. Key comes from `MAGBI_CREDENTIAL_KEY`
+  and is validated at startup. Non-dev environments refuse to start without it.
+- **Metadata DB:** SQLAlchemy 2.0 async with Alembic (`server/migrations`).
+  Tests run on SQLite; production targets PostgreSQL 16 (JSONB, native UUID).
 
 ---
 

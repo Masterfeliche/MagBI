@@ -64,7 +64,7 @@ Deliverable: `docker compose up` -> API starts, `/health` OK, Postgres has the s
 | SUB-1.5 | Alembic setup + `0001_initial` migration | `alembic upgrade head` and `downgrade base` succeed on SQLite and Postgres; models match migration (autogenerate shows no diff) | 2h | [ ] |
 | SUB-1.6 | Metadata CRUD tests | Create/read/update/delete each entity; cascade rules; constraint violations raise | 2h | [ ] |
 | SUB-1.7 | Lifespan startup checks + `/health/ready` | Ready returns 200 only when DB reachable and data dir writable; otherwise 503 with reason | 2h | [ ] |
-| SUB-1.8 | Fix server Dockerfile and compose env | `docker compose build api` succeeds; api container reaches ready against compose Postgres | 1.5h | [ ] |
+| SUB-1.8 | Fix server Dockerfile and compose env | `docker compose build api` succeeds; api container reaches ready against compose Postgres | 1.5h | [~] |
 | SUB-1.9 | Docs: update KB 10, fix `CREDENTIAL_KEY` naming in import spec, mark status | KB chapter reflects what was built | 1h | [ ] |
 | SUB-1.10 | Finalization: ruff, mypy --strict, coverage >80% for metadata and storage | All three pass; PR description generated | 1h | [ ] |
 
@@ -82,7 +82,7 @@ Order: 0.1 -> 0.2 -> 1.1 -> 1.2 -> 1.3 -> 1.4 -> 1.5 -> 1.6 -> 1.7 -> 1.8 -> 1.9
 - [x] SUB-1.5: 0a454b0 (PostgreSQL SQL rendered offline; live Postgres run pending, Docker daemon was off)
 - [x] SUB-1.6: f8716ec
 - [x] SUB-1.7: 56cea02
-- [~] SUB-1.8: (hash below) PARTIAL. Verified: compose config valid, clean `pip install .` from pyproject+magbi succeeds. NOT verified (Docker daemon off, no Postgres): `docker compose build api` and api reaching ready against Postgres. web/worker moved behind compose profiles until Sprints 8/9.
+- [~] SUB-1.8: 9c13a9b PARTIAL. Verified: compose config valid, clean `pip install .` from pyproject+magbi succeeds. NOT verified (Docker daemon off, no Postgres): `docker compose build api` and api reaching ready against Postgres. web/worker moved behind compose profiles until Sprints 8/9.
 - [ ] SUB-1.9: (Commit hash)
 - [ ] SUB-1.10: (Commit hash)
 

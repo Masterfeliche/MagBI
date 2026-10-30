@@ -129,7 +129,7 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 | SUB-1.1 | Empty well placeholder | Empty wells are at least 40px, show “Drag field here”, and highlight on drag-over. A field drops on the first attempt | 2h | [x] |
 | SUB-1.2 | Card auto-size | Default card is `360×180`. Short value uses a large font. `1,210,240.47` shrinks to fit. ResizeObserver updates font while resizing | 4h | [x] |
 | SUB-1.3 | Visual type icons | Insert tab: 13 distinct SVG icons ≥32×32, buttons ≥48×48, tooltip with the type name | 3h | [x] |
-| SUB-2.1 | Upload API | `POST /workspaces/{wid}/datasets/{did}/upload` accepts `.xlsx` or `.csv` multipart, writes a DuckDB table, updates definition columns/types, returns the new model | 5h | [ ] |
+| SUB-2.1 | Upload API | `POST /workspaces/{wid}/datasets/{did}/upload` accepts `.xlsx` or `.csv` multipart, writes a DuckDB table, updates definition columns/types, returns the new model | 5h | [x] |
 | SUB-2.2 | Get Data File tab | Get Data has File and Database tabs. Upload General-Ledger.xlsx → Ledger columns in the field list → a card of SUM Credit renders | 3h | [ ] |
 | SUB-3.1 | Measure editor | Modeling → New Measure opens name, table, DAX. Save calls `POST .../definition/measures`. Invalid DAX shows the compiler error | 4h | [ ] |
 | SUB-3.2 | Measures in field list | Measures show a calculator icon, drag to a card well, and the card shows the computed value | 2h | [ ] |
@@ -191,7 +191,7 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 - [x] SUB-1.1: 82822ac
 - [x] SUB-1.2: b28e91e
 - [x] SUB-1.3: 7cb2960
-- [ ] SUB-2.1: (Commit hash)
+- [x] SUB-2.1: 19a28b6
 - [ ] SUB-2.2: (Commit hash)
 - [ ] SUB-3.1: (Commit hash)
 - [ ] SUB-3.2: (Commit hash)

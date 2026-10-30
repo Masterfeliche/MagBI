@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from magbi.api.errors import ApiError
-from magbi.auth.roles import Actor
+from magbi.auth.roles import Actor, permits
 from magbi.auth.tokens import EMBED_AUDIENCE, USER_AUDIENCE, TokenError, read_token
 from magbi.services import Services
 
@@ -152,3 +152,24 @@ async def api_guard(request: Request, actor: ActorDep) -> Actor:
     if actor.kind == "service" and not path.endswith(("/embed/token", "/auth/whoami")):
         raise ApiError(403, "FORBIDDEN", "a service token cannot call this route")
     return actor
+
+
+def _check_role(request: Request, actor: Actor, minimum: str) -> None:
+    wid = request.path_params.get("wid")
+    # Embed and service tokens are already confined by api_guard and the route itself.
+    if wid is None or actor.kind in ("embed", "service"):
+        return
+    if not permits(actor, str(wid), minimum):
+        raise ApiError(403, "FORBIDDEN", f"the workspace {minimum} role is required")
+
+
+async def workspace_access(request: Request, actor: ActorDep) -> None:
+    """Reading a workspace needs viewer; any other method needs editor."""
+    minimum = "viewer" if request.method in ("GET", "HEAD") else "editor"
+    _check_role(request, actor, minimum)
+
+
+async def connection_access(request: Request, actor: ActorDep) -> None:
+    """Connections hold credentials: editors may browse them, only admins may change them."""
+    minimum = "editor" if request.method in ("GET", "HEAD") else "admin"
+    _check_role(request, actor, minimum)

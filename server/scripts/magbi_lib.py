@@ -166,7 +166,7 @@ CHAIN_NOTES = {
 
 
 class Api:
-    def __init__(self, base: str = "http://localhost:8000/api/v1", token: str | None = None) -> None:
+    def __init__(self, base: str = "http://127.0.0.1:8000/api/v1", token: str | None = None) -> None:
         self.base = base.rstrip("/")
         self.token = token
 

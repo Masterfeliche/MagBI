@@ -240,10 +240,10 @@
 .kit-meter-line { font-size: 13px; font-weight: 700; line-height: 24px; white-space: nowrap; }
 
 /* ---- flow */
-.kit-flow { height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.kit-flow { height: 100%; display: flex; flex-direction: column; justify-content: space-evenly; gap: 10px; }
 .kit-flow-row { display: grid; grid-template-columns: 110px 1fr 92px; align-items: center; gap: 10px; }
 .kit-flow-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kit-flow-track { height: 46px; display: flex; justify-content: center; align-items: center; }
+.kit-flow-track { height: 64px; display: flex; justify-content: center; align-items: center; }
 .kit-flow-bar { height: 100%; border-radius: 3px; min-width: 2px; }
 .kit-flow-val { font-size: 13px; text-align: right; white-space: nowrap; }
 .kit-flow-val span { color: #66758a; margin-left: 4px; }

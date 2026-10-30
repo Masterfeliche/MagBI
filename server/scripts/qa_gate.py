@@ -265,10 +265,13 @@ DOM_CHECKS = r"""
   for (const wrap of document.querySelectorAll('.kit-grid-wrap')) if (wrap.scrollHeight > wrap.clientHeight + 1) out.warnings.push(`table scrolls: ${wrap.closest('.kit-panel')?.querySelector('h3')?.innerText}`);
   // Donuts: the centre sits on the ring and, without a centre measure, equals the slices.
   for (const ring of document.querySelectorAll('.kit-donut-ring')) {
-    const centre = ring.querySelector('.kit-donut-centre b'); const box = ring.getBoundingClientRect(); const c = centre?.getBoundingClientRect();
+    // The centre is the figure and its unit word together; that block sits in the hole.
+    const centre = ring.querySelector('.kit-donut-centre b'); const word = ring.querySelector('.kit-donut-centre span'); const box = ring.getBoundingClientRect();
+    const parts = [centre, word].filter(Boolean).map((el) => el.getBoundingClientRect());
+    const c = parts.length ? { left: Math.min(...parts.map((r) => r.left)), top: Math.min(...parts.map((r) => r.top)), width: Math.max(...parts.map((r) => r.right)) - Math.min(...parts.map((r) => r.left)), height: Math.max(...parts.map((r) => r.bottom)) - Math.min(...parts.map((r) => r.top)) } : null;
     if (!centre) { out.failures.push('donut without a centre'); continue; }
     const dx = Math.abs((c.left + c.width / 2) - (box.left + box.width / 2)); const dy = Math.abs((c.top + c.height / 2) - (box.top + box.height / 2)) ;
-    if (dx > 2 || dy > 6) out.failures.push(`donut centre off by ${dx.toFixed(1)}, ${dy.toFixed(1)} px`);
+    if (dx > 2 || dy > 2) out.failures.push(`donut centre off by ${dx.toFixed(1)}, ${dy.toFixed(1)} px`);
     const legend = ring.parentElement.querySelector('.kit-legend');
     const counts = [...legend.querySelectorAll('tbody tr td:nth-child(2)')].map((td) => Number(td.innerText.replace(/,/g, '')));
     const sum = counts.reduce((a, b) => a + b, 0);
@@ -418,8 +421,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--workspace", required=True)
     parser.add_argument("--report", action="append", required=True)
-    parser.add_argument("--api", default="http://localhost:8000/api/v1")
-    parser.add_argument("--web", default="http://localhost:3000")
+    parser.add_argument("--api", default="http://127.0.0.1:8000/api/v1")
+    parser.add_argument("--web", default="http://127.0.0.1:3000")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--expected", type=Path, help="JSON: {report name: {'Table|Measure': value}}")
     args = parser.parse_args()

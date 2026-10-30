@@ -242,7 +242,7 @@ DASHBOARDS = {"W1": w1_stock_expiry, "W4": w4_accuracy, "W7": w7_outbound}
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", required=True)
-    parser.add_argument("--api", default="http://localhost:8000/api/v1")
+    parser.add_argument("--api", default="http://127.0.0.1:8000/api/v1")
     parser.add_argument("--data", type=Path, help="reuse an earlier extract folder instead of reading MSD_ERP")
     parser.add_argument("--only", choices=sorted(DASHBOARDS), action="append")
     args = parser.parse_args()

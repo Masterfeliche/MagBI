@@ -198,19 +198,32 @@ export function Canvas({
               [...(report.filters ?? []), ...(page?.filters ?? []), ...(visual.filters ?? [])],
               cross,
               visual.id,
-              cross ? page?.visuals.find((item) => item.id === cross.sourceId)?.interactions?.targets[visual.id] !== "none" : true,
+              cross
+                ? (page?.visuals.find((item) => item.id === cross.sourceId)?.interactions?.targets[visual.id] ?? "crossFilter") === "crossFilter"
+                : true,
             )}
+            highlightCategory={
+              cross &&
+              (page?.visuals.find((item) => item.id === cross.sourceId)?.interactions?.targets[visual.id] ?? "crossFilter") ===
+                "crossHighlight"
+                ? cross.value
+                : undefined
+            }
             onCategory={(category) => {
               const group = groupingOf(visual);
               if (!group) return;
               onCross(toggleCrossFilter(cross, visual.id, group.table, group.column, category));
             }}
-            onSlicerValues={(values) => {
+            onSlicerValues={(values, filters) => {
               const group = groupingOf(visual);
               if (!group) return;
               const rest = (page?.filters ?? []).filter(
                 (filter) => !(filter.table === group.table && filter.column === group.column),
               );
+              if (filters) {
+                setPageFilters([...rest, ...filters]);
+                return;
+              }
               setPageFilters(
                 values.length === 0
                   ? rest

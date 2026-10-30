@@ -64,6 +64,10 @@ export function pageFilter(
   return { table, column, type: "basic", config: { operator, values } };
 }
 
+export function categoryOpacity(category: string, highlight?: string): number {
+  return !highlight || category === highlight ? 1 : 0.3;
+}
+
 export function groupingOf(visual: VisualDefinition): { table: string; column: string } | null {
   for (const name of ["x-axis", "columns", "field"]) {
     const binding = visual.wells[name]?.find((item) => item.column);

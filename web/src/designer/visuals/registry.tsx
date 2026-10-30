@@ -4,6 +4,7 @@ import ReactECharts from "echarts-for-react";
 import { useEffect, useRef, useState } from "react";
 
 import { canvasTextWidth, fitCardFontSize } from "../cardFont";
+import { categoryOpacity } from "../filters";
 import {
   axisText,
   categoryAxisLabel,
@@ -38,18 +39,19 @@ interface RendererProps {
   properties?: FormatProps;
   palette?: string[];
   onCategory?: (category: string) => void;
+  highlightCategory?: string;
 }
 
-export function VisualRenderer({ model, title, color, properties, palette, onCategory }: RendererProps) {
+export function VisualRenderer({ model, title, color, properties, palette, onCategory, highlightCategory }: RendererProps) {
   switch (model.kind) {
     case "note":
       return <NoteView model={model} title={title} />;
     case "card":
       return <CardVisual title={title} value={formatNumber(model.value)} />;
     case "cartesian":
-      return <CartesianChart model={model} title={title} color={color} properties={properties} palette={palette} onCategory={onCategory} />;
+      return <CartesianChart model={model} title={title} color={color} properties={properties} palette={palette} onCategory={onCategory} highlightCategory={highlightCategory} />;
     case "pie":
-      return <PieChart model={model} title={title} properties={properties} palette={palette} onCategory={onCategory} />;
+      return <PieChart model={model} title={title} properties={properties} palette={palette} onCategory={onCategory} highlightCategory={highlightCategory} />;
     case "scatter":
       return <ScatterChart model={model} title={title} />;
     case "funnel":
@@ -111,6 +113,7 @@ function CartesianChart({
   properties = {},
   palette,
   onCategory,
+  highlightCategory,
 }: {
   model: CartesianModel;
   title: string;
@@ -118,6 +121,7 @@ function CartesianChart({
   properties?: FormatProps;
   palette?: string[];
   onCategory?: (category: string) => void;
+  highlightCategory?: string;
 }) {
   const horizontal = model.orientation === "bar";
   const props = { ...properties, title: properties.title || title, color: properties.color || color };
@@ -151,7 +155,12 @@ function CartesianChart({
       ...model.series.map((s) => ({
         type: model.orientation === "line" ? ("line" as const) : ("bar" as const),
         name: s.name,
-        data: s.values,
+        data: s.values.map((value, index) => ({
+          value,
+          itemStyle: {
+            opacity: categoryOpacity(model.categories[index] ?? "", highlightCategory),
+          },
+        })),
         label: { show: props.labelsShow === true, position: labelPlacement(props.labelsPos) },
         markLine: lines.length > 0 ? { data: lines, symbol: "none" } : undefined,
       })),
@@ -175,12 +184,14 @@ function PieChart({
   properties = {},
   palette,
   onCategory,
+  highlightCategory,
 }: {
   model: PieModel;
   title: string;
   properties?: FormatProps;
   palette?: string[];
   onCategory?: (category: string) => void;
+  highlightCategory?: string;
 }) {
   const props = { ...properties, title: properties.title || title };
   const option = {
@@ -188,7 +199,14 @@ function PieChart({
     title: titleFrom(props),
     legend: legendFrom(props),
     tooltip: { trigger: "item" as const },
-    series: [{ type: "pie" as const, radius: "70%", data: model.slices }],
+    series: [{
+      type: "pie" as const,
+      radius: "70%",
+      data: model.slices.map((slice) => ({
+        ...slice,
+        itemStyle: { opacity: categoryOpacity(slice.name, highlightCategory) },
+      })),
+    }],
   };
   return (
     <ReactECharts

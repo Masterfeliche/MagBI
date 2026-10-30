@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { VisualDefinition } from "../types/report";
 import { buildQuery } from "./query";
 import {
+  categoryOpacity,
   filtersForVisual,
   groupingOf,
   pageFilter,
@@ -37,6 +38,8 @@ describe("filters and format", () => {
       { column: { table: "Trips", column: "Month" }, operator: "eq", values: ["Jan"] },
     ]);
     expect(groupingOf(visual)).toEqual({ table: "Trips", column: "Month" });
+    expect(categoryOpacity("Jan", "Jan")).toBe(1);
+    expect(categoryOpacity("Feb", "Jan")).toBe(0.3);
     expect(patchFormat(visual, "Trips", "#118DFF").properties).toEqual({
       title: "Trips",
       color: "#118DFF",

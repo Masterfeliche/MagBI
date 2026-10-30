@@ -30,7 +30,7 @@ from scripts.magbi_lib import (
     where,
 )
 from scripts.wms.msd_extract import DIMENSIONS, extract, table_name
-from scripts.wms.queries import QUERIES
+from scripts.wms.queries import DIM_QUERIES, QUERIES
 from scripts.wms.wms_model import build_definition
 
 DATASET = "Warehouse (MSD_ERP)"
@@ -47,6 +47,19 @@ def load_dataset(api: Api, wid: str, folder: Path) -> str:
     model = build_definition(current["definition"])
     api.put(f"/workspaces/{wid}/datasets/{did}/definition", {"model_version": current["model_version"], "definition": model})
     return did
+
+
+def go_live(api: Api, wid: str, did: str, connection_id: str) -> dict[str, Any]:
+    """Point every table at a read-only query on the connection and refresh from MSD_ERP."""
+    current = api.get(f"/workspaces/{wid}/datasets/{did}/definition")
+    model = current["definition"]
+    sql = {table_name(key): text for key, text in QUERIES.items()} | DIM_QUERIES
+    for table in model["tables"]:
+        if table["name"] in sql:
+            table["source"] = {"type": "query", "sql": sql[table["name"]].strip()}
+    model["connection_id"] = connection_id
+    api.put(f"/workspaces/{wid}/datasets/{did}/definition", {"model_version": current["model_version"], "definition": model})
+    return dict(api.post(f"/workspaces/{wid}/datasets/{did}/refresh", {}))
 
 
 # ---------------------------------------------------------------- W1
@@ -245,8 +258,13 @@ def main() -> None:
     parser.add_argument("--api", default="http://127.0.0.1:8000/api/v1")
     parser.add_argument("--data", type=Path, help="reuse an earlier extract folder instead of reading MSD_ERP")
     parser.add_argument("--only", choices=sorted(DASHBOARDS), action="append")
+    parser.add_argument("--live", metavar="CONNECTION_ID", help="switch the dataset to read-only queries on this connection and refresh")
     args = parser.parse_args()
     api = Api(args.api)
+    if args.live:
+        did = api.dataset(args.workspace, DATASET)
+        print(json.dumps({"dataset": did, "refresh": go_live(api, args.workspace, did, args.live)}, indent=1))
+        return
     folder = args.data or Path(tempfile.mkdtemp(prefix="wms-extract-"))
     if args.data is None:
         print(json.dumps(extract(folder), indent=1))

@@ -229,3 +229,12 @@ QUERIES = {
     "W4.CountLine": W4_COUNTLINE, "W4.StockItem": W4_STOCKITEM, "W4.Movement": W4_MOVEMENT, "W4.Adjustment": W4_ADJUSTMENT,
     "W7.Request": W7_REQUEST, "W7.Issue": W7_ISSUE, "W7.Transfer": W7_TRANSFER, "W7.Delivery": W7_DELIVERY,
 }
+
+# ---------------------------------------------------------------- shared dimensions (live mode)
+# Every value a fact can carry, plus 'Not set', so each relationship finds its row.
+DIM_QUERIES = {
+    "Warehouse": "SELECT DISTINCT " + WH.format(a="w") + " AS Warehouse FROM wms.WareHouse w UNION SELECT 'Not set'",
+    "Category": "SELECT DISTINCT " + CATEGORY.format(c="i.ItemCategory") + " AS Category FROM veims.ItemMaster i UNION SELECT 'Not set'",
+    "RequestType": "SELECT DISTINCT COALESCE(NULLIF(LTRIM(RTRIM(r.VoucherType)), ''), 'Not set') AS RequestType "
+    "FROM veims.MaterialRequest r UNION SELECT 'Not set'",
+}

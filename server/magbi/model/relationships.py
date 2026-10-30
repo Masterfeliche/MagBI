@@ -81,8 +81,14 @@ def find_cycle(model: DatasetDefinition) -> list[str] | None:
     return None
 
 
-def join_path(model: DatasetDefinition, start: str, end: str) -> list[RelationshipDef]:
-    """The only shortest path between two tables, over active relationships."""
+def join_path(
+    model: DatasetDefinition, start: str, end: str, *, directed: bool = False
+) -> list[RelationshipDef]:
+    """The only shortest path between two tables, over active relationships.
+
+    ``directed`` walks only from the many side to the one side, the way a
+    single-direction filter flows from a dimension down to a fact.
+    """
     if model.table(start) is None:
         raise ModelSchemaError(f"table {start!r} does not exist")
     if model.table(end) is None:
@@ -93,7 +99,7 @@ def join_path(model: DatasetDefinition, start: str, end: str) -> list[Relationsh
     if start == end:
         return []
 
-    graph = _edges(model, both_ways=True)
+    graph = _edges(model, both_ways=not directed)
     distance = {start: 0}
     parents: dict[str, list[tuple[str, RelationshipDef]]] = {start: []}
     queue: deque[str] = deque([start])
@@ -135,3 +141,13 @@ def join_path(model: DatasetDefinition, start: str, end: str) -> list[Relationsh
         node = parent
     path.reverse()
     return path
+
+
+def query_path(model: DatasetDefinition, start: str, end: str) -> list[RelationshipDef]:
+    """The path a query joins along: the filter direction first, any direction second."""
+    try:
+        return join_path(model, start, end, directed=True)
+    except ModelSchemaError as exc:
+        if "no relationship path" not in str(exc):
+            raise
+    return join_path(model, start, end)

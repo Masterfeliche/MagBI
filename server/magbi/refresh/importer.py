@@ -21,6 +21,7 @@ import duckdb
 import pyarrow as pa
 
 from magbi.connectors.base import Connector
+from magbi.connectors.readonly import check_read_only
 from magbi.connectors.types import (
     DataType,
     TypePlan,
@@ -47,6 +48,7 @@ class TableSpec:
     schema: str
     name: str
     target: str
+    query: str | None = None  # a read-only SELECT; schema and name are then unused
 
 
 @dataclass
@@ -141,20 +143,33 @@ def _import_table(
     progress: ProgressCallback | None,
 ) -> TableResult:
     started = time.perf_counter()
-    source = connector.find_table(spec.schema, spec.name)  # must exist in the catalog
-    if not source.columns:
-        raise ImportPipelineError(f"{source.qualified_name} has no readable columns")
-    plans = plan_columns(source.columns)
+    expected: int | None
+    if spec.query is not None:
+        label = spec.target
+        plans = plan_columns(connector.describe_query(spec.query))
+        casts = cast_map(plans)
+        if casts:
+            raise ImportPipelineError(
+                f"{label}: convert {', '.join(sorted(casts))} to a plain type in the query"
+            )
+        sql = check_read_only(spec.query)
+        expected = None
+    else:
+        source = connector.find_table(spec.schema, spec.name)  # must exist in the catalog
+        label = source.qualified_name
+        if not source.columns:
+            raise ImportPipelineError(f"{label} has no readable columns")
+        plans = plan_columns(source.columns)
+        sql = connector.build_select(source, casts=cast_map(plans))
+        expected = connector.get_row_count(spec.schema, spec.name)
     schema = arrow_schema(plans)
     coercers = [_coercer(p) for p in plans]
     result_warnings = warnings(plans)
 
-    expected = connector.get_row_count(spec.schema, spec.name)
     target = quote_ident(spec.target)
     columns_sql = ", ".join(f"{quote_ident(p.column)} {p.duckdb_type}" for p in plans)
     staging.execute(f"CREATE OR REPLACE TABLE {target} ({columns_sql})")
 
-    sql = connector.build_select(source, casts=cast_map(plans))
     imported = 0
     for chunk in _batches(
         connector.execute_query(sql, batch_size=batch_size), batch_size
@@ -163,7 +178,7 @@ def _import_table(
             batch = _to_arrow(chunk, schema, coercers)
         except (pa.ArrowException, ValueError, TypeError, OverflowError) as exc:
             raise ImportPipelineError(
-                f"{source.qualified_name}: a value could not be converted "
+                f"{label}: a value could not be converted "
                 f"({type(exc).__name__}) near row {imported + 1}"
             ) from exc
         staging.register(_BATCH_VIEW, batch)
@@ -179,12 +194,12 @@ def _import_table(
     stored = int(stored_row[0]) if stored_row else -1
     if stored != imported:
         raise ImportPipelineError(
-            f"{source.qualified_name}: wrote {stored} rows but read {imported}"
+            f"{label}: wrote {stored} rows but read {imported}"
         )
-    if imported != expected:
+    if expected is not None and imported != expected:
         # The source is a live system; rows may be added or removed mid-import.
         result_warnings.append(
-            f"{source.qualified_name}: source row count changed during import "
+            f"{label}: source row count changed during import "
             f"(counted {expected} before, imported {imported})"
         )
     return TableResult(

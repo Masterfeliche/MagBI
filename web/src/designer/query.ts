@@ -57,7 +57,13 @@ export function buildQuery(
     }
     select.push({ column: { table: binding.table, column: binding.column } });
   }
-  const where = filters.flatMap((filter) => {
+  const where = whereClauses(filters);
+  return where.length > 0 ? { from: [], select, where } : { from: [], select };
+}
+
+/** Basic filters as semantic WHERE entries. A filter with no values is left out. */
+export function whereClauses(filters: FilterDefinition[]): NonNullable<SemanticQueryBody["where"]> {
+  return filters.flatMap((filter) => {
     if (filter.type !== "basic" || !filter.config || typeof filter.config !== "object") {
       return [];
     }
@@ -66,13 +72,6 @@ export function buildQuery(
     const operator = allowed.find((item) => item === config.operator) ?? "eq";
     const values = Array.isArray(config.values) ? config.values : [];
     if (values.length === 0) return [];
-    return [
-      {
-        column: { table: filter.table, column: filter.column },
-        operator,
-        values,
-      } as const,
-    ];
+    return [{ column: { table: filter.table, column: filter.column }, operator, values }];
   });
-  return where.length > 0 ? { from: [], select, where } : { from: [], select };
 }

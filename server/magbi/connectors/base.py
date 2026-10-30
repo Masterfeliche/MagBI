@@ -80,6 +80,12 @@ class Connector(ABC):
     ) -> Iterator[tuple[Any, ...]]:
         """Run ``sql`` and stream the rows. Never loads the full result in memory."""
 
+    def describe_query(self, sql: str) -> list[SourceColumn]:
+        """The columns ``sql`` returns, without running it."""
+        raise ConnectorError(
+            ErrorCode.UNSUPPORTED, "this source cannot import from a SQL query"
+        )
+
     @abstractmethod
     def get_row_count(self, schema: str, table: str) -> int: ...
 

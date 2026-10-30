@@ -13,10 +13,39 @@ import type { FormatProps } from "./formatChart";
 import { useDesignerStore } from "./store";
 import { buildQuery } from "./query";
 import { renderModel } from "./render";
+import { KitVisual } from "../kit/KitVisual";
+import { isKitType } from "../kit/query";
 import { rememberVisualData } from "./visualData";
 import { VisualRenderer } from "./visuals/registry";
 
-export function VisualView({
+type ViewProps = {
+  visual: VisualDefinition;
+  workspaceId: string;
+  datasetId: string;
+  filters: FilterDefinition[];
+  onCategory?: (category: string) => void;
+  onSlicerValues?: (values: string[], filters?: FilterDefinition[]) => void;
+  highlightCategory?: string;
+  readOnly?: boolean;
+};
+
+export function VisualView(props: ViewProps) {
+  if (isKitType(props.visual.type)) {
+    return (
+      <KitVisual
+        visual={props.visual}
+        workspaceId={props.workspaceId}
+        datasetId={props.datasetId}
+        filters={props.filters}
+        onCategory={props.onCategory}
+        highlightCategory={props.highlightCategory}
+      />
+    );
+  }
+  return <ClassicView {...props} />;
+}
+
+function ClassicView({
   visual,
   workspaceId,
   datasetId,
@@ -24,6 +53,7 @@ export function VisualView({
   onCategory,
   onSlicerValues,
   highlightCategory,
+  readOnly = false,
 }: {
   visual: VisualDefinition;
   workspaceId: string;
@@ -32,6 +62,7 @@ export function VisualView({
   onCategory?: (category: string) => void;
   onSlicerValues?: (values: string[], filters?: FilterDefinition[]) => void;
   highlightCategory?: string;
+  readOnly?: boolean;
 }) {
   const spec = visualSpec(visual.type);
   const [dsr, setDsr] = useState<DSR | null>(null);
@@ -86,11 +117,12 @@ export function VisualView({
         workspaceId={workspaceId}
         datasetId={datasetId}
         selected={selectedSlicerValues(filters, visual)}
+        readOnly={readOnly}
         onChange={(values, filters) => onSlicerValues?.(values, filters)}
       />
     );
   }
-  if (error) return <div className="note">{error}</div>;
+  if (error) return <div className="note">Couldn't load: {error}</div>;
 
   const hierarchy = visual.wells.hierarchy ?? [];
   const crumb = hierarchy.slice(0, drillLevel).map((item) => item.column ?? item.measure).filter(Boolean);
@@ -133,12 +165,14 @@ function SlicerField({
   workspaceId,
   datasetId,
   selected,
+  readOnly = false,
   onChange,
 }: {
   visual: VisualDefinition;
   workspaceId: string;
   datasetId: string;
   selected: string[];
+  readOnly?: boolean;
   onChange?: (values: string[], filters?: FilterDefinition[]) => void;
 }) {
   const [values, setValues] = useState<string[]>([]);
@@ -161,7 +195,12 @@ function SlicerField({
     })
       .then((result) => {
         if (cancelled) return;
-        setValues([...new Set(result.rows.map((row) => (row[0] == null ? "" : String(row[0]))).filter(Boolean))]);
+        const hidden = new Set(Array.isArray(visual.properties?.hide) ? visual.properties.hide.map(String) : []);
+        setValues(
+          [...new Set(result.rows.map((row) => (row[0] == null ? "" : String(row[0]))))]
+            .filter((item) => item.trim() !== "" && !hidden.has(item))
+            .sort((a, b) => a.localeCompare(b)),
+        );
       })
       .catch(() => {
         if (!cancelled) setValues([]);
@@ -169,7 +208,7 @@ function SlicerField({
     return () => {
       cancelled = true;
     };
-  }, [binding?.column, binding?.table, workspaceId, datasetId, viewAs]);
+  }, [binding?.column, binding?.table, workspaceId, datasetId, viewAs, visual.properties?.hide]);
 
   const shown = values.filter((item) => item.toLowerCase().includes(query.toLowerCase()));
   const setProperties = useDesignerStore((state) => state.setProperties);
@@ -184,16 +223,21 @@ function SlicerField({
   }
 
   return (
-    <div className="slicer" onPointerDown={(event) => event.stopPropagation()}>
-      <div>{binding?.column ?? "Drop a field"}</div>
-      <select
+    <div
+      className={visual.properties?.box === true ? "slicer kit-slicer" : "slicer"}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <div className="slicer-cap">
+        {typeof visual.properties?.caption === "string" ? visual.properties.caption : (binding?.column ?? "Drop a field")}
+      </div>
+      {!readOnly && visual.properties?.box !== true && <select
         value={mode}
         onChange={(event) => setProperties(visual.id, { slicerMode: event.target.value })}
       >
         <option value="list">List</option>
         <option value="dropdown">Dropdown</option>
         <option value="range">Range</option>
-      </select>
+      </select>}
       {mode === "dropdown" ? (
         <select
           value={selected[0] ?? ""}

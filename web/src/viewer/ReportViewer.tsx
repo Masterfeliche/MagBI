@@ -29,6 +29,7 @@ export function ReportViewer({
   const reportId = reportIdProp ?? params.reportId;
   const [searchParams] = useSearchParams();
   const replaceReport = useDesignerStore((state) => state.replaceReport);
+  const setDataAsAt = useDesignerStore((state) => state.setDataAsAt);
   const report = useDesignerStore((state) => state.report);
   const stage = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState<FitMode>("page");
@@ -46,10 +47,12 @@ export function ReportViewer({
       name: string;
       dataset_id: string;
       definition: ReportDefinition;
+      last_refreshed_at?: string | null;
     }>(`/workspaces/${workspaceId}/reports/${reportId}`, { headers })
       .then((body) => {
         if (cancelled) return;
         replaceReport({ ...body.definition, name: body.name || body.definition.name });
+        setDataAsAt(body.last_refreshed_at ?? null);
         setDatasetId(body.dataset_id);
         setError("");
       })
@@ -59,7 +62,7 @@ export function ReportViewer({
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, reportId, replaceReport, token]);
+  }, [workspaceId, reportId, replaceReport, setDataAsAt, token]);
 
   useEffect(() => {
     const node = stage.current;

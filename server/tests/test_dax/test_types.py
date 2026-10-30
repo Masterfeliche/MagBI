@@ -34,6 +34,9 @@ def test_numeric_aggregates_and_min_max() -> None:
     assert isinstance(total, Call) and total.name == "SUM"
     bind_measure(model, "MIN(Sales[Status])")
     bind_measure(model, "MAX(Sales[Placed])")
+    bind_measure(model, "COUNT(Sales[Status])")
+    bind_measure(model, "COUNTA(Sales[Status])")
+    bind_measure(model, "DISTINCTCOUNT(Sales[Status])")
     bind_measure(model, "[Total]")
     with pytest.raises(DaxError, match="numeric column"):
         bind_measure(model, "SUM(Sales[Status])")

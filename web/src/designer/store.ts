@@ -44,6 +44,8 @@ interface DesignerState {
   drillThrough: (pageIndex: number, filters: FilterDefinition[]) => void;
   viewAs: { roles: string[]; user?: string } | null;
   setViewAs: (next: { roles: string[]; user?: string } | null) => void;
+  dataAsAt: string | null;
+  setDataAsAt: (value: string | null) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -58,6 +60,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   clipboard: null,
   viewAs: null,
   setViewAs: (next) => set({ viewAs: next }),
+  dataAsAt: null,
+  setDataAsAt: (value) => set({ dataAsAt: value }),
   selectVisual: (id) => set({ selectedVisualId: id }),
   replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null, activePageIndex: 0 }),
 

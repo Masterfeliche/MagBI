@@ -16,7 +16,10 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 import duckdb
 
@@ -99,12 +102,13 @@ class DuckDBStore:
         path = self.live_path(dataset_id)
         if not path.is_file():
             raise StoreError(f"dataset {dataset_id} has no live data")
-        return duckdb.connect(str(path), read_only=True)
+        return _retry_shared(lambda: duckdb.connect(str(path), read_only=True))
 
     def open_staging(self, dataset_id: str) -> duckdb.DuckDBPyConnection:
         """Open (creating if needed) the staging file for writing."""
         self.ensure_dataset(dataset_id)
-        return duckdb.connect(str(self.staging_path(dataset_id)))
+        path = str(self.staging_path(dataset_id))
+        return _retry_shared(lambda: duckdb.connect(path))
 
     def discard_staging(self, dataset_id: str) -> None:
         for suffix in ("", ".wal"):
@@ -126,8 +130,8 @@ class DuckDBStore:
             if live.is_file():
                 archived = self.next_version(dataset_id)
                 archive_path = self.version_path(dataset_id, archived)
-                os.replace(live, archive_path)
-            os.replace(staging, live)
+                _retry_shared(lambda: os.replace(live, archive_path))
+            _retry_shared(lambda: os.replace(staging, live))
         except OSError as exc:
             if archive_path is not None and not live.exists():
                 os.replace(archive_path, live)  # restore previous live file
@@ -141,3 +145,23 @@ class DuckDBStore:
     def _prune(self, dataset_id: str) -> None:
         for version in self.list_versions(dataset_id)[self.archive_versions :]:
             self.version_path(dataset_id, version).unlink(missing_ok=True)
+
+
+T = TypeVar("T")
+_SHARING = ("being used by another process", "sharing violation", "access is denied")
+
+
+def _retry_shared(action: Callable[[], T], attempts: int = 20, pause: float = 0.15) -> T:
+    """Retry a file open or rename that Windows briefly refuses.
+
+    A freshly written file can be held for a moment by another process (an
+    antivirus scan, the search indexer). Anything else fails at once.
+    """
+    for attempt in range(attempts):
+        try:
+            return action()
+        except (OSError, duckdb.IOException) as exc:
+            if attempt == attempts - 1 or not any(text in str(exc).lower() for text in _SHARING):
+                raise
+            time.sleep(pause)
+    raise AssertionError("unreachable")

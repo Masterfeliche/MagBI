@@ -102,6 +102,49 @@ export const VISUALS: VisualSpec[] = [
       { name: "x-axis", displayName: "X-axis", kind: "grouping", max: 1 },
     ],
   }),
+  spec("kpi", "KPI card", "Kp", { renders: "none", icon: "M4 16h4v4H4v-4zm6-6h4v10h-4V10zm6-4h4v14h-4V6z", wells: [
+    { name: "y-axis", displayName: "Value", kind: "measure", max: 1 },
+    { name: "extra", displayName: "Context values", kind: "measure", max: 4 },
+  ] }),
+  spec("chain", "Stock-flow chain", "Ch", { renders: "none", icon: "M2 6h4v4H2V6zm6 0h4v4H8V6zm6 0h4v4h-4V6zm6 0h4v4h-4V6z", wells: [
+    { name: "x-axis", displayName: "Stage", kind: "grouping", max: 1 },
+    { name: "columns", displayName: "Order, unit, tones, age limit", kind: "grouping", max: 5 },
+    { name: "y-axis", displayName: "Count, age, flags", kind: "measure", max: 3 },
+  ] }),
+  spec("calendar", "Period columns", "Pc", { renders: "none", icon: "M3 20h18v1.5H3V20zm1-6h3v5H4v-5zm4.5-4h3v9h-3v-9zm4.5 2h3v7h-3v-7zm4.5-6h3v13h-3V6z", wells: [
+    { name: "x-axis", displayName: "Period label", kind: "grouping", max: 1 },
+    { name: "columns", displayName: "Sort key and flag", kind: "grouping", max: 2 },
+    { name: "y-axis", displayName: "Value", kind: "measure", max: 1 },
+  ] }),
+  spec("donut", "Donut", "Do", { renders: "none", icon: "M12 2a10 10 0 1 0 .01 0zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10z", wells: [
+    { name: "x-axis", displayName: "Category", kind: "grouping", max: 1 },
+    { name: "y-axis", displayName: "Value", kind: "measure", max: 1 },
+    { name: "centre", displayName: "Centre value", kind: "measure", max: 1 },
+  ] }),
+  spec("pareto", "Pareto", "Pa", { renders: "none", icon: "M3 18h4V8H3v10zm6 0h4V4H9v14zm6 0h4v-7h-4v7zM3 20h18v2H3z", wells: [
+    { name: "x-axis", displayName: "Category", kind: "grouping", max: 1 },
+    { name: "y-axis", displayName: "Value", kind: "measure", max: 1 },
+  ] }),
+  spec("heatmap", "Heat matrix", "He", { renders: "none", icon: "M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 0h6v6h-6v-6z", wells: [
+    { name: "x-axis", displayName: "Rows", kind: "grouping", max: 1 },
+    { name: "legend", displayName: "Columns", kind: "grouping", max: 1 },
+    { name: "y-axis", displayName: "Value", kind: "measure", max: 1 },
+  ] }),
+  spec("grid", "Status table", "Gr", { renders: "none", icon: "M3 4h18v3H3V4zm0 5h11v3H3V9zm13 0h5v3h-5V9zM3 14h11v3H3v-3zm13 0h5v3h-5v-3zM3 19h11v2H3v-2z", wells: [{ name: "columns", displayName: "Columns", kind: "any", max: 12 }] }),
+  spec("meter", "Target gauge", "Me", { renders: "none", icon: "M2 17a10 10 0 0 1 20 0h-3a7 7 0 0 0-14 0H2zm9.2-12h1.6v5h-1.6V5z", wells: [{ name: "y-axis", displayName: "Value", kind: "measure", max: 1 }] }),
+  spec("bars", "Ranked bars", "Rb", { renders: "none", icon: "M3 3h1.5v18H3V3zm3 1h15v3.5H6V4zm0 5.5h11V13H6V9.5zM6 15h7v3.5H6V15z", wells: [
+    { name: "x-axis", displayName: "Category (optional)", kind: "grouping", max: 1 },
+    { name: "y-axis", displayName: "Values", kind: "measure", max: 6 },
+  ] }),
+  spec("stack100", "100% stacked bar", "St", { renders: "none", icon: "M3 5h12v5H3V5zm13 0h5v5h-5V5zM3 13h7v5H3v-5zm8 0h10v5H11v-5z", wells: [
+    { name: "x-axis", displayName: "Category", kind: "grouping", max: 1 },
+    { name: "legend", displayName: "Parts", kind: "grouping", max: 1 },
+    { name: "y-axis", displayName: "Value", kind: "measure", max: 1 },
+  ] }),
+  spec("flow", "Stage flow", "Fl", { renders: "none", icon: "M3 4h18v3H3V4zm3 5h12v3H6V9zm3 5h6v3H9v-3zm2.2 5h1.6v2h-1.6v-2z", wells: [{ name: "y-axis", displayName: "Stages", kind: "measure", max: 6 }] }),
+  spec("header", "Page header", "Hd", { renders: "none", icon: "M3 5h18v3H3V5zm0 6h12v3H3v-3zm0 6h8v3H3v-3z", wells: [] }),
+  spec("label", "Label", "La", { renders: "none", icon: "M4 6h16v2H4V6zm0 5h10v2H4v-2z", wells: [] }),
+  spec("frame", "Frame", "Fr", { renders: "none", icon: "M3 3h18v18H3V3zm2 2v14h14V5H5z", wells: [] }),
 ];
 
 export function visualSpec(type: string): VisualSpec {

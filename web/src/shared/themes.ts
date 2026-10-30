@@ -6,7 +6,14 @@ export interface ReportTheme {
   colors: string[];
 }
 
+export const ERP_NATIVE_COLORS = ["#3F6FB0", "#5F8BC9", "#82A6D6", "#B3C3D8", "#D49A55", "#C76E6C", "#9EABBC"];
+
 export const THEMES: ReportTheme[] = [
+  {
+    id: "erp-native",
+    name: "ERP Native",
+    colors: ERP_NATIVE_COLORS,
+  },
   {
     id: "default",
     name: "Default",

@@ -1,12 +1,12 @@
 """Join steps from a fact table to the tables a query mentions.
 
-Paths come from ``join_path``. This module does not search the graph again.
+Paths come from ``query_path``. This module does not search the graph again.
 """
 
 from __future__ import annotations
 
 from magbi.engine.errors import QueryError
-from magbi.model.relationships import join_path
+from magbi.model.relationships import query_path
 from magbi.model.schema import DatasetDefinition, ModelSchemaError, RelationshipDef
 
 
@@ -20,7 +20,7 @@ def join_steps(
         if extra in joined or extra == fact:
             continue
         try:
-            path = join_path(model, fact, extra)
+            path = query_path(model, fact, extra)
         except ModelSchemaError as exc:
             raise _path_error(exc) from None
         cursor = fact

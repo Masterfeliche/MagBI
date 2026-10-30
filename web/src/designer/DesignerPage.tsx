@@ -33,6 +33,7 @@ import { visualDataOf } from "./visualData";
 import { TitleBar } from "./TitleBar";
 import { dropField, removeBinding, wellForDrop } from "./wells";
 import { pickReport } from "./pickReport";
+import { layoutIssues } from "./standard";
 import "./designer.css";
 
 export function DesignerPage() {
@@ -56,6 +57,7 @@ export function DesignerPage() {
   const clipboard = useDesignerStore((s) => s.clipboard);
   const drillThrough = useDesignerStore((s) => s.drillThrough);
   const replaceReport = useDesignerStore((s) => s.replaceReport);
+  const setDataAsAt = useDesignerStore((s) => s.setDataAsAt);
   const viewAs = useDesignerStore((s) => s.viewAs);
   const setViewAs = useDesignerStore((s) => s.setViewAs);
   const undo = useDesignerStore((s) => s.undo);
@@ -106,6 +108,11 @@ export function DesignerPage() {
         if (saved) {
           replaceReport(saved.definition);
           setReportId(saved.id);
+          apiFetch<{ last_refreshed_at?: string | null }>(`/workspaces/${workspaceId}/reports/${saved.id}`)
+            .then((one) => {
+              if (!cancelled) setDataAsAt(one.last_refreshed_at ?? null);
+            })
+            .catch(() => undefined);
           return;
         }
         replaceReport(blankReport(dataset.name, datasetId));
@@ -114,7 +121,7 @@ export function DesignerPage() {
         if (!cancelled) setLoadError(error instanceof Error ? error.message : "Dataset failed to load");
       });
     return () => { cancelled = true; };
-  }, [workspaceId, datasetId, replaceReport, searchParams]);
+  }, [workspaceId, datasetId, replaceReport, setDataAsAt, searchParams]);
 
   useEffect(() => {
     if (!workspaceId || !reportId) return;
@@ -168,7 +175,11 @@ export function DesignerPage() {
       }
       const key = event.key.toLowerCase();
       if (!(event.ctrlKey || event.metaKey)) return;
-      if (key === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+      }
       else if (key === "y") { event.preventDefault(); redo(); }
       else if (key === "c" && selectedId) { event.preventDefault(); copyVisual(selectedId); }
       else if (key === "v") { event.preventDefault(); pasteVisual(); }
@@ -248,6 +259,11 @@ export function DesignerPage() {
 
   async function publish() {
     if (!workspaceId || !datasetId) return;
+    const issues = report.pages.flatMap((page) => layoutIssues(page.visuals));
+    if (issues.length > 0) {
+      setPublishError(issues[0] ?? "Layout check failed");
+      return;
+    }
     setPublishError("");
     try {
       if (reportId) {

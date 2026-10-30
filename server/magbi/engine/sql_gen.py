@@ -111,6 +111,17 @@ def _one_fact(
     needed = [field.table for field in bound.groups]
     for _measure, plan in group.measures:
         needed.extend(plan.tables)
+    # Measures carry their filters inside each aggregate. Plain detail rows have
+    # no aggregate, so their filters become the WHERE clause.
+    detail_where = None
+    if not group.measures and group.filters:
+        needed.extend(table for table, _column, _op, _value in group.filters)
+        detail_where = filter_expression(
+            tuple(
+                Constraint(((table, column),), op, value)
+                for table, column, op, value in group.filters
+            )
+        )
     if ordered:
         selected = [_field_expr(field, plans) for field in bound.fields]
     else:
@@ -131,6 +142,8 @@ def _one_fact(
     query = exp.select(*selected).from_(_table(group.fact))
     for rel, nxt in join_steps(model, group.fact, tuple(needed)):
         query = query.join(_table(nxt), on=_on(rel), join_type=_join_kind(rel))
+    if detail_where is not None:
+        query = query.where(detail_where)
     if bound.groups:
         query = query.group_by(
             *[

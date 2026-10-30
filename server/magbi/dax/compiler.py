@@ -32,7 +32,7 @@ from magbi.dax.parser import (
     Unary,
     VarBlock,
 )
-from magbi.model.relationships import join_path
+from magbi.model.relationships import query_path
 from magbi.model.schema import DatasetDefinition, ModelSchemaError, RelationshipDef
 
 _OPS = {"=", "<>", "<", ">", "<=", ">="}
@@ -98,7 +98,7 @@ def compile_measure(
         if extra in joined:
             continue
         try:
-            path = join_path(model, fact, extra)
+            path = query_path(model, fact, extra)
         except ModelSchemaError as exc:
             raise DaxError(str(exc), expr.line, expr.col) from None
         cursor = fact

@@ -6,6 +6,7 @@ from typing import Any
 
 from magbi.dax.compiler import Constraint
 from magbi.engine.filter_context import BoundFilter, bind_filters
+from magbi.engine.grouping import fact_groups, ignored_filters
 from magbi.engine.postprocess import shape
 from magbi.engine.rls import role_filters
 from magbi.engine.semantic import BoundQuery, SemanticQuery, bind_query
@@ -30,7 +31,11 @@ def run_query(
     secured = role_filters(model, roles)
     rows = execute(con, detail_sql(model, bound, filters, probe=True, rls=secured))
     totals = _totals(model, bound, filters, secured, con)
-    return shape(bound, rows, totals)
+    result = shape(bound, rows, totals)
+    skipped = ignored_filters(fact_groups(model, bound, filters))
+    if skipped:
+        result["ignoredFilters"] = skipped
+    return result
 
 
 def _totals(

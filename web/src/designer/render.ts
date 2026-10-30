@@ -2,6 +2,7 @@
 
 import type { DSR } from "../types/query";
 import { visualSpec } from "./catalog";
+import { arrangeMonths } from "./period";
 
 export interface CartesianModel {
   kind: "cartesian";
@@ -72,8 +73,11 @@ export function renderModel(type: string, dsr: DSR | null, extraTooltipCount = 0
   if (spec.renders === "none" || spec.renders === "slicer") {
     return { kind: "note", message: "This visual is not drawn as a chart." };
   }
-  if (!dsr || dsr.rows.length === 0) {
+  if (!dsr) {
     return { kind: "note", message: "Add fields to run a query." };
+  }
+  if (dsr.rows.length === 0) {
+    return { kind: "note", message: "Nothing recorded for this view yet" };
   }
   if (spec.renders === "card") return { kind: "card", value: text(firstMeasure(dsr)) };
   if (spec.renders === "table") {
@@ -221,22 +225,11 @@ function waterfallModel(dsr: DSR): WaterfallModel {
   };
 }
 
-const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-
 function orderMonths(
   categories: string[],
   series: { name: string; values: number[] }[],
 ): { categories: string[]; series: { name: string; values: number[] }[] } {
-  const indexes = categories.map((category) => MONTHS.indexOf(category.slice(0, 3).toLowerCase()));
-  if (indexes.some((index) => index < 0)) return { categories, series };
-  const order = categories.map((_, index) => index).sort((a, b) => indexes[a] - indexes[b]);
-  return {
-    categories: order.map((index) => categories[index]),
-    series: series.map((item) => ({
-      name: item.name,
-      values: order.map((index) => item.values[index] ?? 0),
-    })),
-  };
+  return arrangeMonths(categories, series) ?? { categories, series };
 }
 
 function seriesFrom(dsr: DSR, measures: number[]): { name: string; values: number[] }[] {

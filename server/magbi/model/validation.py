@@ -180,10 +180,14 @@ def _expressions(model: DatasetDefinition, report: ValidationReport) -> None:
 def _ambiguous(model: DatasetDefinition, report: ValidationReport) -> None:
     names = [table.name for table in model.tables]
     reported: set[frozenset[str]] = set()
-    for i, left in enumerate(names):
-        for right in names[i + 1 :]:
+    # Filters flow from the one side to the many side, so only directed paths can be
+    # ambiguous. Two facts that share dimensions are fine, as in Power BI.
+    for left in names:
+        for right in names:
+            if left == right:
+                continue
             try:
-                join_path(model, left, right)
+                join_path(model, left, right, directed=True)
             except ModelSchemaError as exc:
                 message = str(exc)
                 if "ambiguous" not in message:

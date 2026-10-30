@@ -43,6 +43,27 @@ describe("visual render models", () => {
     expect(renderModel("line", null)).toMatchObject({ kind: "note" });
   });
 
+  it("keeps trailing tooltip columns off the series", () => {
+    const withTooltip: DSR = {
+      columns: [
+        { name: "Month", dataType: "string", isMeasure: false },
+        { name: "Trips", dataType: "integer", isMeasure: true },
+        { name: "Dept", dataType: "string", isMeasure: false },
+      ],
+      rows: [
+        ["Jan", 10, "HR"],
+        ["Feb", 12, "IT"],
+      ],
+      rowCount: 2,
+    };
+    const bar = renderModel("bar", withTooltip, 1);
+    expect(bar.kind).toBe("cartesian");
+    if (bar.kind === "cartesian") {
+      expect(bar.series).toHaveLength(1);
+      expect(bar.tooltips?.[0]).toEqual({ name: "Dept", values: ["HR", "IT"] });
+    }
+  });
+
   it("renders scatter, funnel, gauge, treemap, and waterfall from a DSR", () => {
     expect(renderModel("scatter", trips).kind).toBe("scatter");
     expect(renderModel("funnel", trips).kind).toBe("funnel");

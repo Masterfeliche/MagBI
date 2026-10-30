@@ -8,6 +8,7 @@ export interface CartesianModel {
   orientation: "column" | "bar" | "line";
   categories: string[];
   series: { name: string; values: number[] }[];
+  tooltips?: { name: string; values: string[] }[];
 }
 
 export interface PieModel {
@@ -63,7 +64,7 @@ export type RenderModel =
   | ScatterModel | FunnelModel | GaugeModel | TreemapModel | WaterfallModel
   | NoteModel;
 
-export function renderModel(type: string, dsr: DSR | null): RenderModel {
+export function renderModel(type: string, dsr: DSR | null, extraTooltipCount = 0): RenderModel {
   const spec = visualSpec(type);
   if (spec.renders === "map") {
     return { kind: "note", message: "This map needs latitude and longitude." };
@@ -88,31 +89,53 @@ export function renderModel(type: string, dsr: DSR | null): RenderModel {
   if (spec.renders === "gauge") return gaugeModel(dsr);
   if (spec.renders === "treemap") return treemapModel(dsr);
   if (spec.renders === "waterfall") return waterfallModel(dsr);
-  return cartesian(dsr, spec.orientation ?? "column");
+  return cartesian(dsr, spec.orientation ?? "column", extraTooltipCount);
 }
 
-function cartesian(dsr: DSR, orientation: "column" | "bar" | "line"): CartesianModel {
-  const measures = indexes(dsr, true);
-  const groups = indexes(dsr, false);
+function cartesian(dsr: DSR, orientation: "column" | "bar" | "line", extraTooltipCount = 0): CartesianModel {
+  const chart = extraTooltipCount > 0
+    ? {
+        ...dsr,
+        columns: dsr.columns.slice(0, -extraTooltipCount),
+        rows: dsr.rows.map((row) => row.slice(0, -extraTooltipCount)),
+      }
+    : dsr;
+  const measures = indexes(chart, true);
+  const groups = indexes(chart, false);
   const categoryIndex = groups[0];
   const legendIndex = groups[1];
+  const extras = extraTooltipCount > 0 ? dsr.columns.slice(-extraTooltipCount) : [];
+  const extraStart = dsr.columns.length - extraTooltipCount;
+  function tooltipValues(categories: string[]): { name: string; values: string[] }[] {
+    return extras.map((column, offset) => ({
+      name: column.name,
+      values: categories.map((category, rowIndex) => {
+        const row = categoryIndex === undefined
+          ? dsr.rows[rowIndex]
+          : dsr.rows.find((item) => text(item[categoryIndex]) === category);
+        return row ? text(row[extraStart + offset]) : "";
+      }),
+    }));
+  }
   if (categoryIndex === undefined) {
+    const categories = chart.rows.map((_, index) => String(index + 1));
     return {
       kind: "cartesian",
       orientation,
-      categories: dsr.rows.map((_, index) => String(index + 1)),
-      series: seriesFrom(dsr, measures),
+      categories,
+      series: seriesFrom(chart, measures),
+      tooltips: tooltipValues(categories),
     };
   }
   if (legendIndex === undefined) {
     const ordered = orderMonths(
-      dsr.rows.map((row) => text(row[categoryIndex])),
-      seriesFrom(dsr, measures),
+      chart.rows.map((row) => text(row[categoryIndex])),
+      seriesFrom(chart, measures),
     );
-    return { kind: "cartesian", orientation, ...ordered };
+    return { kind: "cartesian", orientation, ...ordered, tooltips: tooltipValues(ordered.categories) };
   }
-  const categories = unique(dsr.rows.map((row) => text(row[categoryIndex])));
-  const legends = unique(dsr.rows.map((row) => text(row[legendIndex])));
+  const categories = unique(chart.rows.map((row) => text(row[categoryIndex])));
+  const legends = unique(chart.rows.map((row) => text(row[legendIndex])));
   const measure = measures[0];
   return {
     kind: "cartesian",
@@ -121,12 +144,13 @@ function cartesian(dsr: DSR, orientation: "column" | "bar" | "line"): CartesianM
     series: legends.map((legend) => ({
       name: legend,
       values: categories.map((category) => {
-        const row = dsr.rows.find(
+        const row = chart.rows.find(
           (item) => text(item[categoryIndex]) === category && text(item[legendIndex]) === legend,
         );
         return row && measure !== undefined ? number(row[measure]) : 0;
       }),
     })),
+    tooltips: tooltipValues(categories),
   };
 }
 

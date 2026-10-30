@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { DesignerPage } from "./designer/DesignerPage";
 import { EmbedHost } from "./embed/EmbedHost";
+import { ModelView } from "./model-editor/ModelView";
 import { ReportViewer } from "./viewer/ReportViewer";
 import { AppShell } from "./workspace/AppShell";
 import { ConnectionForm } from "./workspace/ConnectionForm";
@@ -23,6 +24,10 @@ export function AppRoutes() {
       <Route
         path="/workspaces/:workspaceId/datasets/:datasetId/designer"
         element={<DesignerPage />}
+      />
+      <Route
+        path="/workspaces/:workspaceId/datasets/:datasetId/model"
+        element={<ModelView />}
       />
       <Route
         path="/workspaces/:workspaceId/reports/:reportId/view"

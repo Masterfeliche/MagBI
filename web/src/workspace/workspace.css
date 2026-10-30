@@ -436,6 +436,22 @@
 
 .form-group input::placeholder { color: var(--text3); }
 
+.model-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.model-table {
+  border: 1px solid var(--border);
+  padding: 12px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .measure-editor {
   width: min(640px, 94vw);
 }

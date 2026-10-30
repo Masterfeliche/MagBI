@@ -6,6 +6,7 @@ export function SelectionPane({ onClose }: { onClose: () => void }) {
   const activePageIndex = useDesignerStore((s) => s.activePageIndex);
   const selectedId = useDesignerStore((s) => s.selectedVisualId);
   const selectVisual = useDesignerStore((s) => s.selectVisual);
+  const setProperties = useDesignerStore((s) => s.setProperties);
   const page = report.pages[activePageIndex];
   const visuals = page?.visuals ?? [];
 
@@ -21,6 +22,7 @@ export function SelectionPane({ onClose }: { onClose: () => void }) {
         const title = typeof visual.properties?.title === "string" && visual.properties.title
           ? visual.properties.title
           : `${spec.displayName} ${index + 1}`;
+        const hidden = Boolean(visual.properties?.hidden);
         return (
           <button
             key={visual.id}
@@ -30,6 +32,15 @@ export function SelectionPane({ onClose }: { onClose: () => void }) {
           >
             <span className="sp-type">{spec.abbr}</span>
             <span className="sp-name">{title}</span>
+            <span
+              className="sp-hidden"
+              onClick={(event) => {
+                event.stopPropagation();
+                setProperties(visual.id, { hidden: !hidden });
+              }}
+            >
+              {hidden ? "Show" : "Hide"}
+            </span>
           </button>
         );
       })}

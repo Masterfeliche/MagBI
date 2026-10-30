@@ -70,7 +70,7 @@ export function Canvas({
           style={guide.axis === "x" ? { left: guide.at } : { top: guide.at }}
         />
       ))}
-      {page?.visuals.map((visual) => (
+      {page?.visuals.filter((visual) => !visual.properties?.hidden).map((visual) => (
         <VisualFrame
           key={visual.id}
           id={visual.id}

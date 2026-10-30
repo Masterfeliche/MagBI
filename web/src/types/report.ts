@@ -7,6 +7,15 @@ export interface ReportDefinition {
   pages: PageDefinition[];
   theme?: ThemeOverrides;
   filters?: FilterDefinition[];
+  bookmarks?: BookmarkDefinition[];
+}
+
+export interface BookmarkDefinition {
+  id: string;
+  name: string;
+  pageIndex: number;
+  filters: FilterDefinition[];
+  hiddenVisualIds: string[];
 }
 
 export interface PageDefinition {

@@ -188,7 +188,7 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 ## 3. Execution Log
 
 - [x] SUB-0.1: 1501170
-- [x] SUB-1.1: (pending)
+- [x] SUB-1.1: 82822ac
 - [ ] SUB-1.2: (Commit hash)
 - [ ] SUB-1.3: (Commit hash)
 - [ ] SUB-2.1: (Commit hash)

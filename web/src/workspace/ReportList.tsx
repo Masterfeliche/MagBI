@@ -45,6 +45,7 @@ export function ReportList({ workspaceId }: { workspaceId: string }) {
           <th>Name</th>
           <th>Dataset</th>
           <th>Updated</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -53,15 +54,31 @@ export function ReportList({ workspaceId }: { workspaceId: string }) {
             <td>
               <button
                 className="ws-link"
-                onClick={() =>
-                  navigate(`/workspaces/${workspaceId}/datasets/${r.dataset_id}/designer?report=${r.id}`)
-                }
+                onClick={() => navigate(`/workspaces/${workspaceId}/reports/${r.id}/view`)}
               >
                 {r.name}
               </button>
             </td>
             <td className="ws-muted">{(r.dataset_id ?? "").slice(0, 8)}</td>
             <td className="ws-muted">{r.updated_at ? fmtDate(r.updated_at) : "—"}</td>
+            <td>
+              <button
+                type="button"
+                className="ws-btn small"
+                onClick={() => navigate(`/workspaces/${workspaceId}/reports/${r.id}/view`)}
+              >
+                View
+              </button>{" "}
+              <button
+                type="button"
+                className="ws-btn small"
+                onClick={() =>
+                  navigate(`/workspaces/${workspaceId}/datasets/${r.dataset_id}/designer?report=${r.id}`)
+                }
+              >
+                Open in designer
+              </button>
+            </td>
           </tr>
         ))}
       </tbody>

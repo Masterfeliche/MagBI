@@ -60,8 +60,8 @@ export function FieldKindIcon({ kind }: { kind: DesignerField["kind"] }) {
         width="12"
         height="12"
         aria-label="Measure"
-        title="Measure"
       >
+        <title>Measure</title>
         <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
         <path d="M5 5h6M5 8h2.5M8.5 8H11M5 11h2.5M8.5 11H11" fill="none" stroke="currentColor" />
       </svg>

@@ -58,9 +58,9 @@ Final: every dashboard passes. 341 queries across 31 filter contexts, the slowes
 | W4 gauge, 100% bar, movement bars, coverage donut, variances table | Same | Controlled-drug variances cannot fire: the ERP flag is unset |
 | W7 stage flow, status donut, on-time gauge, activity bars, requests table | Same | On-time uses shipped deliveries; shows "–" until something ships |
 
-## 5. Open decisions for the owner
+## 5. Decisions and open items
 
-- W7 on-time definition (shipped deliveries) and W4 coverage threshold (90%).
+- Confirmed by the owner on 31 Oct 2026: W7 on-time is measured against shipped deliveries; W4 count coverage is On track at 90% or more.
 - The MSD_ERP connection: build runs use a read-only snapshot; switching tables to the live connection needs the credential entered once in MagBI.
 - Login, embedding (Tasks 38–39) and the remaining parity rows before ERP go-live.
 

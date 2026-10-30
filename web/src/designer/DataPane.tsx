@@ -51,6 +51,29 @@ export function DataPane({ tables }: { tables: DesignerTable[] }) {
   );
 }
 
+export function FieldKindIcon({ kind }: { kind: DesignerField["kind"] }) {
+  if (kind === "measure") {
+    return (
+      <svg
+        className="dp-field-icon"
+        viewBox="0 0 16 16"
+        width="12"
+        height="12"
+        aria-label="Measure"
+        title="Measure"
+      >
+        <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+        <path d="M5 5h6M5 8h2.5M8.5 8H11M5 11h2.5M8.5 11H11" fill="none" stroke="currentColor" />
+      </svg>
+    );
+  }
+  return (
+    <span className="dp-field-icon" title="Column" aria-label="Column">
+      ≡
+    </span>
+  );
+}
+
 function FieldChip({ field }: { field: DesignerField }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `field:${field.table}:${field.kind}:${field.name}`,
@@ -64,7 +87,7 @@ function FieldChip({ field }: { field: DesignerField }) {
       {...listeners}
       {...attributes}
     >
-      <span className="dp-field-icon">{field.kind === "measure" ? "Σ" : "≡"}</span>
+      <FieldKindIcon kind={field.kind} />
       {field.name}
     </button>
   );

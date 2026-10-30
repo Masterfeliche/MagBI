@@ -30,6 +30,9 @@ describe("dataset adapter", () => {
     ]);
     expect(isNumeric("integer")).toBe(true);
     expect(isNumeric("string")).toBe(false);
+    expect(tables[0].fields.filter((field) => field.kind === "measure").map((field) => field.name)).toEqual([
+      "Trips",
+    ]);
   });
 });
 

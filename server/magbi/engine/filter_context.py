@@ -33,7 +33,6 @@ class BoundFilter:
     column: str
     op: str
     value: object
-    optional: bool = False
 
     def as_tuple(self) -> tuple[str, str, str, object]:
         return (self.table, self.column, self.op, self.value)
@@ -49,7 +48,7 @@ def bind_filters(
         column = _column(model, table, item.column.column)
         op = _COMPARISON.get(item.operator, item.operator)
         value = _value(item.operator, item.values, column.data_type)
-        found.append(BoundFilter(table, column.name, op, value, item.optional))
+        found.append(BoundFilter(table, column.name, op, value))
     return tuple(found)
 
 

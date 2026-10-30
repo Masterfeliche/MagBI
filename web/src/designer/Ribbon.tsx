@@ -12,6 +12,8 @@ export function Ribbon({
   onRefresh,
   onGetData,
   onNewMeasure,
+  onManageRoles,
+  onViewAs,
   onTheme,
   onExport,
 }: {
@@ -20,6 +22,8 @@ export function Ribbon({
   onRefresh: () => void;
   onGetData: () => void;
   onNewMeasure: () => void;
+  onManageRoles: () => void;
+  onViewAs: () => void;
   onTheme: (themeId: string) => void;
   onExport: () => void;
 }) {
@@ -107,7 +111,8 @@ export function Ribbon({
         <div className="ribbon-group">
           <div className="ribbon-btns">
             <button type="button" className="rb"><span>Relationships</span></button>
-            <button type="button" className="rb"><span>Security</span></button>
+            <button type="button" className="rb" onClick={onManageRoles}><span>Security</span></button>
+            <button type="button" className="rb" onClick={onViewAs}><span>View as</span></button>
           </div>
           <span className="ribbon-group-label">Relationships</span>
         </div>

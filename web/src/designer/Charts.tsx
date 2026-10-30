@@ -36,6 +36,7 @@ export function VisualView({
   const title = typeof visual.properties?.title === "string" ? visual.properties.title : "";
   const color = typeof visual.properties?.color === "string" ? visual.properties.color : "#118DFF";
   const palette = useDesignerStore((state) => state.report.theme?.colors);
+  const viewAs = useDesignerStore((state) => state.viewAs);
 
   useEffect(() => {
     if (spec.renders === "map" || spec.renders === "none" || spec.renders === "slicer") return;
@@ -48,7 +49,7 @@ export function VisualView({
       setError("");
       apiFetch<DSR>(`/workspaces/${workspaceId}/datasets/${datasetId}/query`, {
         method: "POST",
-        body: JSON.stringify({ query, roles: [] }),
+        body: JSON.stringify({ query, roles: viewAs?.roles ?? [] }),
         signal: controller.signal,
       })
         .then((result) => {
@@ -63,7 +64,7 @@ export function VisualView({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [spec.renders, queryKey, workspaceId, datasetId, query]);
+  }, [spec.renders, queryKey, workspaceId, datasetId, query, viewAs]);
 
   if (spec.renders === "slicer") {
     return (
@@ -108,6 +109,7 @@ function SlicerField({
   const [values, setValues] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const binding = visual.wells.field?.[0];
+  const viewAs = useDesignerStore((state) => state.viewAs);
 
   useEffect(() => {
     if (!binding?.column || !workspaceId || !datasetId) {
@@ -119,7 +121,7 @@ function SlicerField({
       method: "POST",
       body: JSON.stringify({
         query: { from: [], select: [{ column: { table: binding.table, column: binding.column } }] },
-        roles: [],
+        roles: viewAs?.roles ?? [],
       }),
     })
       .then((result) => {
@@ -132,7 +134,7 @@ function SlicerField({
     return () => {
       cancelled = true;
     };
-  }, [binding?.column, binding?.table, workspaceId, datasetId]);
+  }, [binding?.column, binding?.table, workspaceId, datasetId, viewAs]);
 
   const shown = values.filter((item) => item.toLowerCase().includes(query.toLowerCase()));
   return (

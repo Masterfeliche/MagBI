@@ -1372,6 +1372,16 @@ label.stack select:focus {
   color: var(--text);
 }
 
+.view-as-banner {
+  background: #fde68a;
+  color: #78350f;
+  padding: 6px 16px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .viewer-bar {
   display: flex;
   align-items: center;

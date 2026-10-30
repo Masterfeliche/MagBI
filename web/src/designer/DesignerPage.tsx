@@ -6,6 +6,8 @@ import { useParams, useSearchParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
 import { MeasureEditor } from "../model-editor/MeasureEditor";
+import { RlsRolesDialog } from "../model-editor/RlsRolesDialog";
+import { ViewAsDialog } from "../model-editor/ViewAsDialog";
 import { GetDataDialog } from "../workspace/GetDataDialog";
 import { RefreshPanel } from "../workspace/RefreshPanel";
 import type { ReportDefinition } from "../types/report";
@@ -49,6 +51,8 @@ export function DesignerPage() {
   const clipboard = useDesignerStore((s) => s.clipboard);
   const drillThrough = useDesignerStore((s) => s.drillThrough);
   const replaceReport = useDesignerStore((s) => s.replaceReport);
+  const viewAs = useDesignerStore((s) => s.viewAs);
+  const setViewAs = useDesignerStore((s) => s.setViewAs);
   const undo = useDesignerStore((s) => s.undo);
   const redo = useDesignerStore((s) => s.redo);
 
@@ -63,6 +67,8 @@ export function DesignerPage() {
   const [loadError, setLoadError] = useState("");
   const [showGetData, setShowGetData] = useState(false);
   const [showMeasure, setShowMeasure] = useState(false);
+  const [showRoles, setShowRoles] = useState(false);
+  const [showViewAs, setShowViewAs] = useState(false);
   const [showRefresh, setShowRefresh] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [cross, setCross] = useState<CrossFilter | null>(null);
@@ -259,6 +265,8 @@ export function DesignerPage() {
         onRefresh={() => setShowRefresh((open) => !open)}
         onGetData={() => setShowGetData(true)}
         onNewMeasure={() => setShowMeasure(true)}
+        onManageRoles={() => setShowRoles(true)}
+        onViewAs={() => setShowViewAs(true)}
         onTheme={(themeId) => useDesignerStore.getState().setTheme(themeById(themeId).colors)}
         onExport={() => {
           if (stage.current) exportReport(stage.current, report.name || "report");
@@ -275,6 +283,30 @@ export function DesignerPage() {
           datasetId={datasetId}
           onClose={() => setShowGetData(false)}
           onImported={() => void reloadModel()}
+        />
+      )}
+      {viewAs && (
+        <div className="view-as-banner">
+          Viewing as {viewAs.roles.join(", ")}
+          {viewAs.user ? ` (${viewAs.user})` : ""}
+          <button type="button" className="ws-btn small" onClick={() => setViewAs(null)}>Stop</button>
+        </div>
+      )}
+      {showRoles && workspaceId && datasetId && (
+        <RlsRolesDialog
+          workspaceId={workspaceId}
+          datasetId={datasetId}
+          modelVersion={modelVersion}
+          tables={tables}
+          onClose={() => setShowRoles(false)}
+          onSaved={setModelVersion}
+        />
+      )}
+      {showViewAs && workspaceId && datasetId && (
+        <ViewAsDialog
+          workspaceId={workspaceId}
+          datasetId={datasetId}
+          onClose={() => setShowViewAs(false)}
         />
       )}
       {showMeasure && workspaceId && datasetId && (

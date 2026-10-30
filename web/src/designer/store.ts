@@ -36,6 +36,8 @@ interface DesignerState {
   bringToFront: (id: string) => void;
   sendToBack: (id: string) => void;
   drillThrough: (pageIndex: number, filters: FilterDefinition[]) => void;
+  viewAs: { roles: string[]; user?: string } | null;
+  setViewAs: (next: { roles: string[]; user?: string } | null) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -48,6 +50,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   saveStatus: "saved",
   setSaveStatus: (status) => set({ saveStatus: status }),
   clipboard: null,
+  viewAs: null,
+  setViewAs: (next) => set({ viewAs: next }),
   selectVisual: (id) => set({ selectedVisualId: id }),
   replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null, activePageIndex: 0 }),
 

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { DesignerPage } from "./designer/DesignerPage";
+import { EmbedHost } from "./embed/EmbedHost";
 import { ReportViewer } from "./viewer/ReportViewer";
 import { AppShell } from "./workspace/AppShell";
 import { ConnectionForm } from "./workspace/ConnectionForm";
@@ -27,6 +28,7 @@ export function AppRoutes() {
         path="/workspaces/:workspaceId/reports/:reportId/view"
         element={<ReportViewer />}
       />
+      <Route path="/embed/:reportId" element={<EmbedHost />} />
       <Route path="/" element={<Navigate to="/workspaces" replace />} />
     </Routes>
   );

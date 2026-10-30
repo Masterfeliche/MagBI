@@ -15,8 +15,18 @@ import "../designer/designer.css";
 import "../workspace/workspace.css";
 import { fitScale, type FitMode } from "./fitScale";
 
-export function ReportViewer({ chrome = true }: { chrome?: boolean }) {
-  const { workspaceId, reportId } = useParams();
+export function ReportViewer({
+  chrome = true,
+  workspaceId: workspaceIdProp,
+  reportId: reportIdProp,
+}: {
+  chrome?: boolean;
+  workspaceId?: string;
+  reportId?: string;
+}) {
+  const params = useParams();
+  const workspaceId = workspaceIdProp ?? params.workspaceId;
+  const reportId = reportIdProp ?? params.reportId;
   const [searchParams] = useSearchParams();
   const replaceReport = useDesignerStore((state) => state.replaceReport);
   const report = useDesignerStore((state) => state.report);

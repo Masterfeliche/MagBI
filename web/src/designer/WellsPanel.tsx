@@ -39,14 +39,19 @@ function WellBucket({
   onRemove: (index: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `well:${well.name}`, data: { well: well.name } });
+  const empty = bindings.length === 0;
+  const className = ["well", empty ? "well-empty" : "", isOver ? "over well-drop-active" : ""]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div ref={setNodeRef} className={isOver ? "well over" : "well"}>
-      <div>{well.displayName}</div>
+    <div ref={setNodeRef} className={className}>
+      <div className="well-label">{well.displayName}</div>
+      {empty && <div className="well-placeholder">Drag field here</div>}
       {bindings.map((binding, index) => (
-        <div key={`${binding.table}:${binding.column ?? binding.measure}:${index}`}>
+        <div key={`${binding.table}:${binding.column ?? binding.measure}:${index}`} className="well-drop has-field">
           {binding.measure ?? binding.column}
           {binding.aggregation ? ` (${binding.aggregation})` : ""}
-          <button type="button" onClick={() => onRemove(index)}>
+          <button type="button" className="well-remove" onClick={() => onRemove(index)}>
             Remove
           </button>
         </div>

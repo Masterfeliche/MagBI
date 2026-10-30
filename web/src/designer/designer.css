@@ -754,9 +754,25 @@
   padding: 4px;
 }
 
-.well.over {
+.well.well-empty {
+  min-height: 40px;
+}
+
+.well.over,
+.well.well-drop-active {
   border-color: var(--blue);
   background: rgba(43, 87, 151, 0.08);
+}
+
+.well-placeholder {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text3);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
 }
 
 .well-label {

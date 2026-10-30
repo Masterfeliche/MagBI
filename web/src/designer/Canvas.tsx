@@ -23,12 +23,14 @@ export function Canvas({
   datasetId,
   cross,
   onCross,
+  readOnly = false,
 }: {
   scale: number;
   workspaceId: string;
   datasetId: string;
   cross: CrossFilter | null;
   onCross: (next: CrossFilter | null) => void;
+  readOnly?: boolean;
 }) {
   const report = useDesignerStore((state) => state.report);
   const selectedId = useDesignerStore((state) => state.selectedVisualId);
@@ -56,7 +58,9 @@ export function Canvas({
       ref={frame}
       className="page"
       style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale }}
-      onPointerDown={() => selectVisual(null)}
+      onPointerDown={() => {
+        if (!readOnly) selectVisual(null);
+      }}
     >
     <div className="page-inner" style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT, transform: `scale(${scale})` }}>
       {guides.map((guide) => (
@@ -82,9 +86,10 @@ export function Canvas({
           }}
           onPointerDown={(event) => {
             event.stopPropagation();
-            selectVisual(visual.id);
+            if (!readOnly) selectVisual(visual.id);
           }}
         >
+          {!readOnly && (
           <div
             className="visual-handle"
             onPointerDown={(event) => {
@@ -130,7 +135,8 @@ export function Canvas({
               placeDrag(null);
             }}
           />
-          {selectedId === visual.id &&
+          )}
+          {!readOnly && selectedId === visual.id &&
             (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const).map((handle) => (
               <div
                 key={handle}

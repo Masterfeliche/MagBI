@@ -6,7 +6,7 @@ const TOKEN_KEY = "magbi.token";
 
 export function buildApiHeaders(token: string | null, init?: RequestInit): Headers {
   const headers = new Headers(init?.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
   const form = typeof FormData !== "undefined" && init?.body instanceof FormData;
   if (form) {
     headers.delete("Content-Type");

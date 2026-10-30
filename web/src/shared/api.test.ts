@@ -9,6 +9,11 @@ describe("buildApiHeaders", () => {
     expect(headers.get("Authorization")).toBe("Bearer tok");
   });
 
+  it("keeps an explicit Authorization header", () => {
+    const headers = buildApiHeaders("stored", { headers: { Authorization: "Bearer embed" } });
+    expect(headers.get("Authorization")).toBe("Bearer embed");
+  });
+
   it("omits JSON content type for FormData uploads", () => {
     const body = new FormData();
     body.append("file", new Blob(["a"]), "sales.csv");

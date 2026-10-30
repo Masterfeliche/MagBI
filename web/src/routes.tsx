@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { DesignerPage } from "./designer/DesignerPage";
+import { ReportViewer } from "./viewer/ReportViewer";
 import { AppShell } from "./workspace/AppShell";
 import { ConnectionForm } from "./workspace/ConnectionForm";
 import { DatasetWizard } from "./workspace/DatasetWizard";
@@ -21,6 +22,10 @@ export function AppRoutes() {
       <Route
         path="/workspaces/:workspaceId/datasets/:datasetId/designer"
         element={<DesignerPage />}
+      />
+      <Route
+        path="/workspaces/:workspaceId/reports/:reportId/view"
+        element={<ReportViewer />}
       />
       <Route path="/" element={<Navigate to="/workspaces" replace />} />
     </Routes>

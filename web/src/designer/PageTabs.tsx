@@ -1,6 +1,6 @@
 import { useDesignerStore } from "./store";
 
-export function PageTabs() {
+export function PageTabs({ readOnly = false }: { readOnly?: boolean }) {
   const report = useDesignerStore((s) => s.report);
   const activePageIndex = useDesignerStore((s) => s.activePageIndex);
   const switchPage = useDesignerStore((s) => s.switchPage);
@@ -18,9 +18,11 @@ export function PageTabs() {
           {page.displayName}
         </button>
       ))}
-      <button type="button" className="page-tab-add" onClick={addPage} title="Add page">
-        +
-      </button>
+      {!readOnly && (
+        <button type="button" className="page-tab-add" onClick={addPage} title="Add page">
+          +
+        </button>
+      )}
     </div>
   );
 }

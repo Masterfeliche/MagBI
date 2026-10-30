@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { colorsFromThemeJson } from "../shared/themes";
 import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
 import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
@@ -200,12 +201,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   },
 
   importThemeJson: (json) => {
-    const parsed = JSON.parse(json) as { dataColors?: unknown; name?: unknown };
-    const colors = Array.isArray(parsed.dataColors)
-      ? parsed.dataColors.filter((item): item is string => typeof item === "string")
-      : [];
-    if (colors.length === 0) throw new Error("theme JSON needs dataColors");
-    get().setTheme(colors);
+    get().setTheme(colorsFromThemeJson(json));
   },
 
   drillDown: (id, category) => {

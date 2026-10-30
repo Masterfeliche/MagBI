@@ -22,3 +22,12 @@ export const THEMES: ReportTheme[] = [
 export function themeById(id: string): ReportTheme {
   return THEMES.find((theme) => theme.id === id) ?? THEMES[0];
 }
+
+export function colorsFromThemeJson(json: string): string[] {
+  const parsed = JSON.parse(json) as { dataColors?: unknown };
+  const colors = Array.isArray(parsed.dataColors)
+    ? parsed.dataColors.filter((item): item is string => typeof item === "string")
+    : [];
+  if (colors.length === 0) throw new Error("theme JSON needs dataColors");
+  return colors;
+}

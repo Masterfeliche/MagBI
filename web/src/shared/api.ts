@@ -1,0 +1,47 @@
+/**
+ * API client — typed fetch wrapper with JWT token injection.
+ */
+const BASE = "/api/v1";
+const TOKEN_KEY = "magbi.token";
+
+export function buildApiHeaders(token: string | null, init?: RequestInit): Headers {
+  const headers = new Headers(init?.headers);
+  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  const form = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  if (form) {
+    headers.delete("Content-Type");
+  } else if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
+}
+
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = window.localStorage.getItem(TOKEN_KEY);
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: buildApiHeaders(token, init),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res));
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+export function messageFromErrorBody(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const error = (payload as { error?: { message?: string; validation?: { errors?: Array<{ message?: string }> } } }).error;
+  const first = error?.validation?.errors?.[0]?.message;
+  if (typeof first === "string" && first) return first;
+  if (typeof error?.message === "string" && error.message) return error.message;
+  return null;
+}
+
+async function errorMessage(res: Response): Promise<string> {
+  try {
+    const parsed = messageFromErrorBody(await res.json());
+    if (parsed) return parsed;
+  } catch {
+    /* body is not JSON */
+  }
+  return `API ${res.status}: ${res.statusText}`;
+}

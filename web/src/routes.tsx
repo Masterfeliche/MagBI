@@ -6,6 +6,7 @@ import { ConnectionForm } from "./workspace/ConnectionForm";
 import { DatasetWizard } from "./workspace/DatasetWizard";
 import { WorkspaceDetail } from "./workspace/WorkspaceDetail";
 import { WorkspaceList } from "./workspace/WorkspaceList";
+import { EmbedPage } from "./workspace/EmbedPage";
 
 export function AppRoutes() {
   return (
@@ -15,6 +16,7 @@ export function AppRoutes() {
         <Route path="/workspaces/:workspaceId" element={<WorkspaceDetail />} />
         <Route path="/workspaces/:workspaceId/connections/new" element={<ConnectionForm />} />
         <Route path="/workspaces/:workspaceId/datasets/new" element={<DatasetWizard />} />
+        <Route path="/workspaces/:workspaceId/embed" element={<EmbedPage />} />
       </Route>
       <Route
         path="/workspaces/:workspaceId/datasets/:datasetId/designer"

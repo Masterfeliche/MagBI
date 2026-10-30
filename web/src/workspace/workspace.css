@@ -224,6 +224,46 @@
 .ws-test-fail { color: var(--danger); font-size: 12px; margin-left: 8px; }
 
 /* ── Buttons ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.modal {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+
+.refresh-drawer {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.refresh-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+}
+
+.refresh-badge.succeeded { color: var(--success); }
+.refresh-badge.failed { color: var(--danger); }
+.refresh-badge.running,
+.refresh-badge.queued { color: var(--warn); }
+
+.schedule-presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+
 .ws-btn {
   display: inline-flex;
   align-items: center;

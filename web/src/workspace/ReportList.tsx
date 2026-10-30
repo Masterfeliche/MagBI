@@ -54,7 +54,7 @@ export function ReportList({ workspaceId }: { workspaceId: string }) {
               <button
                 className="ws-link"
                 onClick={() =>
-                  navigate(`/workspaces/${workspaceId}/datasets/${r.dataset_id}/designer`)
+                  navigate(`/workspaces/${workspaceId}/datasets/${r.dataset_id}/designer?report=${r.id}`)
                 }
               >
                 {r.name}

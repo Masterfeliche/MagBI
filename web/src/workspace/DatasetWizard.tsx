@@ -3,17 +3,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
+import { TableBrowser } from "./TableBrowser";
 
 interface Connection {
   id: string;
   name: string;
   kind: string;
-}
-
-interface TableInfo {
-  schema: string;
-  name: string;
-  columns: { name: string; type: string }[];
 }
 
 type Step = "connection" | "tables" | "name";
@@ -25,12 +20,8 @@ export function DatasetWizard() {
   const [step, setStep] = useState<Step>("connection");
   const [connections, setConnections] = useState<Connection[]>([]);
   const [selectedConn, setSelectedConn] = useState<string>("");
-  const [schemas, setSchemas] = useState<string[]>([]);
-  const [selectedSchema, setSelectedSchema] = useState("");
-  const [tables, setTables] = useState<TableInfo[]>([]);
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
   const [datasetName, setDatasetName] = useState("");
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,49 +30,6 @@ export function DatasetWizard() {
       .then(setConnections)
       .catch(() => setError("Failed to load connections"));
   }, [workspaceId]);
-
-  async function loadSchemas(connId: string) {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiFetch<{ schemas: string[] }>(
-        `/workspaces/${workspaceId}/connections/${connId}/schemas`,
-      );
-      setSchemas(res.schemas);
-      if (res.schemas.length === 1) {
-        setSelectedSchema(res.schemas[0]);
-        await loadTables(connId, res.schemas[0]);
-      }
-    } catch {
-      setError("Failed to load schemas");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadTables(connId: string, schema: string) {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiFetch<{ tables: TableInfo[] }>(
-        `/workspaces/${workspaceId}/connections/${connId}/tables?schema=${encodeURIComponent(schema)}`,
-      );
-      setTables(res.tables);
-    } catch {
-      setError("Failed to load tables");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function toggleTable(fullName: string) {
-    setSelectedTables((prev) => {
-      const next = new Set(prev);
-      if (next.has(fullName)) next.delete(fullName);
-      else next.add(fullName);
-      return next;
-    });
-  }
 
   async function createDataset() {
     if (!datasetName.trim() || selectedTables.size === 0) return;
@@ -178,10 +126,7 @@ export function DatasetWizard() {
             <button
               className="ws-btn primary"
               disabled={!selectedConn}
-              onClick={() => {
-                loadSchemas(selectedConn);
-                setStep("tables");
-              }}
+              onClick={() => setStep("tables")}
             >
               Next →
             </button>
@@ -193,51 +138,12 @@ export function DatasetWizard() {
         <div className="panel">
           <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>Select tables to import</h3>
 
-          {schemas.length > 1 && (
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label>Schema</label>
-              <select
-                value={selectedSchema}
-                onChange={(e) => {
-                  setSelectedSchema(e.target.value);
-                  loadTables(selectedConn, e.target.value);
-                }}
-              >
-                <option value="">Select schema…</option>
-                {schemas.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {loading ? (
-            <p className="ws-loading">Loading tables…</p>
-          ) : tables.length === 0 ? (
-            <p className="ws-hint" style={{ padding: "20px 0" }}>
-              {selectedSchema ? "No tables found in this schema." : "Select a schema above."}
-            </p>
-          ) : (
-            <div className="table-browser">
-              {tables.map((t) => {
-                const fullName = `${t.schema}.${t.name}`;
-                const checked = selectedTables.has(fullName);
-                return (
-                  <div
-                    key={fullName}
-                    className="table-browser-row"
-                    onClick={() => toggleTable(fullName)}
-                  >
-                    <input type="checkbox" checked={checked} readOnly />
-                    <span style={{ fontWeight: 500 }}>{t.name}</span>
-                    <span style={{ fontSize: 12, color: "var(--text3)" }}>
-                      {t.columns?.length ?? 0} columns
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <TableBrowser
+            workspaceId={workspaceId ?? ""}
+            connectionId={selectedConn}
+            selected={selectedTables}
+            onChange={setSelectedTables}
+          />
 
           <div className="form-actions">
             <button className="ws-btn" onClick={() => setStep("connection")}>

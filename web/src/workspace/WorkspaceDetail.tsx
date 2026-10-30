@@ -27,7 +27,15 @@ export function WorkspaceDetail() {
   }, [workspaceId]);
 
   if (loading) return <div className="ws-page"><p className="ws-loading">Loading...</p></div>;
-  if (error) return <div className="ws-page"><p className="ws-error">{error}</p></div>;
+  if (error) {
+    return (
+      <div className="ws-page">
+        <p className="ws-error">
+          {error} <button type="button" className="ws-btn small" onClick={() => window.location.reload()}>Retry</button>
+        </p>
+      </div>
+    );
+  }
   if (!workspace || !workspaceId) return null;
 
   const tabs: { key: Tab; label: string }[] = [
@@ -56,6 +64,9 @@ export function WorkspaceDetail() {
             onClick={() => navigate(`/workspaces/${workspaceId}/connections/new`)}
           >
             + New connection
+          </button>
+          <button className="ws-btn" onClick={() => navigate(`/workspaces/${workspaceId}/embed`)}>
+            Embed
           </button>
         </div>
       </div>

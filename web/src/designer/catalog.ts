@@ -37,6 +37,8 @@ const axisWells: WellSpec[] = [
   { name: "y-axis", displayName: "Y-axis", kind: "measure", max: 4 },
   { name: "x-axis", displayName: "X-axis", kind: "grouping", max: 1 },
   { name: "legend", displayName: "Legend", kind: "grouping", max: 1 },
+  { name: "hierarchy", displayName: "Hierarchy", kind: "grouping", max: 4 },
+  { name: "tooltips", displayName: "Tooltips", kind: "any", max: 4 },
 ];
 
 function spec(type: string, displayName: string, abbr: string, extra: Partial<VisualSpec>): VisualSpec {

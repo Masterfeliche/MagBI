@@ -29,9 +29,19 @@ export function bindingFor(field: DesignerField): FieldBinding {
 export function buildQuery(
   wells: Record<string, FieldBinding[]>,
   filters: FilterDefinition[] = [],
+  options: { drillLevel?: number } = {},
 ): SemanticQueryBody {
   const select: SemanticQueryBody["select"] = [];
-  const ordered = ["x-axis", "legend", "y-axis", "columns"].flatMap((name) => wells[name] ?? []);
+  const hierarchy = wells.hierarchy ?? [];
+  const level = options.drillLevel ?? 0;
+  const xAxis = hierarchy[level] ? [hierarchy[level]] : wells["x-axis"] ?? [];
+  const ordered = [
+    ...xAxis,
+    ...(wells.legend ?? []),
+    ...(wells["y-axis"] ?? []),
+    ...(wells.columns ?? []),
+    ...(wells.tooltips ?? []),
+  ];
   for (const binding of ordered) {
     if (binding.measure) {
       select.push({ measure: { table: binding.table, measure: binding.measure } });

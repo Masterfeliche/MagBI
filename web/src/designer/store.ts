@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
+import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
 import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
 import { blankReport, PAGE_HEIGHT, PAGE_WIDTH, placeVisual, type Box } from "./layout";
@@ -28,6 +28,11 @@ interface DesignerState {
   setFormat: (id: string, title: string, color: string) => void;
   setProperties: (id: string, props: Record<string, unknown>) => void;
   setTheme: (colors: string[]) => void;
+  importThemeJson: (json: string) => void;
+  drillDown: (id: string, category: string) => void;
+  drillUp: (id: string) => void;
+  addBookmark: (name: string) => void;
+  applyBookmark: (id: string) => void;
   switchPage: (index: number) => void;
   addPage: () => void;
   removePage: (index: number) => void;
@@ -192,6 +197,95 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   setTheme: (colors) => {
     const report = get().report;
     commit(set, get, { ...report, theme: { ...report.theme, colors } });
+  },
+
+  importThemeJson: (json) => {
+    const parsed = JSON.parse(json) as { dataColors?: unknown; name?: unknown };
+    const colors = Array.isArray(parsed.dataColors)
+      ? parsed.dataColors.filter((item): item is string => typeof item === "string")
+      : [];
+    if (colors.length === 0) throw new Error("theme JSON needs dataColors");
+    get().setTheme(colors);
+  },
+
+  drillDown: (id, category) => {
+    const page = get().report.pages[get().activePageIndex];
+    const visual = page?.visuals.find((item) => item.id === id);
+    if (!visual) return;
+    const level = Number(visual.properties?.drillLevel ?? 0);
+    const hierarchy = visual.wells.hierarchy ?? [];
+    const field = hierarchy[level];
+    const column = field?.column;
+    if (!field || !column || level + 1 >= hierarchy.length) return;
+    const table = field.table;
+    updateVisual(set, get, id, (item) => ({
+      ...item,
+      properties: { ...item.properties, drillLevel: level + 1 },
+      filters: [
+        ...(item.filters ?? []),
+        {
+          table,
+          column,
+          type: "basic",
+          config: { operator: "eq", values: [category] },
+        },
+      ],
+    }));
+  },
+
+  drillUp: (id) => {
+    const page = get().report.pages[get().activePageIndex];
+    const visual = page?.visuals.find((item) => item.id === id);
+    if (!visual) return;
+    const level = Number(visual.properties?.drillLevel ?? 0);
+    if (level <= 0) return;
+    const hierarchy = visual.wells.hierarchy ?? [];
+    const field = hierarchy[level - 1];
+    updateVisual(set, get, id, (item) => ({
+      ...item,
+      properties: { ...item.properties, drillLevel: level - 1 },
+      filters: (item.filters ?? []).filter(
+        (filter) => !(field && filter.table === field.table && filter.column === field.column),
+      ),
+    }));
+  },
+
+  addBookmark: (name) => {
+    const report = get().report;
+    const page = report.pages[get().activePageIndex];
+    if (!page) return;
+    const bookmark: BookmarkDefinition = {
+      id: crypto.randomUUID(),
+      name,
+      pageIndex: get().activePageIndex,
+      filters: page.filters ?? [],
+      hiddenVisualIds: page.visuals
+        .filter((visual) => visual.properties?.hidden)
+        .map((visual) => visual.id),
+    };
+    commit(set, get, { ...report, bookmarks: [...(report.bookmarks ?? []), bookmark] });
+  },
+
+  applyBookmark: (id) => {
+    const report = get().report;
+    const bookmark = (report.bookmarks ?? []).find((item) => item.id === id);
+    if (!bookmark) return;
+    const pages = report.pages.map((page, index) => {
+      if (index !== bookmark.pageIndex) return page;
+      return {
+        ...page,
+        filters: bookmark.filters,
+        visuals: page.visuals.map((visual) => ({
+          ...visual,
+          properties: {
+            ...visual.properties,
+            hidden: bookmark.hiddenVisualIds.includes(visual.id),
+          },
+        })),
+      };
+    });
+    commit(set, get, { ...report, pages });
+    set({ activePageIndex: bookmark.pageIndex, selectedVisualId: null });
   },
 
   copyVisual: (id) => {

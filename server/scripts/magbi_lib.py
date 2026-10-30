@@ -106,13 +106,15 @@ class Page:
     def kpi(self, x: int, y: int, w: int, caption: str, value: dict[str, str], *, rule: dict[str, Any],
             extra: list[dict[str, str]] | None = None, fmt: str = "whole", extra_formats: list[str] | None = None,
             status: dict[str, str] | None = None, context: str = "", context_zero: str | None = None,
-            tone_from: int | None = None, h: int = KPI_H) -> None:
+            tone_from: int | None = None, no_data_if: int | None = None, h: int = KPI_H) -> None:
         props: dict[str, Any] = {"caption": caption, "rule": rule, "format": fmt, "extraFormats": extra_formats or [],
                                  "status": status or {}, "context": context}
         if context_zero is not None:
             props["contextZero"] = context_zero
         if tone_from is not None:
             props["toneFrom"] = tone_from
+        if no_data_if is not None:
+            props["noDataIf"] = no_data_if
         self.add("kpi", x, y, w, h, {"y-axis": [value], "extra": extra or []}, **props)
 
     # -- body panels ---------------------------------------------------

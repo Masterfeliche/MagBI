@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { VisualDefinition } from "../types/report";
-import { chainTone, pillTone, sharePercent } from "./KitVisual";
+import { chainTone, kpiState, nothingToDraw, pillTone, sharePercent } from "./KitVisual";
 import { kitQuery, memberQuery, mergeMembers } from "./query";
 import { fill, formatValue, isNoData, toneOf } from "./tone";
 
@@ -118,5 +118,18 @@ describe("shares", () => {
     expect(sharePercent(100)).toBe("100%");
     expect(sharePercent(0.3)).toBe("<1%");
     expect(sharePercent(41.48)).toBe("41%");
+  });
+});
+
+describe("empty views", () => {
+  it("treats a chart whose values are all zero or blank as empty", () => {
+    expect(nothingToDraw([["Oct 26", 0], ["Nov 26", null]], [1])).toBe(true);
+    expect(nothingToDraw([["Oct 26", 0], ["Nov 26", 79]], [1])).toBe(false);
+  });
+
+  it("shows No data on a card whose base figure is zero, not a reassuring status", () => {
+    const card = { rule: { zero: "good", otherwise: "watch" }, status: { good: "Every batch dated" }, context: "Of {1} batches", noDataIf: 1 };
+    expect(kpiState(card, [0, 0])).toEqual({ value: "–", tone: "none", status: "No data", context: "Nothing held in this view" });
+    expect(kpiState(card, [0, 1461])).toEqual({ value: "0", tone: "good", status: "Every batch dated", context: "Of 1,461 batches" });
   });
 });

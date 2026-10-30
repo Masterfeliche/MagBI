@@ -140,7 +140,11 @@ export function KitVisual({
       default:
         break;
     }
-    if (rows.length === 0 || (visual.type === "bars" && !visual.wells["x-axis"]?.length && rows[0]?.every((cell) => cell == null))) {
+    // Measures sit after the group columns, so the last `measures` columns are the values.
+    const measures = (visual.wells["y-axis"] ?? []).length;
+    const width = rows[0]?.length ?? 0;
+    const values = Array.from({ length: measures }, (_, offset) => width - measures + offset);
+    if (rows.length === 0 || (measures > 0 && nothingToDraw(rows, values))) {
       return <div className="kit-state">{EMPTY_TEXT}</div>;
     }
     switch (visual.type) {
@@ -242,28 +246,57 @@ function Frame({ props }: { props: Props }) {
 
 // ---------------------------------------------------------------- KPI and chain
 
-function Kpi({ props, rows }: { props: Props; rows: unknown[][] }) {
-  const row = rows[0] ?? [];
+export interface KpiState {
+  value: string;
+  tone: Tone;
+  status: string;
+  context: string;
+}
+
+/**
+ * What a KPI card says. ``noDataIf`` names a figure in the row that must be
+ * above zero for the card to mean anything (e.g. batches on hand): when it is
+ * 0 or blank the card shows "–" and No data, never a reassuring status.
+ */
+export function kpiState(props: Props, row: unknown[]): KpiState {
   const format = str(props, "format", "whole") as ValueFormat;
   const extraFormats = (Array.isArray(props.extraFormats) ? props.extraFormats : []) as ValueFormat[];
   const shown = [formatValue(row[0], format), ...row.slice(1).map((value, index) => formatValue(value, extraFormats[index] ?? "whole"))];
+  const words = (props.status ?? {}) as Partial<Record<Tone, string>>;
+  if (typeof props.noDataIf === "number" && !toNumber(row[props.noDataIf])) {
+    return { value: "–", tone: "none", status: STATUS.none.word, context: str(props, "contextNoData", "Nothing held in this view") };
+  }
   const value = toNumber(row[0]);
   // A card may show one figure and take its status from another, e.g. transfers coloured by late ones.
   const toneValue = typeof props.toneFrom === "number" ? toNumber(row[props.toneFrom]) : value;
   const tone = toneOf(toneValue, props.rule as ToneRule | undefined);
-  const status = STATUS[tone];
-  const words = (props.status ?? {}) as Partial<Record<Tone, string>>;
   const zeroContext = value === 0 && typeof props.contextZero === "string" ? props.contextZero : null;
+  return {
+    value: shown[0] ?? "–",
+    tone,
+    status: fill(words[tone] ?? STATUS[tone].word, shown),
+    context: fill(zeroContext ?? str(props, "context"), shown),
+  };
+}
+
+function Kpi({ props, rows }: { props: Props; rows: unknown[][] }) {
+  const state = kpiState(props, rows[0] ?? []);
+  const status = STATUS[state.tone];
   return (
     <div className="kit-kpi" style={{ borderLeftColor: status.color }}>
       <div className="kit-kpi-cap">{str(props, "caption")}</div>
-      <div className="kit-kpi-val">{shown[0]}</div>
+      <div className="kit-kpi-val">{state.value}</div>
       <div className="kit-kpi-st" style={{ color: status.ink }}>
-        {status.glyph} {fill(words[tone] ?? status.word, shown)}
+        {status.glyph} {state.status}
       </div>
-      <div className="kit-kpi-cx">{fill(zeroContext ?? str(props, "context"), shown)}</div>
+      <div className="kit-kpi-cx">{state.context}</div>
     </div>
   );
+}
+
+/** True when a chart has nothing to draw: no rows, or every value blank or zero. */
+export function nothingToDraw(rows: unknown[][], valueAt: number[]): boolean {
+  return rows.every((row) => valueAt.every((index) => !toNumber(row[index])));
 }
 
 /** Chain rows: Stage, StageOrder, Unit, BaseTone, FlagTone, AgeLimit, Count, AgeDays, Flags. */

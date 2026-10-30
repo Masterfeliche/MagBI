@@ -45,6 +45,7 @@ if __name__ == "__main__":
     asyncio.run(create_tables())
 
     import uvicorn
+
     from magbi.main import create_app
 
     app = create_app(settings)

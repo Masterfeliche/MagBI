@@ -58,6 +58,37 @@ class MemberIn(BaseModel):
     role: Literal["admin", "editor", "viewer"]
 
 
+class MemberOut(BaseModel):
+    user_id: uuid.UUID
+    email: str
+    name: str
+    role: str
+
+
+@router.get("/workspaces/{wid}/members", response_model=list[MemberOut])
+async def list_members(
+    wid: uuid.UUID, session: SessionDep, actor: ActorDep
+) -> list[MemberOut]:
+    await get_workspace_or_404(session, wid)
+    if not permits(actor, str(wid), "viewer"):
+        raise ApiError(403, "FORBIDDEN", "workspace membership is required")
+    rows = await session.execute(
+        select(WorkspaceMember, User)
+        .join(User, User.id == WorkspaceMember.user_id)
+        .where(WorkspaceMember.workspace_id == wid)
+        .order_by(User.email)
+    )
+    return [
+        MemberOut(
+            user_id=member.user_id,
+            email=user.email,
+            name=user.name,
+            role=member.role.value,
+        )
+        for member, user in rows.all()
+    ]
+
+
 def _require_admin(actor: ActorDep, wid: uuid.UUID) -> None:
     if not permits(actor, str(wid), "admin"):
         raise ApiError(403, "FORBIDDEN", "a workspace admin is required")

@@ -63,6 +63,12 @@ def test_login_and_membership(api: ApiEnv) -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
     assert added.status_code == 201, added.text
+    listed = client.get(
+        f"{V1}/workspaces/{workspace['id']}/members",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert listed.status_code == 200, listed.text
+    assert listed.json()[0]["email"] == "view@example.com"
     view_token = client.post(
         f"{V1}/auth/login",
         json={"email": "view@example.com", "password": "viewer-password"},

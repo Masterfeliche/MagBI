@@ -6,9 +6,10 @@ import { apiFetch } from "../shared/api";
 import type { Workspace } from "../types/api";
 import { ConnectionList } from "./ConnectionList";
 import { DatasetList } from "./DatasetList";
+import { MembersPanel } from "./MembersPanel";
 import { ReportList } from "./ReportList";
 
-type Tab = "datasets" | "reports" | "connections";
+type Tab = "datasets" | "reports" | "connections" | "members";
 
 export function WorkspaceDetail() {
   const { workspaceId } = useParams();
@@ -42,6 +43,7 @@ export function WorkspaceDetail() {
     { key: "datasets", label: "Datasets" },
     { key: "reports", label: "Reports" },
     { key: "connections", label: "Connections" },
+    { key: "members", label: "Members" },
   ];
 
   return (
@@ -87,6 +89,7 @@ export function WorkspaceDetail() {
         {activeTab === "datasets" && <DatasetList workspaceId={workspaceId} />}
         {activeTab === "reports" && <ReportList workspaceId={workspaceId} />}
         {activeTab === "connections" && <ConnectionList workspaceId={workspaceId} />}
+        {activeTab === "members" && <MembersPanel workspaceId={workspaceId} />}
       </div>
     </div>
   );

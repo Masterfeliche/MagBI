@@ -40,7 +40,14 @@ describe("visual render models", () => {
     expect(map.kind).toBe("note");
     if (map.kind === "note") expect(map.message).toContain("latitude");
 
-    expect(renderModel("scatter", trips).kind).toBe("note");
     expect(renderModel("line", null)).toMatchObject({ kind: "note" });
+  });
+
+  it("renders scatter, funnel, gauge, treemap, and waterfall from a DSR", () => {
+    expect(renderModel("scatter", trips).kind).toBe("scatter");
+    expect(renderModel("funnel", trips).kind).toBe("funnel");
+    expect(renderModel("gauge", trips).kind).toBe("gauge");
+    expect(renderModel("treemap", trips).kind).toBe("treemap");
+    expect(renderModel("waterfall", trips).kind).toBe("waterfall");
   });
 });

@@ -239,8 +239,7 @@ DOM_CHECKS = r"""
     if (clipped(el)) out.failures.push(`clipped: "${el.innerText.trim().slice(0, 60)}" (${el.className || el.tagName})`);
   }
   for (const el of document.querySelectorAll('.kit-panel-sub')) if (clipped(el)) out.warnings.push(`subtitle truncated: "${el.innerText.trim()}"`);
-  for (const card of document.querySelectorAll('.kit-kpi')) if (card.scrollHeight > card.clientHeight + 1) out.failures.push(`KPI card content taller than the card: "${card.innerText.split('
-')[0]}"`);
+  for (const card of document.querySelectorAll('.kit-kpi')) if (card.scrollHeight > card.clientHeight + 1) out.failures.push(`KPI card content taller than the card: "${card.querySelector('.kit-kpi-cap')?.innerText ?? ''}"`);
   for (const card of document.querySelectorAll('.kit-kpi > div')) { const box = card.getBoundingClientRect(); const host = card.parentElement.getBoundingClientRect(); if (box.bottom > host.bottom - 1) out.failures.push(`KPI line cut by the card edge: "${card.innerText.trim()}"`); }
   for (const th of document.querySelectorAll('.kit-grid th, .kit-heat th')) {
     for (const word of th.innerText.split(/\s+/)) {
@@ -347,6 +346,9 @@ class Tab:
 
     async def evaluate(self, expression: str) -> Any:
         result = await self.send("Runtime.evaluate", {"expression": expression, "returnByValue": True, "awaitPromise": True})
+        if "exceptionDetails" in result:
+            details = result["exceptionDetails"]
+            raise RuntimeError(f"page script failed: {details.get('exception', {}).get('description') or details.get('text')}")
         return result.get("result", {}).get("value")
 
     async def settle(self, timeout: float = 20.0) -> None:
@@ -422,7 +424,7 @@ def main() -> None:
     parser.add_argument("--workspace", required=True)
     parser.add_argument("--report", action="append", required=True)
     parser.add_argument("--api", default="http://127.0.0.1:8000/api/v1")
-    parser.add_argument("--web", default="http://127.0.0.1:3000")
+    parser.add_argument("--web", default="http://localhost:3000")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--expected", type=Path, help="JSON: {report name: {'Table|Measure': value}}")
     args = parser.parse_args()

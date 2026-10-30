@@ -1441,8 +1441,16 @@ label.stack select:focus {
 .visual.kit {
   padding: 0;
   background: transparent;
-  border-color: transparent;
+  border: none;
   border-radius: 6px;
+}
+.visual.kit.selected {
+  box-shadow: none;
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.visual.kit:hover {
+  outline: 1px solid var(--blue-light);
 }
 .visual.kit .visual-handle {
   position: absolute;
@@ -1462,7 +1470,7 @@ label.stack select:focus {
   cursor: default;
 }
 .viewer .visual.kit:hover {
-  border-color: transparent;
+  outline: none;
 }
 
 /* ── Report filter in the ERP Native box style ── */

@@ -29,8 +29,8 @@ export function LeftPanel({
               onClick={() => addVisual(item.type)}
             >
               {item.icon ? (
-                <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={item.icon} />
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <path d={item.icon} fill="currentColor" />
                 </svg>
               ) : (
                 item.abbr

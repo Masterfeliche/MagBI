@@ -1,7 +1,8 @@
 import { useState } from "react";
 
-import { useDesignerStore } from "./store";
 import { VISUALS } from "./catalog";
+import { useDesignerStore } from "./store";
+import { VisualTypeButton } from "./VisualTypeIcon";
 
 type RibbonTab = "home" | "insert" | "modeling" | "view" | "format" | "help";
 
@@ -48,11 +49,9 @@ export function Ribbon({
           <span className="ribbon-group-label">Clipboard</span>
         </div>
         <div className="ribbon-group">
-          <div className="ribbon-btns">
+          <div className="ribbon-btns visual-type-row">
             {VISUALS.slice(0, 6).map((v) => (
-              <button key={v.type} type="button" className="rb" onClick={() => addVisual(v.type)}>
-                <span>{v.displayName}</span>
-              </button>
+              <VisualTypeButton key={v.type} type={v.type} label={v.displayName} onClick={() => addVisual(v.type)} />
             ))}
           </div>
           <span className="ribbon-group-label">Visuals</span>
@@ -85,11 +84,9 @@ export function Ribbon({
           <span className="ribbon-group-label">Elements</span>
         </div>
         <div className="ribbon-group">
-          <div className="ribbon-btns">
+          <div className="ribbon-btns visual-type-row">
             {VISUALS.map((v) => (
-              <button key={v.type} type="button" className="rb" onClick={() => addVisual(v.type)}>
-                <span>{v.displayName}</span>
-              </button>
+              <VisualTypeButton key={v.type} type={v.type} label={v.displayName} onClick={() => addVisual(v.type)} />
             ))}
           </div>
           <span className="ribbon-group-label">Visuals</span>

@@ -122,10 +122,17 @@ async def _service_actor(session: AsyncSession, token: str) -> Actor:
 ActorDep = Annotated[Actor, Depends(get_actor)]
 
 
+def _embed_path_allowed(path: str) -> bool:
+    if path.endswith(("/query", "/auth/whoami")):
+        return True
+    trimmed = path.rstrip("/")
+    return "/reports/" in trimmed and not trimmed.endswith("/reports")
+
+
 async def api_guard(request: Request, actor: ActorDep) -> Actor:
     """Identify the caller and keep embed and service tokens off management routes."""
     path = request.url.path
-    if actor.kind == "embed" and not path.endswith(("/query", "/auth/whoami")):
+    if actor.kind == "embed" and not _embed_path_allowed(path):
         raise ApiError(403, "FORBIDDEN", "an embed token cannot call this route")
     if actor.kind == "service" and not path.endswith(("/embed/token", "/auth/whoami")):
         raise ApiError(403, "FORBIDDEN", "a service token cannot call this route")

@@ -95,9 +95,16 @@ async def _reports(
     rows = await session.scalars(
         select(Report).where(Report.id.in_(ids), Report.workspace_id == workspace_id)
     )
-    found = {row.id for row in rows}
+    found = {row.id: row for row in rows}
     missing = [item for item in ids if item not in found]
     if missing:
         raise ApiError(
             422, "OUTSIDE_WORKSPACE", f"report {missing[0]} is not in this workspace"
+        )
+    unpublished = next((row for row in found.values() if not row.is_published), None)
+    if unpublished is not None:
+        raise ApiError(
+            422,
+            "REPORT_NOT_PUBLISHED",
+            f"report {unpublished.id} is not published",
         )

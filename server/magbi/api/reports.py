@@ -13,10 +13,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from magbi.api.datasets import get_dataset_or_404
-from magbi.api.deps import SessionDep
+from magbi.api.deps import ActorDep, SessionDep
 from magbi.api.errors import ApiError
 from magbi.api.workspaces import get_workspace_or_404
-from magbi.metadata.models import Report, utcnow
+from magbi.metadata.models import DatasetRefresh, RefreshStatus, Report, utcnow
 
 router = APIRouter(tags=["reports"])
 
@@ -47,9 +47,10 @@ class ReportOut(BaseModel):
     is_published: bool
     created_at: dt.datetime
     updated_at: dt.datetime
+    last_refreshed_at: dt.datetime | None = None
 
 
-def _out(report: Report) -> ReportOut:
+def _out(report: Report, last_refreshed_at: dt.datetime | None = None) -> ReportOut:
     return ReportOut(
         id=report.id,
         workspace_id=report.workspace_id,
@@ -59,6 +60,7 @@ def _out(report: Report) -> ReportOut:
         is_published=report.is_published,
         created_at=report.created_at,
         updated_at=report.updated_at,
+        last_refreshed_at=last_refreshed_at,
     )
 
 
@@ -99,6 +101,39 @@ async def create_report(wid: uuid.UUID, body: ReportIn, session: SessionDep) -> 
     await _commit(session)
     await session.refresh(report)
     return _out(report)
+
+
+@router.get("/workspaces/{wid}/reports/{rid}", response_model=ReportOut)
+async def get_report(
+    wid: uuid.UUID, rid: uuid.UUID, session: SessionDep, actor: ActorDep
+) -> ReportOut:
+    report = await _get(session, wid, rid)
+    if actor.kind == "embed":
+        if str(wid) != actor.workspace_id or str(rid) not in actor.reports:
+            raise ApiError(
+                403, "FORBIDDEN", "this embed token cannot read this report"
+            )
+        if not report.is_published:
+            raise ApiError(
+                403, "FORBIDDEN", "unpublished reports cannot be embedded"
+            )
+    last = await _last_refreshed(session, report.dataset_id)
+    return _out(report, last)
+
+
+async def _last_refreshed(
+    session: AsyncSession, dataset_id: uuid.UUID
+) -> dt.datetime | None:
+    return await session.scalar(
+        select(DatasetRefresh.finished_at)
+        .where(
+            DatasetRefresh.dataset_id == dataset_id,
+            DatasetRefresh.status == RefreshStatus.SUCCEEDED,
+            DatasetRefresh.finished_at.is_not(None),
+        )
+        .order_by(DatasetRefresh.finished_at.desc())
+        .limit(1)
+    )
 
 
 @router.put("/workspaces/{wid}/reports/{rid}", response_model=ReportOut)

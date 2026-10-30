@@ -471,7 +471,7 @@ function Pareto({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPi
             symbolSize: 6,
             lineStyle: { color: STATUS.watch.color, width: 2.5 },
             itemStyle: { color: STATUS.watch.color },
-            markLine: { silent: true, symbol: "none", data: [{ yAxis: 80 }], lineStyle: { color: TOKENS.muted, type: "dashed" }, label: { position: "insideStartTop", formatter: "80%", color: TOKENS.muted, fontSize: 10.5 } },
+            markLine: { silent: true, symbol: "none", data: [{ yAxis: 80 }], lineStyle: { color: TOKENS.muted, type: "dashed" }, label: { show: false } },
           },
         ],
       }}

@@ -227,6 +227,129 @@ All three remaining phases can theoretically be built in parallel since they tou
 
 ---
 
+## Phase 5: Build-Test-Improve Loop (after Phases 2-4)
+
+Once Phases 2, 3, and 4 are implemented, enter a continuous improvement loop. **Do not stop after building features — test them by building real dashboards and fix every issue you find.**
+
+### Step 1: Build 3 Test Dashboards
+
+Create 3 dashboards using the test dataset (18 rows: Sales with Month, Revenue, Region, Units). Each must exercise different MagBI capabilities:
+
+#### Dashboard A — "Sales Executive Summary"
+- **Page 1**: Card (Total Revenue), Card (Total Units), Column chart (Revenue by Month), Pie chart (Revenue by Region)
+- **Page 2**: Table (all data), Bar chart (Units by Region), Line chart (Revenue trend over months)
+- Tests: multi-page, card visuals, basic charts, page tabs
+
+#### Dashboard B — "Regional Analysis"
+- **Page 1**: Slicer (filter by Region), Column chart (Revenue by Month filtered), Card (filtered total)
+- **Page 2**: Scatter plot (Revenue vs Units by Month), Funnel (Revenue by Region descending)
+- Tests: slicer filtering, cross-page state, scatter/funnel visuals, page filters
+
+#### Dashboard C — "Formatted Report"
+- **Page 1**: Column chart with custom title, axis labels, legend, data labels, analytics average line, custom colors via FormatPane, treemap (Revenue by Region)
+- **Page 2**: Gauge (Revenue vs target), Waterfall (monthly revenue changes)
+- Tests: FormatPane properties, analytics lines, theme colors, gauge/waterfall/treemap visuals
+
+### Step 2: Record Findings
+
+After building each dashboard, document every issue in `docs/MAGBI-TEST-FINDINGS.md`:
+
+```markdown
+## Dashboard [A/B/C] — [Name]
+
+### Issues Found
+| # | Severity | Component | Description | Status |
+|---|----------|-----------|-------------|--------|
+| 1 | critical | ... | ... | OPEN |
+| 2 | major | ... | ... | FIXED |
+| 3 | minor | ... | ... | OPEN |
+
+### What Works Well
+- [list what worked correctly]
+
+### Power BI Comparison Gaps
+- [list features that Power BI has but MagBI is missing or inferior]
+```
+
+Severity levels:
+- **critical**: Feature broken, crashes, or produces wrong data
+- **major**: Feature works but UX is poor, confusing, or significantly worse than Power BI
+- **minor**: Cosmetic issues, small polish items
+
+### Step 3: Fix and Improve
+
+After documenting findings from all 3 dashboards:
+1. Fix all **critical** issues first
+2. Fix all **major** issues
+3. Fix **minor** issues
+4. Re-test each dashboard after fixes
+5. Update `docs/MAGBI-TEST-FINDINGS.md` with status changes (OPEN → FIXED)
+
+### Step 4: Repeat
+
+After fixing, rebuild the dashboards from scratch (delete and recreate) to verify the fixes work in a clean flow. If new issues surface, document and fix them. Continue until:
+- All 3 dashboards build without any critical or major issues
+- Every visual type renders correctly with data
+- FormatPane changes visibly affect charts
+- Slicer filters data across visuals
+- Export produces clean PNG/PDF
+- Page navigation, undo/redo, copy/paste all work
+- The experience feels comparable to Power BI Desktop for basic dashboard building
+
+### Power BI Feature Parity Checklist
+
+Compare MagBI against these core Power BI Desktop capabilities. Mark each as DONE, PARTIAL, or MISSING:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Create workspace | | |
+| Connect to SQL Server | | |
+| Browse and select tables | | |
+| Import data (refresh) | | |
+| Scheduled refresh | | |
+| Add visual to canvas | | |
+| Drag field to well (axis/value/legend) | | |
+| Move and resize visuals | | |
+| Column chart | | |
+| Bar chart | | |
+| Line chart | | |
+| Pie/Donut chart | | |
+| Card (single value) | | |
+| Table | | |
+| Scatter plot | | |
+| Funnel | | |
+| Gauge | | |
+| Treemap | | |
+| Waterfall | | |
+| Slicer (interactive filter) | | |
+| Page filters | | |
+| Visual-level filters | | |
+| Report-level filters | | |
+| Cross-filtering between visuals | | |
+| Format: chart title | | |
+| Format: axis labels | | |
+| Format: data labels | | |
+| Format: legend | | |
+| Format: colors/palette | | |
+| Analytics: average line | | |
+| Analytics: trend line | | |
+| Multi-page report | | |
+| Copy/paste visuals | | |
+| Undo/redo | | |
+| Keyboard shortcuts | | |
+| Context menu (right-click) | | |
+| Export to PNG | | |
+| Export to PDF | | |
+| Publish report | | |
+| Embed token for external sharing | | |
+| Theme/branding | | |
+| Loading states | | |
+| Error handling | | |
+
+Update this table as you test. The goal is all rows showing DONE.
+
+---
+
 ## Commit Convention
 ```
 type(scope): description (imperative, max 72 chars, no period)

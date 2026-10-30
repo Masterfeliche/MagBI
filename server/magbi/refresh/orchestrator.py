@@ -33,8 +33,14 @@ from magbi.metadata.models import (
     RefreshStatus,
     utcnow,
 )
-from magbi.model.schema import DatasetDefinition, SqlQuerySource, SqlTableSource
+from magbi.model.schema import (
+    CsvSource,
+    DatasetDefinition,
+    SqlQuerySource,
+    SqlTableSource,
+)
 from magbi.refresh.dates import attach_date_table
+from magbi.refresh.file_import import carry_over_tables
 from magbi.refresh.importer import (
     DEFAULT_BATCH_SIZE,
     ImportPipelineError,
@@ -219,13 +225,12 @@ def _import_plan(raw: dict[str, Any] | None) -> tuple[uuid.UUID, list[TableSpec]
     specs: list[TableSpec] = []
     for table in definition.tables:
         source = table.source
-        if source is None:
+        if source is None or isinstance(source, CsvSource):
+            continue  # generated, or an upload carried over from the live file
+        if isinstance(source, SqlQuerySource):
+            specs.append(TableSpec("", table.name, table.name, query=source.sql))
             continue
-        if not isinstance(source, SqlTableSource):
-            kind = "query" if isinstance(source, SqlQuerySource) else source.type
-            raise RefreshSetupError(
-                f"table {table.name!r} uses a {kind} source, which is not importable yet"
-            )
+        assert isinstance(source, SqlTableSource)
         specs.append(TableSpec(source.schema_, source.table, table.name))
     if not specs:
         raise RefreshSetupError("dataset has no tables configured for import")
@@ -281,6 +286,12 @@ def _import_job(
         updated: dict[str, Any] | None = None
         if job.definition:
             model = DatasetDefinition.model_validate(job.definition)
+            uploads = [
+                table.name
+                for table in model.tables
+                if isinstance(table.source, CsvSource)
+            ]
+            carry_over_tables(deps.store, dataset_key, staging, uploads)
             extra, new_model = attach_date_table(staging, model)
             from magbi.refresh.calculated import apply_calculated_columns
 

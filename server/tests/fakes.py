@@ -6,7 +6,7 @@ from collections.abc import Iterator, Mapping
 from types import MappingProxyType
 from typing import Any
 
-from magbi.connectors.base import CastKind, Connector, SourceTable
+from magbi.connectors.base import CastKind, Connector, SourceColumn, SourceTable
 from magbi.connectors.errors import ConnectorError, ErrorCode
 
 
@@ -18,8 +18,11 @@ class FakeConnector(Connector):
         *,
         fail_connect: ConnectorError | None = None,
         fail_after_rows: int | None = None,
+        query_results: dict[str, tuple[list[SourceColumn], list[tuple[Any, ...]]]]
+        | None = None,
     ) -> None:
         self.tables = tables or []
+        self.query_results = query_results or {}
         self.rows = rows or {}
         self.fail_connect = fail_connect
         self.fail_after_rows = fail_after_rows
@@ -59,6 +62,9 @@ class FakeConnector(Connector):
     ) -> Iterator[tuple[Any, ...]]:
         self._require()
         self.queries.append(sql)
+        if sql in self.query_results:
+            yield from self.query_results[sql][1]
+            return
         key = sql.split("|", 1)[0]  # fake SQL format: "<schema.table>|limit"
         data = self.rows.get(key, [])
         limit = (
@@ -70,6 +76,12 @@ class FakeConnector(Connector):
             if self.fail_after_rows is not None and i >= self.fail_after_rows:
                 raise ConnectorError(ErrorCode.UNREACHABLE, "connection lost")
             yield row
+
+    def describe_query(self, sql: str) -> list[SourceColumn]:
+        self._require()
+        if sql not in self.query_results:
+            raise ConnectorError(ErrorCode.QUERY_FAILED, "unknown query")
+        return self.query_results[sql][0]
 
     def get_row_count(self, schema: str, table: str) -> int:
         self._require()

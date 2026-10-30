@@ -30,6 +30,7 @@ from sqlglot import exp
 
 from magbi.connectors.base import CastKind, Connector, SourceColumn, SourceTable
 from magbi.connectors.errors import ConnectorError, ErrorCode
+from magbi.connectors.readonly import check_read_only
 
 DIALECT = "tsql"
 DEFAULT_PORT = 1433
@@ -222,6 +223,13 @@ WHERE o.type IN ('U', 'V') AND o.is_ms_shipped = 0
 ORDER BY s.name
 """
 
+_DESCRIBE_SQL = """
+SELECT name, system_type_name, max_length, precision, scale, is_nullable
+FROM sys.dm_exec_describe_first_result_set(?, NULL, 0)
+WHERE is_hidden = 0
+ORDER BY column_ordinal
+"""
+
 _TABLES_SQL = """
 SELECT o.object_id, o.name, o.type
 FROM sys.objects o
@@ -326,6 +334,32 @@ class SqlServerConnector(Connector):
 
     def list_schemas(self) -> list[str]:
         return [str(r[0]) for r in self._fetchall(_SCHEMAS_SQL)]
+
+    def describe_query(self, sql: str) -> list[SourceColumn]:
+        rows = self._fetchall(_DESCRIBE_SQL, check_read_only(sql))
+        columns: list[SourceColumn] = []
+        for name, system_type, max_length, precision, scale, nullable in rows:
+            if not name:
+                raise ConnectorError(
+                    ErrorCode.INVALID_CONFIG, "every column of the query needs a name"
+                )
+            type_name = str(system_type).split("(", 1)[0].strip().lower()
+            length = int(max_length) if max_length is not None else None
+            if length is not None and length > 0 and type_name in _NCHAR_TYPES:
+                length //= 2
+            columns.append(
+                SourceColumn(
+                    name=str(name),
+                    data_type=type_name,
+                    is_nullable=bool(nullable),
+                    max_length=length,
+                    precision=int(precision) if precision else None,
+                    scale=int(scale) if scale is not None else None,
+                )
+            )
+        if not columns:
+            raise ConnectorError(ErrorCode.INVALID_CONFIG, "the query returns no columns")
+        return columns
 
     def list_tables(self, schema: str) -> list[SourceTable]:
         tables = self._fetchall(_TABLES_SQL, schema)

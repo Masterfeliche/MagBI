@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import duckdb
+
 from magbi.connectors.types import DataType
 from magbi.model.schema import (
     AggregationType,
@@ -168,6 +170,38 @@ def _column_from_describe(row: tuple[object, ...]) -> ColumnDef:
         source_column=name,
         default_aggregation=aggregation,
     )
+
+
+def carry_over_tables(
+    store: DuckDBStore,
+    dataset_id: str,
+    con: duckdb.DuckDBPyConnection,
+    names: list[str],
+) -> None:
+    """Copy uploaded tables from the live file into a staging connection.
+
+    Uploads have no source to re-read, so a refresh keeps the rows already loaded.
+    """
+    live = store.live_path(dataset_id)
+    if not names or not live.is_file():
+        return
+    con.execute(f"ATTACH '{_sql_path(live)}' AS carry (READ_ONLY)")
+    try:
+        present = {
+            str(row[0])
+            for row in con.execute(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_catalog = 'carry' AND table_type = 'BASE TABLE'"
+            ).fetchall()
+        }
+        for name in names:
+            if name in present:
+                ident = _quote_ident(name)
+                con.execute(
+                    f"CREATE OR REPLACE TABLE {ident} AS SELECT * FROM carry.{ident}"
+                )
+    finally:
+        con.execute("DETACH carry")
 
 
 def _seed_staging_from_live(store: DuckDBStore, dataset_id: str) -> None:

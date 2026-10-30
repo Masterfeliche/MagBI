@@ -27,7 +27,11 @@ async def get_workspace_or_404(session: SessionDep, wid: uuid.UUID) -> Workspace
 
 
 @router.post("/workspaces", status_code=201, response_model=WorkspaceOut)
-async def create_workspace(body: WorkspaceIn, session: SessionDep) -> Workspace:
+async def create_workspace(
+    body: WorkspaceIn, session: SessionDep, actor: ActorDep
+) -> Workspace:
+    if actor.kind != "dev" and not actor.platform_admin:
+        raise ApiError(403, "FORBIDDEN", "a platform admin is required")
     ws = Workspace(name=body.name.strip(), description=body.description)
     session.add(ws)
     try:
@@ -41,9 +45,9 @@ async def create_workspace(body: WorkspaceIn, session: SessionDep) -> Workspace:
 
 
 @router.get("/workspaces", response_model=list[WorkspaceOut])
-async def list_workspaces(session: SessionDep) -> list[Workspace]:
+async def list_workspaces(session: SessionDep, actor: ActorDep) -> list[Workspace]:
     rows = await session.execute(select(Workspace).order_by(Workspace.name))
-    return list(rows.scalars())
+    return [ws for ws in rows.scalars() if permits(actor, str(ws.id), "viewer")]
 
 
 @router.get("/workspaces/{wid}", response_model=WorkspaceOut)

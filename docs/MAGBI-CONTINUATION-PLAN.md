@@ -3,7 +3,17 @@
 **Date**: 2026-10-30
 **Branch**: `implementation`
 **Repo**: https://github.com/Masterfeliche/MagBI.git
-**Status**: Phase 1 COMPLETE. Phases 2, 3, 4 remain.
+**Status**: Phases 1–5 have been run in the worktree (not committed). Findings are in `docs/MAGBI-TEST-FINDINGS.md`.
+
+**Latest test (2026-10-30)**: Loaded 2,000-row General Ledger Excel file into MagBI. Found 5 critical issues (number formatting, state persistence, page freeze, delete unreliable, no Excel import UI), 7 major issues, 3 minor issues. See `docs/MAGBI-TEST-FINDINGS.md` for the full findings, parity checklist, and priority fix order.
+
+Phase 5: three published Sales reports. The designer was opening the oldest report for a dataset; a `?report=` link now opens the named one. The browser showed Sales Executive Summary with Total Revenue 261100 and Total Units 3160. Gauge still has no target. Waterfall plots the values it is given. Embed still needs a service token.
+
+Phase 4: Export downloads each chart PNG and opens a print view for PDF. Visual, page, and report filters all save, with the extra comparison operators. Interact tab sets cross-filter, highlight, or none per visual. The workspace Embed page calls `POST /embed/token` (a service token is still required). Loading errors on the workspace and dataset list have a Retry button.
+
+Phase 3: format properties (title, axes, labels, legend, colors) and analytics lines (average, min, max, constant, trend) are applied to the chart option. The slicer loads distinct values and toggles an `in` page filter. Format ribbon buttons apply the MSD Enterprise and Default palettes. Vitest covers the format mapping. `tsc` passed.
+
+Phase 2 in this tree: `RefreshPanel` polls `POST/GET .../refresh`. `ScheduleEditor` writes a five-field cron. Ribbon **Refresh** opens that panel and the status bar shows the job state. Ribbon **Get data** uses `TableBrowser` to append tables and start a refresh. The dataset list has the same panel. Vitest covers table merge and the cron presets. `tsc` passed. A live SQL Server import was not run in this pass.
 
 ---
 

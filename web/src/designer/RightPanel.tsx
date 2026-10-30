@@ -5,10 +5,11 @@ import type { WellSpec } from "./catalog";
 import { DataPane } from "./DataPane";
 import { FormatPane } from "./FormatPane";
 import { AnalyticsPane } from "./AnalyticsPane";
+import { InteractionEditor } from "./InteractionEditor";
 import { WellsPanel } from "./WellsPanel";
 import type { DesignerTable } from "./model";
 
-type Tab = "data" | "format" | "analytics";
+type Tab = "data" | "format" | "analytics" | "interact";
 
 export function RightPanel({
   tables,
@@ -26,7 +27,7 @@ export function RightPanel({
   return (
     <div className="right-panel">
       <div className="rp-tabs">
-        {(["data", "format", "analytics"] as const).map((t) => (
+        {(["data", "format", "analytics", "interact"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -50,6 +51,7 @@ export function RightPanel({
         )}
         {tab === "format" && <FormatPane />}
         {tab === "analytics" && <AnalyticsPane />}
+        {tab === "interact" && <InteractionEditor />}
       </div>
     </div>
   );

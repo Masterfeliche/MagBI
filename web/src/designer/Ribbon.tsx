@@ -5,7 +5,21 @@ import { VISUALS } from "./catalog";
 
 type RibbonTab = "home" | "insert" | "modeling" | "view" | "format" | "help";
 
-export function Ribbon({ onPublish, onToggleSelection }: { onPublish: () => void; onToggleSelection: () => void }) {
+export function Ribbon({
+  onPublish,
+  onToggleSelection,
+  onRefresh,
+  onGetData,
+  onTheme,
+  onExport,
+}: {
+  onPublish: () => void;
+  onToggleSelection: () => void;
+  onRefresh: () => void;
+  onGetData: () => void;
+  onTheme: (themeId: string) => void;
+  onExport: () => void;
+}) {
   const [active, setActive] = useState<RibbonTab>("home");
   const addVisual = useDesignerStore((s) => s.addVisual);
 
@@ -46,15 +60,15 @@ export function Ribbon({ onPublish, onToggleSelection }: { onPublish: () => void
         <div className="ribbon-group">
           <div className="ribbon-btns">
             <button type="button" className="rb"><span>Measure</span></button>
-            <button type="button" className="rb"><span>Get data</span></button>
-            <button type="button" className="rb"><span>Refresh</span></button>
+            <button type="button" className="rb" onClick={onGetData}><span>Get data</span></button>
+            <button type="button" className="rb" onClick={onRefresh}><span>Refresh</span></button>
           </div>
           <span className="ribbon-group-label">Data</span>
         </div>
         <div className="ribbon-group">
           <div className="ribbon-btns">
             <button type="button" className="rb" onClick={onPublish}><span>Publish</span></button>
-            <button type="button" className="rb"><span>Export</span></button>
+            <button type="button" className="rb" onClick={onExport}><span>Export</span></button>
           </div>
           <span className="ribbon-group-label">Share</span>
         </div>
@@ -129,7 +143,8 @@ export function Ribbon({ onPublish, onToggleSelection }: { onPublish: () => void
         </div>
         <div className="ribbon-group">
           <div className="ribbon-btns">
-            <button type="button" className="rb"><span>Theme</span></button>
+            <button type="button" className="rb" onClick={() => onTheme("msd")}><span>MSD theme</span></button>
+            <button type="button" className="rb" onClick={() => onTheme("default")}><span>Default theme</span></button>
             <button type="button" className="rb"><span>Wallpaper</span></button>
           </div>
           <span className="ribbon-group-label">Theme</span>

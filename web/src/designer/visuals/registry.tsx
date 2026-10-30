@@ -2,6 +2,19 @@
 
 import ReactECharts from "echarts-for-react";
 
+import {
+  axisText,
+  categoryAxisLabel,
+  chartColors,
+  formatNumber,
+  labelPlacement,
+  legendFrom,
+  markLines,
+  titleFrom,
+  trendValues,
+  unitsFormatter,
+  type FormatProps,
+} from "../formatChart";
 import type {
   CartesianModel,
   FunnelModel,
@@ -20,10 +33,12 @@ interface RendererProps {
   model: RenderModel;
   title: string;
   color: string;
+  properties?: FormatProps;
+  palette?: string[];
   onCategory?: (category: string) => void;
 }
 
-export function VisualRenderer({ model, title, color, onCategory }: RendererProps) {
+export function VisualRenderer({ model, title, color, properties, palette, onCategory }: RendererProps) {
   switch (model.kind) {
     case "note":
       return <NoteView model={model} title={title} />;
@@ -31,13 +46,13 @@ export function VisualRenderer({ model, title, color, onCategory }: RendererProp
       return (
         <div className="card-value">
           {title && <span className="visual-label">{title}</span>}
-          {model.value}
+          {formatNumber(model.value)}
         </div>
       );
     case "cartesian":
-      return <CartesianChart model={model} title={title} color={color} onCategory={onCategory} />;
+      return <CartesianChart model={model} title={title} color={color} properties={properties} palette={palette} onCategory={onCategory} />;
     case "pie":
-      return <PieChart model={model} title={title} onCategory={onCategory} />;
+      return <PieChart model={model} title={title} properties={properties} palette={palette} onCategory={onCategory} />;
     case "scatter":
       return <ScatterChart model={model} title={title} />;
     case "funnel":
@@ -70,26 +85,57 @@ function CartesianChart({
   model,
   title,
   color,
+  properties = {},
+  palette,
   onCategory,
 }: {
   model: CartesianModel;
   title: string;
   color: string;
+  properties?: FormatProps;
+  palette?: string[];
   onCategory?: (category: string) => void;
 }) {
   const horizontal = model.orientation === "bar";
+  const props = { ...properties, title: properties.title || title, color: properties.color || color };
+  const values = model.series[0]?.values ?? [];
+  const lines = markLines(values, props);
+  const format = unitsFormatter(props.yUnits);
+  const valueLabel = (value: number) => formatNumber(value, { units: "auto", decimals: 0 });
+  const exact = (value: number) => formatNumber(value);
+  const categories = model.categories.length;
   const option = {
-    color: [color, ...PALETTE.slice(1)],
-    title: titleOption(title),
-    tooltip: { trigger: "axis" as const },
-    grid: { left: 48, right: 16, top: title ? 36 : 16, bottom: 32 },
-    xAxis: horizontal ? { type: "value" as const } : { type: "category" as const, data: model.categories },
-    yAxis: horizontal ? { type: "category" as const, data: model.categories } : { type: "value" as const },
-    series: model.series.map((s) => ({
-      type: model.orientation === "line" ? ("line" as const) : ("bar" as const),
-      name: s.name,
-      data: s.values,
-    })),
+    color: chartColors(props, palette),
+    title: titleFrom(props),
+    legend: legendFrom(props),
+    tooltip: { trigger: "axis" as const, valueFormatter: exact },
+    grid: { left: 56, right: 16, top: props.title ? 36 : 16, bottom: categories > 12 ? 64 : 32 },
+    xAxis: horizontal
+      ? { type: "value" as const, show: props.yShow !== false, axisLabel: { formatter: format ?? valueLabel } }
+      : {
+          type: "category" as const,
+          data: model.categories,
+          axisLabel: categoryAxisLabel(categories, axisText(props.xShow, props.xFontSize, props.xColor)),
+        },
+    yAxis: horizontal
+      ? {
+          type: "category" as const,
+          data: model.categories,
+          axisLabel: categoryAxisLabel(categories, axisText(props.xShow, props.xFontSize, props.xColor)),
+        }
+      : { type: "value" as const, show: props.yShow !== false, axisLabel: { formatter: format ?? valueLabel } },
+    series: [
+      ...model.series.map((s) => ({
+        type: model.orientation === "line" ? ("line" as const) : ("bar" as const),
+        name: s.name,
+        data: s.values,
+        label: { show: props.labelsShow === true, position: labelPlacement(props.labelsPos) },
+        markLine: lines.length > 0 ? { data: lines, symbol: "none" } : undefined,
+      })),
+      ...(props.analytics_trend
+        ? [{ type: "line" as const, name: "Trend", data: trendValues(values), lineStyle: { type: "dashed" as const }, symbol: "none" }]
+        : []),
+    ],
   };
   return (
     <ReactECharts
@@ -103,15 +149,21 @@ function CartesianChart({
 function PieChart({
   model,
   title,
+  properties = {},
+  palette,
   onCategory,
 }: {
   model: PieModel;
   title: string;
+  properties?: FormatProps;
+  palette?: string[];
   onCategory?: (category: string) => void;
 }) {
+  const props = { ...properties, title: properties.title || title };
   const option = {
-    color: PALETTE,
-    title: titleOption(title),
+    color: chartColors(props, palette),
+    title: titleFrom(props),
+    legend: legendFrom(props),
     tooltip: { trigger: "item" as const },
     series: [{ type: "pie" as const, radius: "70%", data: model.slices }],
   };

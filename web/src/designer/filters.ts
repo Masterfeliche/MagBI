@@ -32,8 +32,9 @@ export function filtersForVisual(
   pageFilters: FilterDefinition[],
   cross: CrossFilter | null,
   visualId: string,
+  applyCross = true,
 ): FilterDefinition[] {
-  if (!cross || cross.sourceId === visualId) return pageFilters;
+  if (!applyCross || !cross || cross.sourceId === visualId) return pageFilters;
   return [
     ...pageFilters,
     {
@@ -45,10 +46,12 @@ export function filtersForVisual(
   ];
 }
 
+export type FilterOperator = "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "in" | "contains" | "startsWith";
+
 export function pageFilter(
   table: string,
   column: string,
-  operator: "eq" | "in",
+  operator: FilterOperator,
   raw: string,
 ): FilterDefinition {
   const values =

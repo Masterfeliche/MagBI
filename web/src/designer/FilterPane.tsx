@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { FilterDefinition } from "../types/report";
 import type { DesignerTable } from "./model";
 import { useDesignerStore } from "./store";
-import { pageFilter } from "./filters";
+import { pageFilter, type FilterOperator } from "./filters";
 
 type FilterLevel = "visual" | "page" | "report";
 
@@ -29,7 +29,9 @@ export function FilterPane({
       .map((f) => ({ table: table.name, column: f.name })),
   );
   const [choice, setChoice] = useState(columns[0] ? `${columns[0].table}.${columns[0].column}` : "");
-  const [operator, setOperator] = useState<"eq" | "in">("eq");
+  const setReportFilters = useDesignerStore((s) => s.setReportFilters);
+  const setVisualFilters = useDesignerStore((s) => s.setVisualFilters);
+  const [operator, setOperator] = useState<FilterOperator>("eq");
   const [raw, setRaw] = useState("");
 
   const visualFilters = selected?.filters ?? [];
@@ -42,15 +44,17 @@ export function FilterPane({
     const [table, column] = choice.split(".");
     if (!table || !column || raw.trim() === "") return;
     const newFilter = pageFilter(table, column, operator, raw.trim());
-    if (level === "page") {
-      onChange([...pageFilters, newFilter]);
-    }
+    if (level === "page") onChange([...pageFilters, newFilter]);
+    if (level === "report") setReportFilters([...reportFilters, newFilter]);
+    if (level === "visual" && selected) setVisualFilters(selected.id, [...visualFilters, newFilter]);
     setRaw("");
   }
 
   function removeFilter(index: number) {
-    if (level === "page") {
-      onChange(pageFilters.filter((_, i) => i !== index));
+    if (level === "page") onChange(pageFilters.filter((_, i) => i !== index));
+    if (level === "report") setReportFilters(reportFilters.filter((_, i) => i !== index));
+    if (level === "visual" && selected) {
+      setVisualFilters(selected.id, visualFilters.filter((_, i) => i !== index));
     }
   }
 
@@ -79,9 +83,7 @@ export function FilterPane({
             <div key={`${filter.table}.${filter.column}.${index}`} className="filter-card">
               <div className="fc-header">
                 <span className="fc-field">{filter.table}.{filter.column}</span>
-                {level === "page" && (
-                  <button type="button" className="fc-remove" onClick={() => removeFilter(index)}>×</button>
-                )}
+                <button type="button" className="fc-remove" onClick={() => removeFilter(index)}>×</button>
               </div>
               <div className="fc-value">
                 {Array.isArray((filter.config as { values?: unknown[] })?.values)
@@ -91,26 +93,27 @@ export function FilterPane({
             </div>
           ))}
 
-          {level === "page" && (
-            <div className="filter-add">
-              <select className="fmt-select" value={choice} onChange={(e) => setChoice(e.target.value)}>
-                {columns.map((c) => {
-                  const key = `${c.table}.${c.column}`;
-                  return <option key={key} value={key}>{key}</option>;
-                })}
-              </select>
-              <select className="fmt-select" value={operator} onChange={(e) => setOperator(e.target.value === "in" ? "in" : "eq")}>
-                <option value="eq">is</option>
-                <option value="in">is any of</option>
-              </select>
-              <input className="fmt-input" placeholder="Value(s)" value={raw} onChange={(e) => setRaw(e.target.value)} />
-              <button type="button" className="filter-add-btn" onClick={addFilter}>+ Add filter</button>
-            </div>
-          )}
-
-          {level !== "page" && (
-            <p className="hint">{level === "visual" ? "Visual" : "Report"} filters are read-only in this view.</p>
-          )}
+          <div className="filter-add">
+            <select className="fmt-select" value={choice} onChange={(e) => setChoice(e.target.value)}>
+              {columns.map((c) => {
+                const key = `${c.table}.${c.column}`;
+                return <option key={key} value={key}>{key}</option>;
+              })}
+            </select>
+            <select className="fmt-select" value={operator} onChange={(e) => setOperator(e.target.value as FilterOperator)}>
+              <option value="eq">is</option>
+              <option value="ne">is not</option>
+              <option value="gt">greater than</option>
+              <option value="gte">at least</option>
+              <option value="lt">less than</option>
+              <option value="lte">at most</option>
+              <option value="in">is any of</option>
+              <option value="contains">contains</option>
+              <option value="startsWith">starts with</option>
+            </select>
+            <input className="fmt-input" placeholder="Value" value={raw} onChange={(e) => setRaw(e.target.value)} />
+            <button type="button" className="filter-add-btn" onClick={addFilter}>+ Add filter</button>
+          </div>
         </>
       )}
     </div>

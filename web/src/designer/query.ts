@@ -11,7 +11,7 @@ export interface SemanticQueryBody {
   >;
   where?: Array<{
     column: { table: string; column: string };
-    operator: "eq" | "in";
+    operator: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "in" | "contains" | "startsWith";
     values: unknown[];
   }>;
 }
@@ -52,7 +52,8 @@ export function buildQuery(
       return [];
     }
     const config = filter.config as { operator?: string; values?: unknown[] };
-    const operator = config.operator === "in" ? "in" : "eq";
+    const allowed = ["eq", "ne", "gt", "gte", "lt", "lte", "in", "contains", "startsWith"] as const;
+    const operator = allowed.find((item) => item === config.operator) ?? "eq";
     const values = Array.isArray(config.values) ? config.values : [];
     if (values.length === 0) return [];
     return [

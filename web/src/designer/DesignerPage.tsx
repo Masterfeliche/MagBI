@@ -2,9 +2,11 @@
 
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
+import { GetDataDialog } from "../workspace/GetDataDialog";
+import { RefreshPanel } from "../workspace/RefreshPanel";
 import type { ReportDefinition } from "../types/report";
 import { visualSpec } from "./catalog";
 import { Canvas } from "./Canvas";
@@ -20,12 +22,16 @@ import { StatusBar } from "./StatusBar";
 import { SelectionPane } from "./SelectionPane";
 import { TooltipPreview } from "./TooltipPreview";
 import { useDesignerStore } from "./store";
+import { themeById } from "../shared/themes";
+import { exportReport } from "./exportReport";
 import { TitleBar } from "./TitleBar";
 import { dropField, removeBinding, wellForDrop } from "./wells";
+import { pickReport } from "./pickReport";
 import "./designer.css";
 
 export function DesignerPage() {
   const { workspaceId, datasetId } = useParams();
+  const [searchParams] = useSearchParams();
   const report = useDesignerStore((s) => s.report);
   const selectedId = useDesignerStore((s) => s.selectedVisualId);
   const activePageIndex = useDesignerStore((s) => s.activePageIndex);
@@ -33,6 +39,8 @@ export function DesignerPage() {
   const setWells = useDesignerStore((s) => s.setWells);
   const setPageFilters = useDesignerStore((s) => s.setPageFilters);
   const removeVisual = useDesignerStore((s) => s.removeVisual);
+  const removeAllVisuals = useDesignerStore((s) => s.removeAllVisuals);
+  const setSaveStatus = useDesignerStore((s) => s.setSaveStatus);
   const copyVisual = useDesignerStore((s) => s.copyVisual);
   const pasteVisual = useDesignerStore((s) => s.pasteVisual);
   const bringToFront = useDesignerStore((s) => s.bringToFront);
@@ -44,11 +52,16 @@ export function DesignerPage() {
   const redo = useDesignerStore((s) => s.redo);
 
   const stage = useRef<HTMLDivElement>(null);
+  const selectAll = useRef(false);
+  const skipSave = useRef(true);
   const [autoScale, setAutoScale] = useState(1);
   const [manualZoom, setManualZoom] = useState<number | null>(null);
   const scale = manualZoom ?? autoScale;
   const [tables, setTables] = useState<DesignerTable[]>([]);
   const [loadError, setLoadError] = useState("");
+  const [showGetData, setShowGetData] = useState(false);
+  const [showRefresh, setShowRefresh] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
   const [cross, setCross] = useState<CrossFilter | null>(null);
   const [reportId, setReportId] = useState("");
   const [publishError, setPublishError] = useState("");
@@ -72,7 +85,7 @@ export function DesignerPage() {
         if (cancelled) return;
         setTables(adaptDataset(dataset.definition));
         setLoadError("");
-        const saved = reports.find((r) => r.dataset_id === datasetId);
+        const saved = pickReport(reports, datasetId, searchParams.get("report"));
         if (saved) {
           replaceReport(saved.definition);
           setReportId(saved.id);
@@ -84,7 +97,26 @@ export function DesignerPage() {
         if (!cancelled) setLoadError(error instanceof Error ? error.message : "Dataset failed to load");
       });
     return () => { cancelled = true; };
-  }, [workspaceId, datasetId, replaceReport]);
+  }, [workspaceId, datasetId, replaceReport, searchParams]);
+
+  useEffect(() => {
+    if (!workspaceId || !reportId) return;
+    if (skipSave.current) {
+      skipSave.current = false;
+      return;
+    }
+    setSaveStatus("dirty");
+    const timer = window.setTimeout(() => {
+      setSaveStatus("saving");
+      apiFetch(`/workspaces/${workspaceId}/reports/${reportId}`, {
+        method: "PUT",
+        body: JSON.stringify({ definition: report }),
+      })
+        .then(() => setSaveStatus("saved"))
+        .catch(() => setSaveStatus("dirty"));
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [report, reportId, workspaceId, setSaveStatus]);
 
   // --- auto-scale canvas ---
   useEffect(() => {
@@ -105,9 +137,16 @@ export function DesignerPage() {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedId) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
         event.preventDefault();
-        removeVisual(selectedId);
+        selectAll.current = true;
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        if (selectAll.current) removeAllVisuals();
+        else if (selectedId) removeVisual(selectedId);
+        selectAll.current = false;
         return;
       }
       const key = event.key.toLowerCase();
@@ -119,7 +158,7 @@ export function DesignerPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo, removeVisual, selectedId, copyVisual, pasteVisual]);
+  }, [undo, redo, removeVisual, removeAllVisuals, selectedId, copyVisual, pasteVisual]);
 
   // --- derived ---
   const page = report.pages[activePageIndex];
@@ -172,6 +211,12 @@ export function DesignerPage() {
   }
 
   // --- publish ---
+  async function reloadModel() {
+    if (!workspaceId || !datasetId) return;
+    const dataset = await apiFetch<{ definition: unknown }>(`/workspaces/${workspaceId}/datasets/${datasetId}`);
+    setTables(adaptDataset(dataset.definition));
+  }
+
   async function publish() {
     if (!workspaceId || !datasetId) return;
     setPublishError("");
@@ -201,7 +246,29 @@ export function DesignerPage() {
   return (
     <div className="designer">
       <TitleBar />
-      <Ribbon onPublish={() => void publish()} onToggleSelection={() => setShowSelection((s) => !s)} />
+      <Ribbon
+        onPublish={() => void publish()}
+        onToggleSelection={() => setShowSelection((s) => !s)}
+        onRefresh={() => setShowRefresh((open) => !open)}
+        onGetData={() => setShowGetData(true)}
+        onTheme={(themeId) => useDesignerStore.getState().setTheme(themeById(themeId).colors)}
+        onExport={() => {
+          if (stage.current) exportReport(stage.current, report.name || "report");
+        }}
+      />
+      {showRefresh && workspaceId && datasetId && (
+        <div className="refresh-drawer">
+          <RefreshPanel workspaceId={workspaceId} datasetId={datasetId} onStatus={setRefreshMessage} />
+        </div>
+      )}
+      {showGetData && workspaceId && datasetId && (
+        <GetDataDialog
+          workspaceId={workspaceId}
+          datasetId={datasetId}
+          onClose={() => setShowGetData(false)}
+          onImported={() => void reloadModel()}
+        />
+      )}
       <DndContext onDragEnd={onDragEnd}>
         <div className="desk">
           <LeftPanel
@@ -271,6 +338,7 @@ export function DesignerPage() {
         onZoomIn={() => setManualZoom(Math.min(2, (manualZoom ?? autoScale) + 0.1))}
         onZoomOut={() => setManualZoom(Math.max(0.25, (manualZoom ?? autoScale) - 0.1))}
         onFitToPage={() => setManualZoom(null)}
+        refreshMessage={refreshMessage}
       />
     </div>
   );

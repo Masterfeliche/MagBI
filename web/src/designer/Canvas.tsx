@@ -76,6 +76,9 @@ export function Canvas({
             top: drag?.id === visual.id ? drag.y : visual.y,
             width: drag?.id === visual.id ? drag.width : visual.width,
             height: drag?.id === visual.id ? drag.height : visual.height,
+            background: visual.properties?.bgShow ? String(visual.properties.bgColor ?? "#fff") : undefined,
+            border: visual.properties?.borderShow ? `1px solid ${String(visual.properties.borderColor ?? "#E0E3E8")}` : undefined,
+            borderRadius: visual.properties?.borderShow ? Number(visual.properties.borderRadius ?? 4) : undefined,
           }}
           onPointerDown={(event) => {
             event.stopPropagation();
@@ -185,24 +188,28 @@ export function Canvas({
             visual={visual}
             workspaceId={workspaceId}
             datasetId={datasetId}
-            filters={filtersForVisual(page?.filters ?? [], cross, visual.id)}
+            filters={filtersForVisual(
+              [...(report.filters ?? []), ...(page?.filters ?? []), ...(visual.filters ?? [])],
+              cross,
+              visual.id,
+              cross ? page?.visuals.find((item) => item.id === cross.sourceId)?.interactions?.targets[visual.id] !== "none" : true,
+            )}
             onCategory={(category) => {
               const group = groupingOf(visual);
               if (!group) return;
               onCross(toggleCrossFilter(cross, visual.id, group.table, group.column, category));
             }}
-            onSlicer={(value) => {
+            onSlicerValues={(values) => {
               const group = groupingOf(visual);
               if (!group) return;
-              setPageFilters([
-                ...(page?.filters ?? []),
-                {
-                  table: group.table,
-                  column: group.column,
-                  type: "basic",
-                  config: { operator: "eq", values: [value] },
-                },
-              ]);
+              const rest = (page?.filters ?? []).filter(
+                (filter) => !(filter.table === group.table && filter.column === group.column),
+              );
+              setPageFilters(
+                values.length === 0
+                  ? rest
+                  : [...rest, { table: group.table, column: group.column, type: "basic", config: { operator: "in", values } }],
+              );
             }}
           />
           </div>

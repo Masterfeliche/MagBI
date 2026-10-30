@@ -17,10 +17,17 @@ interface DesignerState {
   moveVisual: (id: string, x: number, y: number) => void;
   resizeVisual: (id: string, box: Box) => void;
   removeVisual: (id: string) => void;
+  removeAllVisuals: () => void;
+  saveStatus: "saved" | "saving" | "dirty";
+  setSaveStatus: (status: "saved" | "saving" | "dirty") => void;
   setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
   setPageFilters: (filters: FilterDefinition[]) => void;
+  setReportFilters: (filters: FilterDefinition[]) => void;
+  setVisualFilters: (id: string, filters: FilterDefinition[]) => void;
+  setInteraction: (id: string, targetId: string, mode: "crossFilter" | "crossHighlight" | "none") => void;
   setFormat: (id: string, title: string, color: string) => void;
   setProperties: (id: string, props: Record<string, unknown>) => void;
+  setTheme: (colors: string[]) => void;
   switchPage: (index: number) => void;
   addPage: () => void;
   removePage: (index: number) => void;
@@ -38,6 +45,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   history: EMPTY_HISTORY,
   activePageIndex: 0,
   selectedVisualId: null,
+  saveStatus: "saved",
+  setSaveStatus: (status) => set({ saveStatus: status }),
   clipboard: null,
   selectVisual: (id) => set({ selectedVisualId: id }),
   replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null, activePageIndex: 0 }),
@@ -123,11 +132,37 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     });
     if (get().selectedVisualId === id) set({ selectedVisualId: null });
   },
+  removeAllVisuals: () => {
+    const report = get().report;
+    const pageIndex = get().activePageIndex;
+    const page = report.pages[pageIndex];
+    if (!page || page.visuals.length === 0) return;
+    commit(set, get, {
+      ...report,
+      pages: report.pages.map((item, index) => (index === pageIndex ? { ...item, visuals: [] } : item)),
+    });
+    set({ selectedVisualId: null });
+  },
 
   setWells: (id, wells) => {
     updateVisual(set, get, id, (v) => ({ ...v, wells }));
   },
 
+  setReportFilters: (filters) => {
+    commit(set, get, { ...get().report, filters });
+  },
+  setVisualFilters: (id, filters) => {
+    updateVisual(set, get, id, (visual) => ({ ...visual, filters }));
+  },
+  setInteraction: (id, targetId, mode) => {
+    updateVisual(set, get, id, (visual) => ({
+      ...visual,
+      interactions: {
+        source: visual.id,
+        targets: { ...visual.interactions?.targets, [targetId]: mode },
+      },
+    }));
+  },
   setPageFilters: (filters) => {
     const report = get().report;
     const pageIndex = get().activePageIndex;
@@ -148,6 +183,11 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       ...v,
       properties: { ...v.properties, ...props },
     }));
+  },
+
+  setTheme: (colors) => {
+    const report = get().report;
+    commit(set, get, { ...report, theme: { ...report.theme, colors } });
   },
 
   copyVisual: (id) => {

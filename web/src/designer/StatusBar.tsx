@@ -7,22 +7,31 @@ export function StatusBar({
   onZoomIn,
   onZoomOut,
   onFitToPage,
+  refreshMessage,
 }: {
   datasetId: string;
   zoom: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitToPage: () => void;
+  refreshMessage?: string;
 }) {
   const report = useDesignerStore((s) => s.report);
+  const saveStatus = useDesignerStore((s) => s.saveStatus);
   const activePageIndex = useDesignerStore((s) => s.activePageIndex);
   const page = report.pages[activePageIndex];
   const visualCount = page?.visuals.length ?? 0;
 
   return (
     <div className="statusbar">
-      <div className="sb-dot" />
+      <div className={`sb-dot ${saveStatus}`} />
+      <span>{report.name || "Report"}</span>
+      <span className="sb-sep">|</span>
+      <span>{saveStatus === "saving" ? "Saving..." : saveStatus === "dirty" ? "Unsaved changes" : "Saved"}</span>
+      <span className="sb-sep">|</span>
       <span>Connected to {datasetId || "—"}</span>
+      {refreshMessage && <span className="sb-sep">|</span>}
+      {refreshMessage && <span>{refreshMessage}</span>}
       <span className="sb-sep">|</span>
       <span>{visualCount} visual{visualCount !== 1 ? "s" : ""}</span>
       <div className="sb-right">

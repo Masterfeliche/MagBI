@@ -749,6 +749,14 @@
 
 .well {
   margin-bottom: 8px;
+  min-height: 40px;
+  border: 1px dashed var(--border);
+  padding: 4px;
+}
+
+.well.over {
+  border-color: var(--blue);
+  background: rgba(43, 87, 151, 0.08);
 }
 
 .well-label {
@@ -1032,8 +1040,10 @@
   height: 7px;
   border-radius: 50%;
   background: var(--success);
-  box-shadow: 0 0 4px rgba(16,185,129,0.4);
 }
+
+.statusbar .sb-dot.dirty { background: var(--danger); }
+.statusbar .sb-dot.saving { background: var(--warn); }
 
 .statusbar .sb-sep { opacity: 0.3; }
 
@@ -1209,6 +1219,9 @@
   font-weight: 600;
   color: var(--blue);
 }
+
+.slicer { padding: 8px; overflow: auto; height: 100%; }
+.slicer-row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 
 .note {
   display: flex;

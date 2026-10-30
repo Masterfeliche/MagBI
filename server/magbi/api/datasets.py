@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from pathlib import Path
 from typing import Annotated, Any, NoReturn
 
 import duckdb
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, File, Form, Query, UploadFile
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -44,6 +45,15 @@ from magbi.model.schema import (
 )
 from magbi.model.validation import Issue, ValidationReport, validate_document
 from magbi.refresh.dates import apply_date_table, infer_date_bounds
+from magbi.refresh.file_import import (
+    ALLOWED_SUFFIXES,
+    MAX_UPLOAD_BYTES,
+    FileImportError,
+    import_file_to_staging,
+    merge_imported_table,
+    table_from_columns,
+    table_name_from_filename,
+)
 from magbi.storage.duckdb_store import DuckDBStore, StoreError
 
 router = APIRouter(tags=["datasets"])
@@ -466,6 +476,51 @@ async def validate_definition(
 ) -> dict[str, Any]:
     ds = await get_dataset_or_404(session, wid, did)
     return _report(svc.store, ds.id, body.definition).to_dict()
+
+
+@router.post(
+    "/workspaces/{wid}/datasets/{did}/upload", response_model=DefinitionOut
+)
+async def upload_file(
+    wid: uuid.UUID,
+    did: uuid.UUID,
+    session: SessionDep,
+    svc: ServicesDep,
+    file: Annotated[UploadFile, File()],
+    table_name: Annotated[str | None, Form()] = None,
+) -> DefinitionOut:
+    ds = await get_dataset_or_404(session, wid, did)
+    filename = Path(file.filename or "imported.csv").name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_SUFFIXES:
+        raise ApiError(422, "UNSUPPORTED_FILE", "upload a .csv or .xlsx file")
+    data = await file.read()
+    if not data:
+        raise ApiError(422, "EMPTY_FILE", "file is empty")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise ApiError(413, "FILE_TOO_LARGE", "file exceeds 50 MB")
+    name = table_name_from_filename(table_name or filename)
+    uploads = svc.store.dataset_dir(str(ds.id)) / "uploads"
+    uploads.mkdir(parents=True, exist_ok=True)
+    dest = uploads / f"{name}{suffix}"
+    dest.write_bytes(data)
+    try:
+        columns = import_file_to_staging(svc.store, str(ds.id), dest, name)
+    except FileImportError as exc:
+        raise ApiError(422, "IMPORT_FAILED", str(exc)) from None
+    try:
+        svc.store.promote_staging(str(ds.id))
+    except StoreError as exc:
+        raise ApiError(409, "STORE_BUSY", str(exc)) from None
+    table = table_from_columns(name, columns, dest, suffix)
+    if ds.definition is None:
+        model = DatasetDefinition(tables=[table])
+    else:
+        model = merge_imported_table(
+            DatasetDefinition.model_validate(ds.definition), table
+        )
+    ds.current_version += 1
+    return await _store_model(session, svc, ds, ds.model_version, model)
 
 
 @router.put("/workspaces/{wid}/datasets/{did}", response_model=DatasetOut)

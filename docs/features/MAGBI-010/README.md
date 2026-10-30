@@ -41,11 +41,11 @@ The designer (MAGBI-009) stores a report definition and draws column, bar, line,
 ## 2. Implementation Plan
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
-| SUB-1.1 | Report read | `GET /api/v1/workspaces/{wid}/reports/{rid}` returns the definition and `last_refreshed_at`. An embed token for another report, or an unpublished report, is rejected | 3h | [ ] |
-| SUB-1.2 | Viewer | `/workspaces/:workspaceId/reports/:reportId` and `/embed/:reportId` draw the saved visuals from live queries. A category click filters the other visuals and a second click clears it. The page cannot move or edit visuals | 5h | [ ] |
+| SUB-1.1 | Report read | `GET /api/v1/workspaces/{wid}/reports/{rid}` returns the definition and `last_refreshed_at`. An embed token for another report, or an unpublished report, is rejected | 3h | [x] |
+| SUB-1.2 | Viewer | `/workspaces/:workspaceId/reports/:reportId` and `/embed/:reportId` draw the saved visuals from live queries. A category click filters the other visuals and a second click clears it. The page cannot move or edit visuals | 5h | [x] |
 | SUB-1.3 | Refresh badge and export | The badge says "Last refreshed: X minutes ago", or "Not refreshed yet". Export downloads that visual's rows as CSV and as xlsx | 3h | [ ] |
-| SUB-2.1 | SDK frame | `embed(container, config)` creates an iframe, sends the token, and applies `setFilters` and `setTheme` inside the viewer | 4h | [ ] |
-| SUB-2.2 | SDK events | The iframe emits `loaded`, `error`, `filterChanged`, and `visualClicked`. Near expiry the SDK emits `tokenExpiring`, and `setToken` replaces the bearer token | 3h | [ ] |
+| SUB-2.1 | SDK frame | `embed(container, config)` creates an iframe, sends the token, and applies `setFilters` and `setTheme` inside the viewer | 4h | [x] |
+| SUB-2.2 | SDK events | The iframe emits `loaded`, `error`, `filterChanged`, and `visualClicked`. Near expiry the SDK emits `tokenExpiring`, and `setToken` replaces the bearer token | 3h | [x] |
 | SUB-3.1 | Docs | KB 09 names the viewer routes, the postMessage events, and that the host mints the next embed token | 1.5h | [ ] |
 | SUB-3.2 | Finalization | ESLint, `tsc`, Vitest, the report-read tests, and a browser pass of the Sales viewer; PR description | 1.5h | [ ] |
 
@@ -54,13 +54,13 @@ Order: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2. Each subtask is code, tests, and one s
 ---
 
 ## 3. Execution Log
-- [ ] SUB-1.1: (Commit hash)
-- [ ] SUB-1.2: (Commit hash)
-- [ ] SUB-1.3: (Commit hash)
-- [ ] SUB-2.1: (Commit hash)
-- [ ] SUB-2.2: (Commit hash)
-- [ ] SUB-3.1: (Commit hash)
-- [ ] SUB-3.2: (Commit hash)
+- [x] SUB-1.1: 5c2bc13 (MAGBI-013 Track 4)
+- [x] SUB-1.2: 3988ace viewer; 0a08b60 embed host (MAGBI-013 Track 4–5)
+- [ ] SUB-1.3: viewer refresh badge not added; visual CSV/XLSX export is MAGBI-013 SUB-7.4 a7438cd
+- [x] SUB-2.1: 0a08b60
+- [x] SUB-2.2: a307515
+- [ ] SUB-3.1: KB 09 not updated in MAGBI-013
+- [ ] SUB-3.2: tsc and Vitest ran under MAGBI-013 SUB-8.1; Sales/GL viewer browser pass is the MAGBI-013 checklist
 
 ---
 

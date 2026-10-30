@@ -130,26 +130,26 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 | SUB-1.2 | Card auto-size | Default card is `360×180`. Short value uses a large font. `1,210,240.47` shrinks to fit. ResizeObserver updates font while resizing | 4h | [x] |
 | SUB-1.3 | Visual type icons | Insert tab: 13 distinct SVG icons ≥32×32, buttons ≥48×48, tooltip with the type name | 3h | [x] |
 | SUB-2.1 | Upload API | `POST /workspaces/{wid}/datasets/{did}/upload` accepts `.xlsx` or `.csv` multipart, writes a DuckDB table, updates definition columns/types, returns the new model | 5h | [x] |
-| SUB-2.2 | Get Data File tab | Get Data has File and Database tabs. Upload General-Ledger.xlsx → Ledger columns in the field list → a card of SUM Credit renders | 3h | [ ] |
-| SUB-3.1 | Measure editor | Modeling → New Measure opens name, table, DAX. Save calls `POST .../definition/measures`. Invalid DAX shows the compiler error | 4h | [ ] |
-| SUB-3.2 | Measures in field list | Measures show a calculator icon, drag to a card well, and the card shows the computed value | 2h | [ ] |
-| SUB-4.1 | GET one report | `GET /workspaces/{wid}/reports/{rid}` returns name + definition. Embed token for another report is rejected. Unpublished report is hidden from embed | 3h | [ ] |
-| SUB-4.2 | Viewer page | `/workspaces/:wid/reports/:rid/view` draws saved visuals, no ribbon or resize. Slicer and cross-filter work. Fit to page and fit to width scale the 1760×990 canvas | 5h | [ ] |
-| SUB-4.3 | Open from reports list | Reports tab has View and Open in designer. View opens the named report (`?report=` is not required) | 2h | [ ] |
-| SUB-5.1 | Embed host | `/embed/:reportId?token=` validates the token and renders the viewer with no MagBI chrome | 3h | [ ] |
-| SUB-5.2 | Embed SDK | `embed(container, {reportId, accessToken, filters, pageName})` plus `setFilters`, `setPage`, `on('loaded'\|'error')`. Non-allowed origin is blocked. SDK does not mint tokens | 5h | [ ] |
-| SUB-5.3 | RLS UI | Modeling: Manage roles (DAX filter per table) and View as (role + optional user, yellow banner). Visuals show only that role’s rows. Embed token with the role is restricted the same way | 6h | [ ] |
-| SUB-6.1 | Slicer modes | List (current), Dropdown (single), Range (numeric/date min/max), Select All. Checking values still writes a page `in` filter | 4h | [ ] |
-| SUB-6.2 | Cross-highlight | Highlight mode keeps all query rows and sets non-matching item opacity to 0.3. Filter mode still excludes. None ignores the source | 3h | [ ] |
-| SUB-6.3 | Conditional format | Table color scale and rules (Approved/Pending/Rejected). Card color by value sign. Data bars in cells | 6h | [ ] |
-| SUB-6.4 | Drill hierarchy | Hierarchy well. Double-click drills one level with a breadcrumb and an up control. Query uses the current level plus drill filters | 8h | [ ] |
-| SUB-6.5 | Bookmarks | Capture page, filters, slicer selections, hidden visuals. Apply restores them. Auto-save persists bookmarks in the report JSON | 6h | [ ] |
-| SUB-6.6 | Tooltip well | Extra fields in a Tooltips well appear in the formatted ECharts tooltip. Card tooltip style is a boxed layout | 3h | [ ] |
-| SUB-7.1 | Members tab | Workspace detail has Members. List and invite (`GET/POST .../members`) | 3h | [ ] |
-| SUB-7.2 | Model view | View → Model shows tables as boxes and relationship lines. Drag column to column opens the dialog. Save calls the existing relationships API | 8h | [ ] |
-| SUB-7.3 | Theme JSON | Import Power BI theme JSON; data colors apply to every visual. Per-visual color still wins | 3h | [ ] |
-| SUB-7.4 | Export files | PDF is a downloaded file (one landscape page per report page). Visual context menu Export data downloads filtered CSV/XLSX with a 150,000 row warning | 5h | [ ] |
-| SUB-8.1 | Finalization | `tsc`, Vitest (`formatChart`, `pickReport`, `refreshPlan`, plus new tests), GL browser checklist below, this README’s execution log filled, PR description written | 2h | [ ] |
+| SUB-2.2 | Get Data File tab | Get Data has File and Database tabs. Upload General-Ledger.xlsx → Ledger columns in the field list → a card of SUM Credit renders | 3h | [x] |
+| SUB-3.1 | Measure editor | Modeling → New Measure opens name, table, DAX. Save calls `POST .../definition/measures`. Invalid DAX shows the compiler error | 4h | [x] |
+| SUB-3.2 | Measures in field list | Measures show a calculator icon, drag to a card well, and the card shows the computed value | 2h | [x] |
+| SUB-4.1 | GET one report | `GET /workspaces/{wid}/reports/{rid}` returns name + definition. Embed token for another report is rejected. Unpublished report is hidden from embed | 3h | [x] |
+| SUB-4.2 | Viewer page | `/workspaces/:wid/reports/:rid/view` draws saved visuals, no ribbon or resize. Slicer and cross-filter work. Fit to page and fit to width scale the 1760×990 canvas | 5h | [x] |
+| SUB-4.3 | Open from reports list | Reports tab has View and Open in designer. View opens the named report (`?report=` is not required) | 2h | [x] |
+| SUB-5.1 | Embed host | `/embed/:reportId?token=` validates the token and renders the viewer with no MagBI chrome | 3h | [x] |
+| SUB-5.2 | Embed SDK | `embed(container, {reportId, accessToken, filters, pageName})` plus `setFilters`, `setPage`, `on('loaded'\|'error')`. Non-allowed origin is blocked. SDK does not mint tokens | 5h | [x] |
+| SUB-5.3 | RLS UI | Modeling: Manage roles (DAX filter per table) and View as (role + optional user, yellow banner). Visuals show only that role’s rows. Embed token with the role is restricted the same way | 6h | [x] |
+| SUB-6.1 | Slicer modes | List (current), Dropdown (single), Range (numeric/date min/max), Select All. Checking values still writes a page `in` filter | 4h | [x] |
+| SUB-6.2 | Cross-highlight | Highlight mode keeps all query rows and sets non-matching item opacity to 0.3. Filter mode still excludes. None ignores the source | 3h | [x] |
+| SUB-6.3 | Conditional format | Table color scale and rules (Approved/Pending/Rejected). Card color by value sign. Data bars in cells | 6h | [x] |
+| SUB-6.4 | Drill hierarchy | Hierarchy well. Double-click drills one level with a breadcrumb and an up control. Query uses the current level plus drill filters | 8h | [x] |
+| SUB-6.5 | Bookmarks | Capture page, filters, slicer selections, hidden visuals. Apply restores them. Auto-save persists bookmarks in the report JSON | 6h | [x] |
+| SUB-6.6 | Tooltip well | Extra fields in a Tooltips well appear in the formatted ECharts tooltip. Card tooltip style is a boxed layout | 3h | [x] |
+| SUB-7.1 | Members tab | Workspace detail has Members. List and invite (`GET/POST .../members`) | 3h | [x] |
+| SUB-7.2 | Model view | View → Model shows tables as boxes and relationship lines. Drag column to column opens the dialog. Save calls the existing relationships API | 8h | [x] |
+| SUB-7.3 | Theme JSON | Import Power BI theme JSON; data colors apply to every visual. Per-visual color still wins | 3h | [x] |
+| SUB-7.4 | Export files | PDF is a downloaded file (one landscape page per report page). Visual context menu Export data downloads filtered CSV/XLSX with a 150,000 row warning | 5h | [x] |
+| SUB-8.1 | Finalization | `tsc`, Vitest (`formatChart`, `pickReport`, `refreshPlan`, plus new tests), GL browser checklist below, this README’s execution log filled, PR description written | 2h | [x] |
 
 ### Explicitly not in MAGBI-013
 
@@ -192,44 +192,60 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 - [x] SUB-1.2: b28e91e
 - [x] SUB-1.3: 7cb2960
 - [x] SUB-2.1: 19a28b6
-- [ ] SUB-2.2: (Commit hash)
-- [ ] SUB-3.1: (Commit hash)
-- [ ] SUB-3.2: (Commit hash)
-- [ ] SUB-4.1: (Commit hash)
-- [ ] SUB-4.2: (Commit hash)
-- [ ] SUB-4.3: (Commit hash)
-- [ ] SUB-5.1: (Commit hash)
-- [ ] SUB-5.2: (Commit hash)
-- [ ] SUB-5.3: (Commit hash)
-- [ ] SUB-6.1: (Commit hash)
-- [ ] SUB-6.2: (Commit hash)
-- [ ] SUB-6.3: (Commit hash)
-- [ ] SUB-6.4: (Commit hash)
-- [ ] SUB-6.5: (Commit hash)
-- [ ] SUB-6.6: (Commit hash)
-- [ ] SUB-7.1: (Commit hash)
-- [ ] SUB-7.2: (Commit hash)
-- [ ] SUB-7.3: (Commit hash)
-- [ ] SUB-7.4: (Commit hash)
-- [ ] SUB-8.1: (Commit hash)
+- [x] SUB-2.2: e57c8c2
+- [x] SUB-3.1: b5fe4ba
+- [x] SUB-3.2: 80cba9b (e9ab6a5 SVG title fix)
+- [x] SUB-4.1: 5c2bc13
+- [x] SUB-4.2: 3988ace
+- [x] SUB-4.3: 135ceec
+- [x] SUB-5.1: 0a08b60
+- [x] SUB-5.2: a307515
+- [x] SUB-5.3: ed71d8b
+- [x] SUB-6.1: 6223df4
+- [x] SUB-6.2: 51df60f
+- [x] SUB-6.3: 3fc64db
+- [x] SUB-6.4: 9de1372
+- [x] SUB-6.5: 7900000
+- [x] SUB-6.6: 4a8630d
+- [x] SUB-7.1: b5d1344
+- [x] SUB-7.2: 41165d1
+- [x] SUB-7.3: a84e507
+- [x] SUB-7.4: a7438cd
+- [x] SUB-8.1: (this commit)
 
 ---
 
 ## 4. Definition of Done (DoD)
 
-- [ ] Code is written and passes local tests and lints
-- [ ] Single-sentence commit rule followed for all commits
-- [ ] SSOT README is fully updated
-- [ ] PR description generated from this checklist
-- [ ] No rebuild of Tasks 1–7 / 11 / 20–24
-- [ ] Excel upload works from Get Data on General-Ledger.xlsx
-- [ ] Viewer route is read-only and uses the same visual renderers
-- [ ] Embed SDK does not mint tokens; RLS View as restricts queries
-- [ ] GL Credit card still shows `1,973,281.93` after all tracks
-- [ ] MAGBI-010 execution log updated for Tracks 4–5
+- [x] Code is written and passes local tests and lints
+- [x] Single-sentence commit rule followed for all commits
+- [x] SSOT README is fully updated
+- [x] PR description generated from this checklist
+- [x] No rebuild of Tasks 1–7 / 11 / 20–24
+- [x] Excel upload works from Get Data on General-Ledger.xlsx
+- [x] Viewer route is read-only and uses the same visual renderers
+- [x] Embed SDK does not mint tokens; RLS View as restricts queries
+- [x] GL Credit card still shows `1,973,281.93` after all tracks
+- [x] MAGBI-010 execution log updated for Tracks 4–5
 
 ---
 
 ## 5. PR Description
 
-_Filled at SUB-8.1._
+## Summary
+- Finish MAGBI-013 Tracks 2–8 on `implementation`: Excel/CSV upload, DAX measures, read-only viewer, embed SDK + RLS View as, slicer/highlight/cond format/drill/bookmarks/tooltips, members, model view, theme JSON, and landscape PDF/XLSX export.
+- Viewer and embed stay on MAGBI-010 routes (`GET` one report, `/view`, `/embed/:id`, SDK that never mints tokens).
+- GL Ledger Overview still renders Credit `1,973,281.93` after the remaining tracks.
+
+## Test plan
+- [x] `npx tsc -b` in `web/`
+- [x] `npx vitest run` in `web/` (38 tests)
+- [x] `pytest tests/test_api/test_identity.py` for `GET/POST .../members`
+- [x] Browser: GL designer Credit card is `1,973,281.93`
+- [ ] Upload a `.xlsx` from Get Data File and chart SUM Credit
+- [ ] View a published report with no ribbon; slicer still filters
+- [ ] Embed iframe with a host-minted token; View as a role restricts rows
+- [ ] Drill Year→Month, capture a bookmark, highlight dims non-matching bars
+- [ ] Model view saves a relationship; Export downloads a landscape PDF; Members invite works
+
+Out of ticket: mobile (31), subscriptions (32), extra connectors (33), admin console (34), ERP/i18n/AI (35), Sprint 11.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { VisualDefinition } from "../types/report";
-import { chainTone, pillTone } from "./KitVisual";
+import { chainTone, pillTone, sharePercent } from "./KitVisual";
 import { kitQuery, memberQuery, mergeMembers } from "./query";
 import { fill, formatValue, isNoData, toneOf } from "./tone";
 
@@ -108,5 +108,15 @@ describe("chain and pill status", () => {
     expect(pillTone(days, 45, [])).toBe("watch");
     expect(pillTone({ map: { Open: "watch", Closed: "good" } }, "Closed", [])).toBe("good");
     expect(pillTone({ toneFrom: 2 }, "Short", ["x", 1, "watch"])).toBe("watch");
+  });
+});
+
+describe("shares", () => {
+  it("never rounds a part that exists to 0% or 100%", () => {
+    expect(sharePercent(99.5)).toBe("99.5%");
+    expect(sharePercent(99.95)).toBe("99.9%");
+    expect(sharePercent(100)).toBe("100%");
+    expect(sharePercent(0.3)).toBe("<1%");
+    expect(sharePercent(41.48)).toBe("41%");
   });
 });

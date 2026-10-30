@@ -248,7 +248,9 @@ function Kpi({ props, rows }: { props: Props; rows: unknown[][] }) {
   const extraFormats = (Array.isArray(props.extraFormats) ? props.extraFormats : []) as ValueFormat[];
   const shown = [formatValue(row[0], format), ...row.slice(1).map((value, index) => formatValue(value, extraFormats[index] ?? "whole"))];
   const value = toNumber(row[0]);
-  const tone = toneOf(value, props.rule as ToneRule | undefined);
+  // A card may show one figure and take its status from another, e.g. transfers coloured by late ones.
+  const toneValue = typeof props.toneFrom === "number" ? toNumber(row[props.toneFrom]) : value;
+  const tone = toneOf(toneValue, props.rule as ToneRule | undefined);
   const status = STATUS[tone];
   const words = (props.status ?? {}) as Partial<Record<Tone, string>>;
   const zeroContext = value === 0 && typeof props.contextZero === "string" ? props.contextZero : null;
@@ -469,7 +471,7 @@ function Pareto({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPi
             symbolSize: 6,
             lineStyle: { color: STATUS.watch.color, width: 2.5 },
             itemStyle: { color: STATUS.watch.color },
-            markLine: { silent: true, symbol: "none", data: [{ yAxis: 80 }], lineStyle: { color: TOKENS.muted, type: "dashed" }, label: { formatter: "80%", color: TOKENS.muted, fontSize: 10.5 } },
+            markLine: { silent: true, symbol: "none", data: [{ yAxis: 80 }], lineStyle: { color: TOKENS.muted, type: "dashed" }, label: { position: "insideStartTop", formatter: "80%", color: TOKENS.muted, fontSize: 10.5 } },
           },
         ],
       }}
@@ -669,6 +671,13 @@ function Bars({ props, rows, visual, onPick }: { props: Props; rows: unknown[][]
   );
 }
 
+/** A share that never rounds to 0% or 100% unless it is exactly that. */
+export function sharePercent(percent: number): string {
+  if (percent > 0 && percent < 0.5) return "<1%";
+  if (percent >= 99.5 && percent < 100) return `${(Math.floor(percent * 10) / 10).toFixed(1)}%`;
+  return `${Math.round(percent)}%`;
+}
+
 /** 100% stacked horizontal bars. Rows: Category, Part, Value. */
 function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPick: (value: string) => void }) {
   const categories = [...new Set(rows.map((row) => String(row[0] ?? "")))];
@@ -689,7 +698,7 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
         tooltip: {
           trigger: "item",
           formatter: (item: { name: string; seriesName: string; data: { count: number; value: number } }) =>
-            `${item.name} · ${item.seriesName}: ${formatValue(item.data.count)} (${Math.round(item.data.value)}%)`,
+            `${item.name} · ${item.seriesName}: ${formatValue(item.data.count)} (${sharePercent(item.data.value)})`,
         },
         xAxis: { type: "value", max: 100, show: false },
         yAxis: { type: "category", inverse: true, data: shown, axisLabel: { ...AXIS, fontSize: 12, color: TOKENS.ink }, axisTick: { show: false }, axisLine: { show: false } },
@@ -703,7 +712,7 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
             show: true,
             color: "#FFFFFF",
             fontSize: 11,
-            formatter: (item: { data: { count: number; value: number } }) => (item.data.value >= 12 ? `${formatValue(item.data.count)} · ${Math.round(item.data.value)}%` : ""),
+            formatter: (item: { data: { count: number; value: number } }) => (item.data.value >= 12 ? `${formatValue(item.data.count)} · ${sharePercent(item.data.value)}` : ""),
           },
           data: shown.map((category) => {
             const count = value(category, part);

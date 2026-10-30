@@ -124,14 +124,15 @@
   border: 1px solid #d3dce6;
   border-left: 3px solid #5f8bc9;
   border-radius: 6px;
-  padding: 10px 14px 10px;
+  padding: 4px 14px;
   display: grid;
-  grid-template-rows: 24px 44px 24px 24px;
+  grid-template-rows: 22px 44px 24px 24px;
+  overflow: hidden;
   align-content: start;
   min-width: 0;
 }
 .kit-kpi > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.kit-kpi-cap { font-size: 12.5px; font-weight: 700; color: #5a6a80; text-transform: uppercase; letter-spacing: 0.03em; line-height: 24px; }
+.kit-kpi-cap { font-size: 12.5px; font-weight: 700; color: #5a6a80; text-transform: uppercase; letter-spacing: 0.03em; line-height: 22px; }
 .kit-kpi-val { font-size: 24px; font-weight: 700; line-height: 44px; }
 .kit-kpi-st { font-size: 13px; font-weight: 700; line-height: 24px; }
 .kit-kpi-cx { font-size: 12.5px; color: #66758a; line-height: 24px; }

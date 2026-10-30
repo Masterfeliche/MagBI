@@ -7,6 +7,7 @@ import { apiFetch } from "../shared/api";
 import type { DSR } from "../types/query";
 import type { FilterDefinition, VisualDefinition } from "../types/report";
 import { visualSpec } from "./catalog";
+import { slicerFilters, type SlicerMode } from "./slicer";
 import type { FormatProps } from "./formatChart";
 import { useDesignerStore } from "./store";
 import { buildQuery } from "./query";
@@ -20,13 +21,15 @@ export function VisualView({
   filters,
   onCategory,
   onSlicerValues,
+  highlightCategory,
 }: {
   visual: VisualDefinition;
   workspaceId: string;
   datasetId: string;
   filters: FilterDefinition[];
   onCategory?: (category: string) => void;
-  onSlicerValues?: (values: string[]) => void;
+  onSlicerValues?: (values: string[], filters?: FilterDefinition[]) => void;
+  highlightCategory?: string;
 }) {
   const spec = visualSpec(visual.type);
   const [dsr, setDsr] = useState<DSR | null>(null);
@@ -73,7 +76,7 @@ export function VisualView({
         workspaceId={workspaceId}
         datasetId={datasetId}
         selected={selectedSlicerValues(filters, visual)}
-        onChange={onSlicerValues}
+        onChange={(values, filters) => onSlicerValues?.(values, filters)}
       />
     );
   }
@@ -89,6 +92,7 @@ export function VisualView({
       properties={(visual.properties ?? {}) as FormatProps}
       palette={palette}
       onCategory={onCategory}
+      highlightCategory={highlightCategory}
     />
   );
 }
@@ -104,7 +108,7 @@ function SlicerField({
   workspaceId: string;
   datasetId: string;
   selected: string[];
-  onChange?: (values: string[]) => void;
+  onChange?: (values: string[], filters?: FilterDefinition[]) => void;
 }) {
   const [values, setValues] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -137,23 +141,73 @@ function SlicerField({
   }, [binding?.column, binding?.table, workspaceId, datasetId, viewAs]);
 
   const shown = values.filter((item) => item.toLowerCase().includes(query.toLowerCase()));
+  const setProperties = useDesignerStore((state) => state.setProperties);
+  const mode = (visual.properties?.slicerMode as SlicerMode | undefined) ?? "list";
+  const [min, setMin] = useState("");
+  const [max, setMax] = useState("");
+
+  function emit(nextSelected: string[], nextRange?: { min: string; max: string }) {
+    if (!binding?.column) return;
+    const filters = slicerFilters(binding.table, binding.column, mode, nextSelected, nextRange ?? { min, max });
+    onChange?.(nextSelected, filters);
+  }
+
   return (
     <div className="slicer" onPointerDown={(event) => event.stopPropagation()}>
       <div>{binding?.column ?? "Drop a field"}</div>
-      <input value={query} placeholder="Search" onChange={(event) => setQuery(event.target.value)} />
-      {shown.map((item) => (
-        <label key={item} className="slicer-row">
-          <input
-            type="checkbox"
-            checked={selected.includes(item)}
-            onChange={() => {
-              const next = selected.includes(item) ? selected.filter((value) => value !== item) : [...selected, item];
-              onChange?.(next);
-            }}
-          />
-          {item}
-        </label>
-      ))}
+      <select
+        value={mode}
+        onChange={(event) => setProperties(visual.id, { slicerMode: event.target.value })}
+      >
+        <option value="list">List</option>
+        <option value="dropdown">Dropdown</option>
+        <option value="range">Range</option>
+      </select>
+      {mode === "dropdown" ? (
+        <select
+          value={selected[0] ?? ""}
+          onChange={(event) => emit(event.target.value ? [event.target.value] : [])}
+        >
+          <option value="">All</option>
+          {values.map((item) => (
+            <option key={item} value={item}>{item}</option>
+          ))}
+        </select>
+      ) : mode === "range" ? (
+        <div className="slicer-range">
+          <input value={min} placeholder="Min" onChange={(event) => setMin(event.target.value)} />
+          <input value={max} placeholder="Max" onChange={(event) => setMax(event.target.value)} />
+          <button type="button" onClick={() => emit([], { min, max })}>Apply</button>
+        </div>
+      ) : (
+        <>
+          <input value={query} placeholder="Search" onChange={(event) => setQuery(event.target.value)} />
+          <label className="slicer-row">
+            <input
+              type="checkbox"
+              checked={values.length > 0 && values.every((item) => selected.includes(item))}
+              onChange={() => {
+                const allOn = values.every((item) => selected.includes(item));
+                emit(allOn ? [] : values);
+              }}
+            />
+            Select all
+          </label>
+          {shown.map((item) => (
+            <label key={item} className="slicer-row">
+              <input
+                type="checkbox"
+                checked={selected.includes(item)}
+                onChange={() => {
+                  const next = selected.includes(item) ? selected.filter((value) => value !== item) : [...selected, item];
+                  emit(next);
+                }}
+              />
+              {item}
+            </label>
+          ))}
+        </>
+      )}
     </div>
   );
 }

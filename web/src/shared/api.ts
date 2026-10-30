@@ -27,10 +27,19 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return res.json();
 }
 
+export function messageFromErrorBody(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const error = (payload as { error?: { message?: string; validation?: { errors?: Array<{ message?: string }> } } }).error;
+  const first = error?.validation?.errors?.[0]?.message;
+  if (typeof first === "string" && first) return first;
+  if (typeof error?.message === "string" && error.message) return error.message;
+  return null;
+}
+
 async function errorMessage(res: Response): Promise<string> {
   try {
-    const payload = (await res.json()) as { error?: { message?: string } };
-    if (payload.error?.message) return payload.error.message;
+    const parsed = messageFromErrorBody(await res.json());
+    if (parsed) return parsed;
   } catch {
     /* body is not JSON */
   }

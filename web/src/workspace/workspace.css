@@ -436,6 +436,20 @@
 
 .form-group input::placeholder { color: var(--text3); }
 
+.measure-editor {
+  width: min(640px, 94vw);
+}
+
+.measure-editor .form-row {
+  grid-template-columns: 88px 1fr;
+  margin-bottom: 10px;
+}
+
+.measure-dax {
+  border: 1px solid var(--border);
+  min-height: 180px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

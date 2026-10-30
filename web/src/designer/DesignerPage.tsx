@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
+import { MeasureEditor } from "../model-editor/MeasureEditor";
 import { GetDataDialog } from "../workspace/GetDataDialog";
 import { RefreshPanel } from "../workspace/RefreshPanel";
 import type { ReportDefinition } from "../types/report";
@@ -58,8 +59,10 @@ export function DesignerPage() {
   const [manualZoom, setManualZoom] = useState<number | null>(null);
   const scale = manualZoom ?? autoScale;
   const [tables, setTables] = useState<DesignerTable[]>([]);
+  const [modelVersion, setModelVersion] = useState(1);
   const [loadError, setLoadError] = useState("");
   const [showGetData, setShowGetData] = useState(false);
+  const [showMeasure, setShowMeasure] = useState(false);
   const [showRefresh, setShowRefresh] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [cross, setCross] = useState<CrossFilter | null>(null);
@@ -74,7 +77,7 @@ export function DesignerPage() {
     if (!workspaceId || !datasetId) return;
     let cancelled = false;
     Promise.all([
-      apiFetch<{ name: string; definition: unknown }>(
+      apiFetch<{ name: string; definition: unknown; model_version: number }>(
         `/workspaces/${workspaceId}/datasets/${datasetId}`,
       ),
       apiFetch<Array<{ id: string; dataset_id: string; definition: ReportDefinition }>>(
@@ -84,6 +87,7 @@ export function DesignerPage() {
       .then(([dataset, reports]) => {
         if (cancelled) return;
         setTables(adaptDataset(dataset.definition));
+        setModelVersion(dataset.model_version);
         setLoadError("");
         const saved = pickReport(reports, datasetId, searchParams.get("report"));
         if (saved) {
@@ -213,8 +217,11 @@ export function DesignerPage() {
   // --- publish ---
   async function reloadModel() {
     if (!workspaceId || !datasetId) return;
-    const dataset = await apiFetch<{ definition: unknown }>(`/workspaces/${workspaceId}/datasets/${datasetId}`);
+    const dataset = await apiFetch<{ definition: unknown; model_version: number }>(
+      `/workspaces/${workspaceId}/datasets/${datasetId}`,
+    );
     setTables(adaptDataset(dataset.definition));
+    setModelVersion(dataset.model_version);
   }
 
   async function publish() {
@@ -251,6 +258,7 @@ export function DesignerPage() {
         onToggleSelection={() => setShowSelection((s) => !s)}
         onRefresh={() => setShowRefresh((open) => !open)}
         onGetData={() => setShowGetData(true)}
+        onNewMeasure={() => setShowMeasure(true)}
         onTheme={(themeId) => useDesignerStore.getState().setTheme(themeById(themeId).colors)}
         onExport={() => {
           if (stage.current) exportReport(stage.current, report.name || "report");
@@ -267,6 +275,19 @@ export function DesignerPage() {
           datasetId={datasetId}
           onClose={() => setShowGetData(false)}
           onImported={() => void reloadModel()}
+        />
+      )}
+      {showMeasure && workspaceId && datasetId && (
+        <MeasureEditor
+          workspaceId={workspaceId}
+          datasetId={datasetId}
+          modelVersion={modelVersion}
+          tables={tables}
+          onClose={() => setShowMeasure(false)}
+          onSaved={(next, version) => {
+            setTables(next);
+            setModelVersion(version);
+          }}
         />
       )}
       <DndContext onDragEnd={onDragEnd}>

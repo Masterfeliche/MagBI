@@ -11,6 +11,7 @@ export function Ribbon({
   onToggleSelection,
   onRefresh,
   onGetData,
+  onNewMeasure,
   onTheme,
   onExport,
 }: {
@@ -18,6 +19,7 @@ export function Ribbon({
   onToggleSelection: () => void;
   onRefresh: () => void;
   onGetData: () => void;
+  onNewMeasure: () => void;
   onTheme: (themeId: string) => void;
   onExport: () => void;
 }) {
@@ -58,7 +60,7 @@ export function Ribbon({
         </div>
         <div className="ribbon-group">
           <div className="ribbon-btns">
-            <button type="button" className="rb"><span>Measure</span></button>
+            <button type="button" className="rb" onClick={onNewMeasure}><span>Measure</span></button>
             <button type="button" className="rb" onClick={onGetData}><span>Get data</span></button>
             <button type="button" className="rb" onClick={onRefresh}><span>Refresh</span></button>
           </div>
@@ -96,7 +98,7 @@ export function Ribbon({
       <div className={`ribbon-content${active === "modeling" ? " active" : ""}`}>
         <div className="ribbon-group">
           <div className="ribbon-btns">
-            <button type="button" className="rb"><span>Measure</span></button>
+            <button type="button" className="rb" onClick={onNewMeasure}><span>Measure</span></button>
             <button type="button" className="rb"><span>Table</span></button>
             <button type="button" className="rb"><span>Column</span></button>
           </div>

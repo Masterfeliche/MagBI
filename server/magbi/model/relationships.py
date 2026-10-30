@@ -141,3 +141,13 @@ def join_path(
         node = parent
     path.reverse()
     return path
+
+
+def query_path(model: DatasetDefinition, start: str, end: str) -> list[RelationshipDef]:
+    """The path a query joins along: the filter direction first, any direction second."""
+    try:
+        return join_path(model, start, end, directed=True)
+    except ModelSchemaError as exc:
+        if "no relationship path" not in str(exc):
+            raise
+    return join_path(model, start, end)

@@ -56,6 +56,23 @@ def test_an_ambiguous_path_is_an_error() -> None:
     assert any("Invoices" in e.message and "Region" in e.message for e in report.errors)
 
 
+def test_facts_that_share_dimensions_are_not_ambiguous() -> None:
+    """Filters flow from each dimension down to its facts, so a star is valid, as in Power BI."""
+    model = definition(
+        table("Batch", key(), col("warehouse_id"), col("category_id")),
+        table("CountLine", key(), col("warehouse_id"), col("category_id")),
+        table("Warehouse", key()),
+        table("Category", key()),
+        relationships=[
+            rel("Batch", "warehouse_id", "Warehouse"),
+            rel("Batch", "category_id", "Category"),
+            rel("CountLine", "warehouse_id", "Warehouse"),
+            rel("CountLine", "category_id", "Category"),
+        ],
+    )
+    assert validate_model(model).errors == []
+
+
 def test_raw_document_problems_get_stable_codes() -> None:
     duplicate = validate_document(
         {"tables": [{"name": "T", "columns": []}, {"name": "T", "columns": []}]}

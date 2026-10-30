@@ -776,3 +776,9 @@
   color: var(--text2);
   font-size: 13px;
 }
+
+.form-hint {
+  font-size: 13px;
+  color: #66758a;
+  margin: 8px 0 0;
+}

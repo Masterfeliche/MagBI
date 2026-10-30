@@ -127,7 +127,7 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 |-------------|---------|---------------------|------|--------|
 | SUB-0.1 | GL regression | Card Credit is `1,973,281.93`. Tooltip is `40,365.75`. Y-axis uses `40K`. Edit then refresh restores the report. Rapid well drops do not freeze. Ctrl+A+Delete then Ctrl+Z restores all visuals. Right-click opens the menu. Five new visuals do not overlap | 2h | [x] |
 | SUB-1.1 | Empty well placeholder | Empty wells are at least 40px, show “Drag field here”, and highlight on drag-over. A field drops on the first attempt | 2h | [x] |
-| SUB-1.2 | Card auto-size | Default card is `360×180`. Short value uses a large font. `1,210,240.47` shrinks to fit. ResizeObserver updates font while resizing | 4h | [ ] |
+| SUB-1.2 | Card auto-size | Default card is `360×180`. Short value uses a large font. `1,210,240.47` shrinks to fit. ResizeObserver updates font while resizing | 4h | [x] |
 | SUB-1.3 | Visual type icons | Insert tab: 13 distinct SVG icons ≥32×32, buttons ≥48×48, tooltip with the type name | 3h | [ ] |
 | SUB-2.1 | Upload API | `POST /workspaces/{wid}/datasets/{did}/upload` accepts `.xlsx` or `.csv` multipart, writes a DuckDB table, updates definition columns/types, returns the new model | 5h | [ ] |
 | SUB-2.2 | Get Data File tab | Get Data has File and Database tabs. Upload General-Ledger.xlsx → Ledger columns in the field list → a card of SUM Credit renders | 3h | [ ] |
@@ -189,7 +189,7 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 
 - [x] SUB-0.1: 1501170
 - [x] SUB-1.1: 82822ac
-- [ ] SUB-1.2: (Commit hash)
+- [x] SUB-1.2: (pending)
 - [ ] SUB-1.3: (Commit hash)
 - [ ] SUB-2.1: (Commit hash)
 - [ ] SUB-2.2: (Commit hash)

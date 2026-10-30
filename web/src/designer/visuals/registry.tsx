@@ -1,7 +1,9 @@
 /** Visual renderer registry — maps RenderModel.kind to React components. */
 
 import ReactECharts from "echarts-for-react";
+import { useEffect, useRef, useState } from "react";
 
+import { canvasTextWidth, fitCardFontSize } from "../cardFont";
 import {
   axisText,
   categoryAxisLabel,
@@ -43,12 +45,7 @@ export function VisualRenderer({ model, title, color, properties, palette, onCat
     case "note":
       return <NoteView model={model} title={title} />;
     case "card":
-      return (
-        <div className="card-value">
-          {title && <span className="visual-label">{title}</span>}
-          {formatNumber(model.value)}
-        </div>
-      );
+      return <CardVisual title={title} value={formatNumber(model.value)} />;
     case "cartesian":
       return <CartesianChart model={model} title={title} color={color} properties={properties} palette={palette} onCategory={onCategory} />;
     case "pie":
@@ -66,6 +63,32 @@ export function VisualRenderer({ model, title, color, properties, palette, onCat
     case "table":
       return null;
   }
+}
+
+function CardVisual({ title, value }: { title: string; value: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fontSize, setFontSize] = useState(28);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const measure = canvasTextWidth(getComputedStyle(node).fontFamily);
+    const apply = () => {
+      const box = node.getBoundingClientRect();
+      setFontSize(fitCardFontSize(value, box.width, box.height, measure));
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [value]);
+
+  return (
+    <div className="card-value" ref={ref}>
+      {title && <span className="visual-label">{title}</span>}
+      <span className="card-number" style={{ fontSize }}>{value}</span>
+    </div>
+  );
 }
 
 function NoteView({ model, title }: { model: NoteModel; title: string }) {

@@ -23,7 +23,7 @@ describe("canvas snap", () => {
   });
 
   it("places five cards in a row then wraps without overlap", () => {
-    const cards = [];
+    const cards: ReturnType<typeof placeVisual>[] = [];
     for (let i = 0; i < 5; i += 1) {
       cards.push(placeVisual(cards, "card", String(i)));
     }
@@ -32,7 +32,7 @@ describe("canvas snap", () => {
       { x: 360, y: 0 },
       { x: 720, y: 0 },
       { x: 1080, y: 0 },
-      { x: 0, y: 140 },
+      { x: 0, y: 180 },
     ]);
     for (let i = 0; i < cards.length; i += 1) {
       for (let j = i + 1; j < cards.length; j += 1) {

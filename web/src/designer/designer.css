@@ -1229,11 +1229,18 @@
 
 .card-value {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
   font-weight: 600;
   color: var(--blue);
+  overflow: hidden;
+  padding: 12px 8px 8px;
+}
+
+.card-value .card-number {
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .slicer { padding: 8px; overflow: auto; height: 100%; }

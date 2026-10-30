@@ -118,7 +118,7 @@ export function placeVisual(
   id: string,
 ): VisualDefinition {
   const width = 360;
-  const height = type === "card" ? 140 : 240;
+  const height = type === "card" ? 180 : 240;
   const slot = nextSlot(visuals, width, height);
   return { id, type, x: slot.x, y: slot.y, width, height, wells: {} };
 }

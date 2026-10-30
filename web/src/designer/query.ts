@@ -13,6 +13,7 @@ export interface SemanticQueryBody {
     column: { table: string; column: string };
     operator: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "in" | "contains" | "startsWith";
     values: unknown[];
+    optional?: boolean;
   }>;
 }
 
@@ -66,12 +67,14 @@ export function buildQuery(
     const operator = allowed.find((item) => item === config.operator) ?? "eq";
     const values = Array.isArray(config.values) ? config.values : [];
     if (values.length === 0) return [];
+    const optional = (filter.config as { optional?: boolean }).optional === true;
     return [
       {
         column: { table: filter.table, column: filter.column },
         operator,
         values,
-      } as const,
+        ...(optional ? { optional } : {}),
+      },
     ];
   });
   return where.length > 0 ? { from: [], select, where } : { from: [], select };

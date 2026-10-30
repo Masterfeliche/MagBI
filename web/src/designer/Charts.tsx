@@ -13,6 +13,8 @@ import type { FormatProps } from "./formatChart";
 import { useDesignerStore } from "./store";
 import { buildQuery } from "./query";
 import { renderModel } from "./render";
+import { ChainVisual, DonutVisual, formatCell, HeaderVisual, HeatVisual, ParetoVisual, StatusKpi } from "./StandardVisuals";
+import { formatNumber } from "./formatChart";
 import { rememberVisualData } from "./visualData";
 import { VisualRenderer } from "./visuals/registry";
 
@@ -24,6 +26,7 @@ export function VisualView({
   onCategory,
   onSlicerValues,
   highlightCategory,
+  readOnly = false,
 }: {
   visual: VisualDefinition;
   workspaceId: string;
@@ -32,6 +35,7 @@ export function VisualView({
   onCategory?: (category: string) => void;
   onSlicerValues?: (values: string[], filters?: FilterDefinition[]) => void;
   highlightCategory?: string;
+  readOnly?: boolean;
 }) {
   const spec = visualSpec(visual.type);
   const [dsr, setDsr] = useState<DSR | null>(null);
@@ -79,6 +83,9 @@ export function VisualView({
     };
   }, [spec.renders, queryKey, workspaceId, datasetId, query, viewAs, visual.id]);
 
+  if (visual.type === "header") {
+    return <HeaderVisual properties={visual.properties ?? {}} />;
+  }
   if (spec.renders === "slicer") {
     return (
       <SlicerField
@@ -86,20 +93,30 @@ export function VisualView({
         workspaceId={workspaceId}
         datasetId={datasetId}
         selected={selectedSlicerValues(filters, visual)}
+        readOnly={readOnly}
         onChange={(values, filters) => onSlicerValues?.(values, filters)}
       />
     );
   }
-  if (error) return <div className="note">{error}</div>;
+  if (error) return <div className="note">Couldn't load: {error}</div>;
 
   const hierarchy = visual.wells.hierarchy ?? [];
   const crumb = hierarchy.slice(0, drillLevel).map((item) => item.column ?? item.measure).filter(Boolean);
   const model = renderModel(visual.type, dsr, (visual.wells.tooltips ?? []).length);
+  if (visual.type === "kpi" && model.kind === "card") {
+    const tone = typeof visual.properties?.tone === "string" ? visual.properties.tone : "info";
+    const context = typeof visual.properties?.context === "string" ? visual.properties.context : "";
+    return <StatusKpi caption={title || "KPI"} value={formatNumber(model.value, { whole: true })} tone={tone} context={context} />;
+  }
+  if (visual.type === "chain" && model.kind === "table") return <ChainVisual model={model} />;
+  if (visual.type === "donut" && model.kind === "pie") return <DonutVisual model={model} />;
+  if (visual.type === "pareto" && model.kind === "cartesian") return <ParetoVisual model={model} />;
+  if (visual.type === "heatmap" && model.kind === "table") return <HeatVisual model={model} />;
   if (model.kind === "table") {
     return (
       <DataTable
         columns={model.columns}
-        rows={model.rows}
+        rows={model.rows.map((row) => row.map((cell, index) => formatCell(model.columns[index] ?? "", cell)))}
         condFormat={typeof visual.properties?.condFormat === "string" ? visual.properties.condFormat : ""}
       />
     );
@@ -133,12 +150,14 @@ function SlicerField({
   workspaceId,
   datasetId,
   selected,
+  readOnly = false,
   onChange,
 }: {
   visual: VisualDefinition;
   workspaceId: string;
   datasetId: string;
   selected: string[];
+  readOnly?: boolean;
   onChange?: (values: string[], filters?: FilterDefinition[]) => void;
 }) {
   const [values, setValues] = useState<string[]>([]);
@@ -186,14 +205,14 @@ function SlicerField({
   return (
     <div className="slicer" onPointerDown={(event) => event.stopPropagation()}>
       <div>{binding?.column ?? "Drop a field"}</div>
-      <select
+      {!readOnly && <select
         value={mode}
         onChange={(event) => setProperties(visual.id, { slicerMode: event.target.value })}
       >
         <option value="list">List</option>
         <option value="dropdown">Dropdown</option>
         <option value="range">Range</option>
-      </select>
+      </select>}
       {mode === "dropdown" ? (
         <select
           value={selected[0] ?? ""}

@@ -105,13 +105,13 @@ def _check_call(model: DatasetDefinition, expr: Call) -> None:
         raise DaxError(f"{expr.name} expects one column", expr.line, expr.col)
     column = expr.args[0]
     data_type = _column_type(model, column)
-    allowed = _ORDERABLE if name in {"min", "max"} else _NUMERIC
+    if name in {"min", "max", "count", "counta", "distinctcount"}:
+        allowed = _ORDERABLE
+        kind = "a number, date, or string"
+    else:
+        allowed = _NUMERIC
+        kind = "a numeric column"
     if data_type not in allowed:
-        kind = (
-            "a number, date, or string"
-            if name in {"min", "max"}
-            else "a numeric column"
-        )
         raise DaxError(
             f"{expr.name} requires {kind}. {column.table}[{column.column}] is {data_type.value}",
             expr.line,

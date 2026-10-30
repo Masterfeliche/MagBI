@@ -74,6 +74,25 @@ def test_each_aggregate_runs_on_duckdb() -> None:
         assert float(got[0]) == value
 
 
+def test_distinct_count_of_a_text_key() -> None:
+    model = DatasetDefinition(
+        tables=[
+            TableDef(
+                name="Batch",
+                columns=[ColumnDef(name="BatchID", data_type=DataType.STRING)],
+            )
+        ]
+    )
+    con = duckdb.connect()
+    con.execute('CREATE TABLE "Batch" ("BatchID" VARCHAR)')
+    con.execute("INSERT INTO \"Batch\" VALUES ('a'), ('a'), ('b'), (NULL)")
+    sql = compile_measure(model, "DISTINCTCOUNT(Batch[BatchID])")
+    got = con.execute(sql).fetchone()
+    assert got is not None and int(got[0]) == 2
+    counted = con.execute(compile_measure(model, "COUNT(Batch[BatchID])")).fetchone()
+    assert counted is not None and int(counted[0]) == 3
+
+
 def test_a_related_table_is_joined() -> None:
     sql = compile_measure(_model(), "SUM(Sales[Amount])", also=("Department",))
     assert 'JOIN "Department"' in sql

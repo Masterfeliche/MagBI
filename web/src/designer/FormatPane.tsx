@@ -48,6 +48,7 @@ const FORMAT_GROUPS: FormatGroup[] = [
     rows: [
       { type: "toggle", label: "Show", key: "yShow", default: true },
       { type: "select", label: "Display units", key: "yUnits", default: "Auto", options: ["Auto", "None", "K", "M"] },
+      { type: "select", label: "Value format", key: "valueFormat", default: "Decimals", options: ["Decimals", "Whole"] },
     ],
   },
   {

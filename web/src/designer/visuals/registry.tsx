@@ -52,8 +52,8 @@ export function VisualRenderer({ model, title, color, properties, palette, onCat
       return (
         <CardVisual
           title={title}
-          value={formatNumber(model.value)}
-          color={properties?.condFormat === "cardSign" ? cardSignColor(formatNumber(model.value)) : undefined}
+          value={formatNumber(model.value, { whole: properties?.valueFormat === "Whole" })}
+          color={properties?.condFormat === "cardSign" ? cardSignColor(formatNumber(model.value, { whole: properties?.valueFormat === "Whole" })) : undefined}
         />
       );
     case "cartesian":

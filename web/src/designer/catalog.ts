@@ -102,6 +102,12 @@ export const VISUALS: VisualSpec[] = [
       { name: "x-axis", displayName: "X-axis", kind: "grouping", max: 1 },
     ],
   }),
+  spec("kpi", "KPI", "Kp", { renders: "card", icon: "M4 16h4v4H4v-4zm6-6h4v10h-4V10zm6-4h4v14h-4V6z", wells: [{ name: "y-axis", displayName: "Value", kind: "measure", max: 1 }] }),
+  spec("chain", "Chain", "Ch", { renders: "table", icon: "M2 6h4v4H2V6zm6 0h4v4H8V6zm6 0h4v4h-4V6zm6 0h4v4h-4V6z", wells: [{ name: "columns", displayName: "Columns", kind: "any", max: 4 }] }),
+  spec("donut", "Donut", "Do", { renders: "pie", icon: "M12 2a10 10 0 1 0 .01 0zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10z", wells: [{ name: "y-axis", displayName: "Values", kind: "measure", max: 1 }, { name: "x-axis", displayName: "Category", kind: "grouping", max: 1 }] }),
+  spec("pareto", "Pareto", "Pa", { renders: "cartesian", orientation: "column", icon: "M3 18h4V8H3v10zm6 0h4V4H9v14zm6 0h4v-7h-4v7zM3 20h18v2H3z", wells: axisWells }),
+  spec("heatmap", "Heat matrix", "He", { renders: "table", icon: "M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 0h6v6h-6v-6z", wells: [{ name: "columns", displayName: "Columns", kind: "any", max: 4 }] }),
+  spec("header", "Header", "Hd", { renders: "none", icon: "M3 5h18v3H3V5zm0 6h12v3H3v-3zm0 6h8v3H3v-3z", wells: [] }),
 ];
 
 export function visualSpec(type: string): VisualSpec {

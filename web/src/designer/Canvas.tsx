@@ -194,6 +194,7 @@ export function Canvas({
             visual={visual}
             workspaceId={workspaceId}
             datasetId={datasetId}
+            readOnly={readOnly}
             filters={filtersForVisual(
               [...(report.filters ?? []), ...(page?.filters ?? []), ...(visual.filters ?? [])],
               cross,

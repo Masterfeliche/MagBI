@@ -29,6 +29,7 @@ export const DEFAULT_PALETTE = ["#118DFF", "#12239E", "#E66C37", "#6B007B", "#E0
 
 export interface NumberFormat {
   decimals?: number;
+  whole?: boolean;
   units?: "none" | "thousands" | "millions" | "billions" | "auto";
   prefix?: string;
   suffix?: string;
@@ -38,7 +39,7 @@ export interface NumberFormat {
 export function formatNumber(value: unknown, options: NumberFormat = {}): string {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(parsed)) return value == null ? "" : String(value);
-  const decimals = options.decimals ?? 2;
+  const decimals = options.whole ? 0 : options.decimals ?? 2;
   const units = options.units ?? "none";
   const abs = Math.abs(parsed);
   let scaled = parsed;

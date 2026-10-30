@@ -98,6 +98,7 @@ class QueryFilter(BaseModel):
         "isNotBlank",
     ]
     values: list[Any] | None = None
+    optional: bool = False
 
 
 class QueryOrderBy(BaseModel):

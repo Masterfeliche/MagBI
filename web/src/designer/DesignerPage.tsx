@@ -57,6 +57,7 @@ export function DesignerPage() {
   const clipboard = useDesignerStore((s) => s.clipboard);
   const drillThrough = useDesignerStore((s) => s.drillThrough);
   const replaceReport = useDesignerStore((s) => s.replaceReport);
+  const setDataAsAt = useDesignerStore((s) => s.setDataAsAt);
   const viewAs = useDesignerStore((s) => s.viewAs);
   const setViewAs = useDesignerStore((s) => s.setViewAs);
   const undo = useDesignerStore((s) => s.undo);
@@ -107,6 +108,11 @@ export function DesignerPage() {
         if (saved) {
           replaceReport(saved.definition);
           setReportId(saved.id);
+          apiFetch<{ last_refreshed_at?: string | null }>(`/workspaces/${workspaceId}/reports/${saved.id}`)
+            .then((one) => {
+              if (!cancelled) setDataAsAt(one.last_refreshed_at ?? null);
+            })
+            .catch(() => undefined);
           return;
         }
         replaceReport(blankReport(dataset.name, datasetId));
@@ -115,7 +121,7 @@ export function DesignerPage() {
         if (!cancelled) setLoadError(error instanceof Error ? error.message : "Dataset failed to load");
       });
     return () => { cancelled = true; };
-  }, [workspaceId, datasetId, replaceReport, searchParams]);
+  }, [workspaceId, datasetId, replaceReport, setDataAsAt, searchParams]);
 
   useEffect(() => {
     if (!workspaceId || !reportId) return;

@@ -3,6 +3,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 
+import { isKitType } from "../kit/query";
 import { VisualView } from "./Charts";
 import { filtersForVisual, groupingOf, toggleCrossFilter, type CrossFilter } from "./filters";
 import { axisTargets, moveWithGuides, snapAxis, type Guide } from "./guides";
@@ -57,7 +58,7 @@ export function Canvas({
     <div
       ref={frame}
       className="page"
-      style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale }}
+      style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale, background: report.theme?.background }}
       onPointerDown={() => {
         if (!readOnly) selectVisual(null);
       }}
@@ -75,6 +76,7 @@ export function Canvas({
           key={visual.id}
           id={visual.id}
           selected={visual.id === selectedId}
+          kit={isKitType(visual.type) || visual.properties?.box === true}
           style={{
             left: drag?.id === visual.id ? drag.x : visual.x,
             top: drag?.id === visual.id ? drag.y : visual.y,
@@ -243,18 +245,21 @@ export function Canvas({
 function VisualFrame({
   id,
   selected,
+  kit = false,
   style,
   onPointerDown,
   children,
 }: {
   id: string;
   selected: boolean;
+  kit?: boolean;
   style: CSSProperties;
   onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
   children: ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `visual:${id}`, data: { visualId: id } });
-  const tone = selected ? "visual selected" : "visual";
+  const base = kit ? "visual kit" : "visual";
+  const tone = selected ? `${base} selected` : base;
   return (
     <div ref={setNodeRef} className={isOver ? `${tone} over` : tone} style={style} onPointerDown={onPointerDown}>
       {children}

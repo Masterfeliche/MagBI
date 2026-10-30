@@ -1436,3 +1436,66 @@ label.stack select:focus {
 .designer.embed .page-tabs {
   display: none;
 }
+
+/* ── Kit visuals draw their own panel; the frame is only a hit box ── */
+.visual.kit {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 6px;
+}
+.visual.kit .visual-handle {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 3;
+  background: transparent;
+}
+.visual.kit .visual-body {
+  position: relative;
+  height: 100%;
+  overflow: visible;
+}
+.viewer .page::before {
+  display: none;
+}
+.viewer .visual {
+  cursor: default;
+}
+.viewer .visual.kit:hover {
+  border-color: transparent;
+}
+
+/* ── Report filter in the ERP Native box style ── */
+.slicer.kit-slicer {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #bcc8d6;
+  border-radius: 4px;
+  padding: 4px 10px;
+  display: grid;
+  grid-template-rows: 20px 24px;
+  font-family: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
+}
+.kit-slicer .slicer-cap {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #5a6a80;
+  text-transform: uppercase;
+  line-height: 20px;
+}
+.kit-slicer select {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: #22324a;
+  padding: 0;
+  height: 24px;
+  width: 100%;
+  cursor: pointer;
+}
+.kit-slicer select:focus-visible {
+  outline: 2px solid #5f8bc9;
+}

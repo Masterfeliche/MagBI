@@ -13,10 +13,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from magbi.api.datasets import get_dataset_or_404
-from magbi.api.deps import ActorDep, SessionDep
+from magbi.api.deps import ActorDep, ServicesDep, SessionDep
 from magbi.api.errors import ApiError
 from magbi.api.workspaces import get_workspace_or_404
 from magbi.metadata.models import DatasetRefresh, RefreshStatus, Report, utcnow
+from magbi.services import Services
 
 router = APIRouter(tags=["reports"])
 
@@ -105,7 +106,7 @@ async def create_report(wid: uuid.UUID, body: ReportIn, session: SessionDep) -> 
 
 @router.get("/workspaces/{wid}/reports/{rid}", response_model=ReportOut)
 async def get_report(
-    wid: uuid.UUID, rid: uuid.UUID, session: SessionDep, actor: ActorDep
+    wid: uuid.UUID, rid: uuid.UUID, session: SessionDep, actor: ActorDep, svc: ServicesDep
 ) -> ReportOut:
     report = await _get(session, wid, rid)
     if actor.kind == "embed":
@@ -118,7 +119,15 @@ async def get_report(
                 403, "FORBIDDEN", "unpublished reports cannot be embedded"
             )
     last = await _last_refreshed(session, report.dataset_id)
-    return _out(report, last)
+    return _out(report, last or _data_changed(svc, report.dataset_id))
+
+
+def _data_changed(svc: Services, dataset_id: uuid.UUID) -> dt.datetime | None:
+    """When the dataset's data file last changed: covers uploads, which have no refresh."""
+    live = svc.store.live_path(str(dataset_id))
+    if not live.is_file():
+        return None
+    return dt.datetime.fromtimestamp(live.stat().st_mtime, tz=dt.UTC)
 
 
 async def _last_refreshed(

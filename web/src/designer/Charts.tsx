@@ -13,12 +13,39 @@ import type { FormatProps } from "./formatChart";
 import { useDesignerStore } from "./store";
 import { buildQuery } from "./query";
 import { renderModel } from "./render";
-import { ChainVisual, DonutVisual, formatCell, HeaderVisual, HeatVisual, ParetoVisual, StatusKpi } from "./StandardVisuals";
-import { formatNumber } from "./formatChart";
+import { KitVisual } from "../kit/KitVisual";
+import { isKitType } from "../kit/query";
 import { rememberVisualData } from "./visualData";
 import { VisualRenderer } from "./visuals/registry";
 
-export function VisualView({
+type ViewProps = {
+  visual: VisualDefinition;
+  workspaceId: string;
+  datasetId: string;
+  filters: FilterDefinition[];
+  onCategory?: (category: string) => void;
+  onSlicerValues?: (values: string[], filters?: FilterDefinition[]) => void;
+  highlightCategory?: string;
+  readOnly?: boolean;
+};
+
+export function VisualView(props: ViewProps) {
+  if (isKitType(props.visual.type)) {
+    return (
+      <KitVisual
+        visual={props.visual}
+        workspaceId={props.workspaceId}
+        datasetId={props.datasetId}
+        filters={props.filters}
+        onCategory={props.onCategory}
+        highlightCategory={props.highlightCategory}
+      />
+    );
+  }
+  return <ClassicView {...props} />;
+}
+
+function ClassicView({
   visual,
   workspaceId,
   datasetId,
@@ -83,9 +110,6 @@ export function VisualView({
     };
   }, [spec.renders, queryKey, workspaceId, datasetId, query, viewAs, visual.id]);
 
-  if (visual.type === "header") {
-    return <HeaderVisual properties={visual.properties ?? {}} />;
-  }
   if (spec.renders === "slicer") {
     return (
       <SlicerField
@@ -103,20 +127,11 @@ export function VisualView({
   const hierarchy = visual.wells.hierarchy ?? [];
   const crumb = hierarchy.slice(0, drillLevel).map((item) => item.column ?? item.measure).filter(Boolean);
   const model = renderModel(visual.type, dsr, (visual.wells.tooltips ?? []).length);
-  if (visual.type === "kpi" && model.kind === "card") {
-    const tone = typeof visual.properties?.tone === "string" ? visual.properties.tone : "info";
-    const context = typeof visual.properties?.context === "string" ? visual.properties.context : "";
-    return <StatusKpi caption={title || "KPI"} value={formatNumber(model.value, { whole: true })} tone={tone} context={context} />;
-  }
-  if (visual.type === "chain" && model.kind === "table") return <ChainVisual model={model} />;
-  if (visual.type === "donut" && model.kind === "pie") return <DonutVisual model={model} />;
-  if (visual.type === "pareto" && model.kind === "cartesian") return <ParetoVisual model={model} />;
-  if (visual.type === "heatmap" && model.kind === "table") return <HeatVisual model={model} />;
   if (model.kind === "table") {
     return (
       <DataTable
         columns={model.columns}
-        rows={model.rows.map((row) => row.map((cell, index) => formatCell(model.columns[index] ?? "", cell)))}
+        rows={model.rows}
         condFormat={typeof visual.properties?.condFormat === "string" ? visual.properties.condFormat : ""}
       />
     );
@@ -180,7 +195,12 @@ function SlicerField({
     })
       .then((result) => {
         if (cancelled) return;
-        setValues([...new Set(result.rows.map((row) => (row[0] == null ? "" : String(row[0]))).filter(Boolean))]);
+        const hidden = new Set(Array.isArray(visual.properties?.hide) ? visual.properties.hide.map(String) : []);
+        setValues(
+          [...new Set(result.rows.map((row) => (row[0] == null ? "" : String(row[0]))))]
+            .filter((item) => item.trim() !== "" && !hidden.has(item))
+            .sort((a, b) => a.localeCompare(b)),
+        );
       })
       .catch(() => {
         if (!cancelled) setValues([]);
@@ -188,7 +208,7 @@ function SlicerField({
     return () => {
       cancelled = true;
     };
-  }, [binding?.column, binding?.table, workspaceId, datasetId, viewAs]);
+  }, [binding?.column, binding?.table, workspaceId, datasetId, viewAs, visual.properties?.hide]);
 
   const shown = values.filter((item) => item.toLowerCase().includes(query.toLowerCase()));
   const setProperties = useDesignerStore((state) => state.setProperties);
@@ -203,9 +223,14 @@ function SlicerField({
   }
 
   return (
-    <div className="slicer" onPointerDown={(event) => event.stopPropagation()}>
-      <div>{binding?.column ?? "Drop a field"}</div>
-      {!readOnly && <select
+    <div
+      className={visual.properties?.box === true ? "slicer kit-slicer" : "slicer"}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <div className="slicer-cap">
+        {typeof visual.properties?.caption === "string" ? visual.properties.caption : (binding?.column ?? "Drop a field")}
+      </div>
+      {!readOnly && visual.properties?.box !== true && <select
         value={mode}
         onChange={(event) => setProperties(visual.id, { slicerMode: event.target.value })}
       >

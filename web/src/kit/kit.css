@@ -1,0 +1,248 @@
+/* MSD standard kit: ERP Native theme, light only. Sizes follow the 1760 x 990 canvas. */
+
+.kit-bare,
+.kit-panel,
+.kit-frame,
+.kit-header,
+.kit-label {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
+  color: #22324a;
+  font-variant-numeric: tabular-nums;
+}
+
+.kit-state {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 13px;
+  color: #66758a;
+  padding: 8px;
+}
+.kit-error { color: #9a4442; }
+
+.kit-ignored {
+  position: absolute;
+  right: 10px;
+  bottom: 4px;
+  max-width: 70%;
+  font-size: 11px;
+  color: #66758a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0 4px;
+}
+
+/* ---- panel chrome */
+.kit-panel {
+  background: #ffffff;
+  border: 1px solid #d3dce6;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.kit-panel-hd {
+  flex: 0 0 34px;
+  background: #e9eef5;
+  border-bottom: 1px solid #d3dce6;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.kit-panel-hd h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.kit-panel-sub {
+  font-size: 12.5px;
+  color: #66758a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.kit-panel-bd {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  padding: 8px 12px 10px;
+}
+
+/* ---- frame, header, labels */
+.kit-frame { pointer-events: none; }
+
+.kit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.kit-crumb {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #66758a;
+  text-transform: uppercase;
+  line-height: 24px;
+}
+.kit-crumb b { color: #2c4f80; }
+.kit-title { font-size: 26px; font-weight: 700; line-height: 38px; }
+.kit-question { font-size: 14.5px; color: #66758a; line-height: 28px; }
+.kit-header-right { text-align: right; }
+.kit-asat { font-size: 13px; color: #66758a; line-height: 24px; }
+.kit-asat b { color: #22324a; font-weight: 600; }
+.kit-units { font-size: 12.5px; font-weight: 700; letter-spacing: 0.5px; color: #66758a; text-transform: uppercase; line-height: 24px; }
+
+.kit-label {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5a6a80;
+}
+.kit-label-note { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 12.5px; color: #66758a; }
+
+/* ---- KPI card: never under 122 px; each line >= 1.85x its font size */
+.kit-kpi {
+  position: absolute;
+  inset: 0;
+  background: #f8fafc;
+  border: 1px solid #d3dce6;
+  border-left: 3px solid #5f8bc9;
+  border-radius: 6px;
+  padding: 10px 14px 10px;
+  display: grid;
+  grid-template-rows: 24px 44px 24px 24px;
+  align-content: start;
+  min-width: 0;
+}
+.kit-kpi > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.kit-kpi-cap { font-size: 12.5px; font-weight: 700; color: #5a6a80; text-transform: uppercase; letter-spacing: 0.03em; line-height: 24px; }
+.kit-kpi-val { font-size: 24px; font-weight: 700; line-height: 44px; }
+.kit-kpi-st { font-size: 13px; font-weight: 700; line-height: 24px; }
+.kit-kpi-cx { font-size: 12.5px; color: #66758a; line-height: 24px; }
+
+/* ---- chain */
+.kit-chain {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+}
+.kit-step {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #bcc8d6;
+  border-radius: 4px;
+  padding: 3px 10px 8px;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 20px 22px;
+}
+.kit-step.on { background: #dce8f6; border-color: #3f6fb0; }
+.kit-step b {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #5a6a80;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 20px;
+}
+.kit-step.on b { color: #2c4f80; }
+.kit-step b span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.kit-step i { font-style: normal; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 22px; }
+.kit-step u { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 3px; border-radius: 2px; }
+
+/* ---- donut */
+.kit-donut {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(150px, 46%) 1fr;
+  gap: 12px;
+  align-items: center;
+}
+.kit-donut-ring { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 100%; justify-self: center; max-width: 100%; }
+.kit-donut-centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  line-height: 1.2;
+}
+.kit-donut-centre b { font-size: 22px; font-weight: 700; }
+.kit-donut-centre span { font-size: 12px; color: #66758a; }
+.kit-legend { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.kit-legend th { font-size: 11px; color: #5a6a80; text-align: right; font-weight: 600; letter-spacing: 0.05em; padding: 4px 6px; border-bottom: 1px solid #e2e8ef; text-transform: uppercase; }
+.kit-legend th:first-child, .kit-legend td:first-child { text-align: left; }
+.kit-legend td { white-space: nowrap; padding: 6px; border-bottom: 1px solid #e2e8ef; text-align: right; }
+.kit-legend td i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
+
+/* ---- heat matrix */
+.kit-heat-wrap { height: 100%; overflow: auto; }
+.kit-heat { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 13px; table-layout: fixed; }
+.kit-heat th { font-size: 11px; font-weight: 600; padding: 4px; text-align: center; background: #e9eef5; word-break: keep-all; overflow-wrap: normal; hyphens: none; }
+.kit-heat th:first-child { text-align: left; background: transparent; width: 34%; }
+.kit-heat td { text-align: center; padding: 9px 4px; border-radius: 2px; }
+.kit-heat-zero { background: #f3f6fa; color: #9eabbc; }
+.kit-heat-row { text-align: left !important; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kit-heat-row button { all: unset; cursor: pointer; }
+.kit-heat-row button:focus-visible { outline: 2px solid #5f8bc9; }
+.kit-heat-key { display: flex; gap: 14px; font-size: 12px; color: #66758a; margin-top: 6px; }
+.kit-heat-key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+
+/* ---- grid (table) */
+.kit-grid-wrap { height: 100%; overflow: auto; }
+.kit-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kit-grid th {
+  position: sticky;
+  top: 0;
+  background: #e9eef5;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 7px 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+.kit-grid td { padding: 6px 8px; border-top: 1px solid #e2e8ef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+.kit-grid .n { text-align: right; }
+.kit-pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+
+/* ---- meter */
+.kit-meter { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.kit-meter svg { width: min(100%, 260px); height: auto; max-height: calc(100% - 30px); }
+.kit-meter-line { font-size: 13px; font-weight: 700; line-height: 24px; white-space: nowrap; }
+
+/* ---- flow */
+.kit-flow { height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.kit-flow-row { display: grid; grid-template-columns: 110px 1fr 92px; align-items: center; gap: 10px; }
+.kit-flow-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kit-flow-track { height: 46px; display: flex; justify-content: center; align-items: center; }
+.kit-flow-bar { height: 100%; border-radius: 3px; min-width: 2px; }
+.kit-flow-val { font-size: 13px; text-align: right; white-space: nowrap; }
+.kit-flow-val span { color: #66758a; margin-left: 4px; }

@@ -1,4 +1,4 @@
-/** Power BI-style designer. Filters and Build are rails; only one pane is open. */
+/** MagBI designer — Power BI-style report builder. */
 
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { useEffect, useRef, useState } from "react";
@@ -6,46 +6,57 @@ import { useParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
 import type { ReportDefinition } from "../types/report";
-import { VISUALS, visualSpec } from "./catalog";
+import { visualSpec } from "./catalog";
 import { Canvas } from "./Canvas";
-import { DataPane } from "./DataPane";
-import { FilterPane } from "./FilterPane";
+import { ContextMenu, type ContextMenuAction } from "./ContextMenu";
 import { type CrossFilter } from "./filters";
 import { PAGE_WIDTH, blankReport } from "./layout";
+import { LeftPanel } from "./LeftPanel";
 import { adaptDataset, type DesignerField, type DesignerTable } from "./model";
+import { PageTabs } from "./PageTabs";
+import { Ribbon } from "./Ribbon";
+import { RightPanel } from "./RightPanel";
+import { StatusBar } from "./StatusBar";
+import { SelectionPane } from "./SelectionPane";
+import { TooltipPreview } from "./TooltipPreview";
 import { useDesignerStore } from "./store";
+import { TitleBar } from "./TitleBar";
 import { dropField, removeBinding, wellForDrop } from "./wells";
-import { WellsPanel } from "./WellsPanel";
 import "./designer.css";
-
-type Pane = "closed" | "filters" | "build";
 
 export function DesignerPage() {
   const { workspaceId, datasetId } = useParams();
-  const report = useDesignerStore((state) => state.report);
-  const selectedId = useDesignerStore((state) => state.selectedVisualId);
-  const addVisual = useDesignerStore((state) => state.addVisual);
-  const setWells = useDesignerStore((state) => state.setWells);
-  const selectVisual = useDesignerStore((state) => state.selectVisual);
-  const removeVisual = useDesignerStore((state) => state.removeVisual);
-  const setPageFilters = useDesignerStore((state) => state.setPageFilters);
-  const setFormat = useDesignerStore((state) => state.setFormat);
-  const replaceReport = useDesignerStore((state) => state.replaceReport);
+  const report = useDesignerStore((s) => s.report);
+  const selectedId = useDesignerStore((s) => s.selectedVisualId);
+  const activePageIndex = useDesignerStore((s) => s.activePageIndex);
+  const selectVisual = useDesignerStore((s) => s.selectVisual);
+  const setWells = useDesignerStore((s) => s.setWells);
+  const setPageFilters = useDesignerStore((s) => s.setPageFilters);
+  const removeVisual = useDesignerStore((s) => s.removeVisual);
+  const copyVisual = useDesignerStore((s) => s.copyVisual);
+  const pasteVisual = useDesignerStore((s) => s.pasteVisual);
+  const bringToFront = useDesignerStore((s) => s.bringToFront);
+  const sendToBack = useDesignerStore((s) => s.sendToBack);
+  const clipboard = useDesignerStore((s) => s.clipboard);
+  const drillThrough = useDesignerStore((s) => s.drillThrough);
+  const replaceReport = useDesignerStore((s) => s.replaceReport);
+  const undo = useDesignerStore((s) => s.undo);
+  const redo = useDesignerStore((s) => s.redo);
+
   const stage = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const [pane, setPane] = useState<Pane>("closed");
-  const [tab, setTab] = useState<"visuals" | "format">("visuals");
+  const [autoScale, setAutoScale] = useState(1);
+  const [manualZoom, setManualZoom] = useState<number | null>(null);
+  const scale = manualZoom ?? autoScale;
   const [tables, setTables] = useState<DesignerTable[]>([]);
   const [loadError, setLoadError] = useState("");
-  const undo = useDesignerStore((state) => state.undo);
-  const redo = useDesignerStore((state) => state.redo);
-  const history = useDesignerStore((state) => state.history);
   const [cross, setCross] = useState<CrossFilter | null>(null);
   const [reportId, setReportId] = useState("");
   const [publishError, setPublishError] = useState("");
-  const [title, setTitle] = useState("");
-  const [color, setColor] = useState("#118DFF");
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; visualId: string | null } | null>(null);
+  const [showSelection, setShowSelection] = useState(false);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; visualId: string } | null>(null);
 
+  // --- load dataset + existing report ---
   useEffect(() => {
     if (!workspaceId || !datasetId) return;
     let cancelled = false;
@@ -61,7 +72,7 @@ export function DesignerPage() {
         if (cancelled) return;
         setTables(adaptDataset(dataset.definition));
         setLoadError("");
-        const saved = reports.find((report) => report.dataset_id === datasetId);
+        const saved = reports.find((r) => r.dataset_id === datasetId);
         if (saved) {
           replaceReport(saved.definition);
           setReportId(saved.id);
@@ -72,25 +83,59 @@ export function DesignerPage() {
       .catch((error: unknown) => {
         if (!cancelled) setLoadError(error instanceof Error ? error.message : "Dataset failed to load");
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [workspaceId, datasetId, replaceReport]);
 
-  const selected = report.pages[0]?.visuals.find((visual) => visual.id === selectedId);
+  // --- auto-scale canvas ---
+  useEffect(() => {
+    const node = stage.current;
+    if (!node) return;
+    const measure = () => {
+      const width = node.clientWidth - 32;
+      setAutoScale(width > 0 ? width / PAGE_WIDTH : 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  // --- keyboard shortcuts ---
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedId) {
+        event.preventDefault();
+        removeVisual(selectedId);
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (key === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
+      else if (key === "y") { event.preventDefault(); redo(); }
+      else if (key === "c" && selectedId) { event.preventDefault(); copyVisual(selectedId); }
+      else if (key === "v") { event.preventDefault(); pasteVisual(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo, removeVisual, selectedId, copyVisual, pasteVisual]);
+
+  // --- derived ---
+  const page = report.pages[activePageIndex];
+  const selected = page?.visuals.find((v) => v.id === selectedId);
   const spec = selected ? visualSpec(selected.type) : undefined;
 
+  // --- dnd handler ---
   function onDragEnd(event: DragEndEvent) {
     const field = event.active.data.current?.field as DesignerField | undefined;
     const wellName = event.over?.data.current?.well as string | undefined;
     const visualId = event.over?.data.current?.visualId as string | undefined;
-    const target = visualId
-      ? report.pages[0]?.visuals.find((visual) => visual.id === visualId)
-      : selected;
+    const target = visualId ? page?.visuals.find((v) => v.id === visualId) : selected;
     if (!field || !target) return;
     const targetSpec = visualSpec(target.type);
     const well = wellName
-      ? targetSpec.wells.find((item) => item.name === wellName)
+      ? targetSpec.wells.find((w) => w.name === wellName)
       : wellForDrop(targetSpec, field, target.wells);
     if (!well) return;
     const result = dropField(target.wells, well, field);
@@ -99,45 +144,34 @@ export function DesignerPage() {
     if (visualId) selectVisual(target.id);
   }
 
-  useEffect(() => {
-    const node = stage.current;
-    if (!node) return;
-    const measure = () => {
-      const width = node.clientWidth - 32;
-      setScale(width > 0 ? width / PAGE_WIDTH : 1);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [pane]);
+  function buildContextActions(visualId: string | null): ContextMenuAction[] {
+    const dtPages = report.pages
+      .map((p, i) => ({ page: p, index: i }))
+      .filter((p) => p.page.pageType === "drillthrough");
+    if (!visualId) {
+      return [
+        { label: "Paste", icon: "📋", disabled: !clipboard, onClick: () => pasteVisual() },
+        { label: "Fit to page", icon: "⊡", onClick: () => setManualZoom(null) },
+      ];
+    }
+    return [
+      { label: "Copy", icon: "📄", onClick: () => copyVisual(visualId) },
+      { label: "Paste", icon: "📋", disabled: !clipboard, onClick: () => pasteVisual() },
+      { label: "Bring to front", icon: "⬆", onClick: () => bringToFront(visualId) },
+      { label: "Send to back", icon: "⬇", onClick: () => sendToBack(visualId) },
+      ...(dtPages.length > 0
+        ? dtPages.map((dt) => ({
+            label: `Drill → ${dt.page.displayName}`,
+            icon: "↗",
+            onClick: () => drillThrough(dt.index, page?.filters ?? []),
+          }))
+        : [{ label: "Drillthrough", icon: "↗", disabled: true, onClick: () => {} }]),
+      { label: "Show as table", icon: "⊞", disabled: true, divider: true, onClick: () => {} },
+      { label: "Remove", icon: "🗑", danger: true, onClick: () => removeVisual(visualId) },
+    ];
+  }
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
-        return;
-      }
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedId) {
-        event.preventDefault();
-        removeVisual(selectedId);
-        return;
-      }
-      const key = event.key.toLowerCase();
-      if (!(event.ctrlKey || event.metaKey)) return;
-      if (key === "z") {
-        event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
-      } else if (key === "y") {
-        event.preventDefault();
-        redo();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo, removeVisual, selectedId]);
-
+  // --- publish ---
   async function publish() {
     if (!workspaceId || !datasetId) return;
     setPublishError("");
@@ -164,118 +198,80 @@ export function DesignerPage() {
     }
   }
 
-  function toggle(next: Pane) {
-    setPane((current) => (current === next ? "closed" : next));
-  }
-
   return (
     <div className="designer">
-      <header className="ribbon">
-        <strong className="report-name">{report.name}</strong>
-        <button type="button" disabled={history.past.length === 0} onClick={undo}>
-          Undo
-        </button>
-        <button type="button" disabled={history.future.length === 0} onClick={redo}>
-          Redo
-        </button>
-        <button type="button" className="publish" onClick={() => void publish()}>
-          Publish
-        </button>
-      </header>
+      <TitleBar />
+      <Ribbon onPublish={() => void publish()} onToggleSelection={() => setShowSelection((s) => !s)} />
       <DndContext onDragEnd={onDragEnd}>
-      <div className="desk">
-        <div className="stage" ref={stage}>
-          <div className="page-tabs">
-            <span className="page-tab">Page 1</span>
+        <div className="desk">
+          <LeftPanel
+            tables={tables}
+            filters={page?.filters ?? []}
+            onFiltersChange={setPageFilters}
+          />
+          <div className="stage">
+            <div
+              className="stage-canvas"
+              ref={stage}
+              onMouseMove={(e) => {
+                const target = (e.target as HTMLElement).closest(".visual");
+                if (!target || selectedId) { setTooltip(null); return; }
+                const vid = target.querySelector("[data-visual-id]")?.getAttribute("data-visual-id");
+                if (vid) setTooltip({ x: e.clientX, y: e.clientY, visualId: vid });
+                else setTooltip(null);
+              }}
+              onMouseLeave={() => setTooltip(null)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setTooltip(null);
+                const target = (e.target as HTMLElement).closest(".visual");
+                const visualId = target?.querySelector("[data-visual-id]")?.getAttribute("data-visual-id")
+                  ?? (target?.classList.contains("visual") ? selectedId : null);
+                setCtxMenu({ x: e.clientX, y: e.clientY, visualId: visualId ?? null });
+              }}
+            >
+              {(loadError || publishError) && <p className="hint">{loadError || publishError}</p>}
+              <Canvas
+                scale={scale}
+                workspaceId={workspaceId ?? ""}
+                datasetId={datasetId ?? ""}
+                cross={cross}
+                onCross={setCross}
+              />
+              {showSelection && <SelectionPane onClose={() => setShowSelection(false)} />}
+              {tooltip && (() => {
+                const hovered = page?.visuals.find((v) => v.id === tooltip.visualId);
+                return hovered ? <TooltipPreview visual={hovered} x={tooltip.x} y={tooltip.y} /> : null;
+              })()}
+              {ctxMenu && (
+                <ContextMenu
+                  x={ctxMenu.x}
+                  y={ctxMenu.y}
+                  actions={buildContextActions(ctxMenu.visualId)}
+                  onClose={() => setCtxMenu(null)}
+                />
+              )}
+            </div>
+            <PageTabs />
           </div>
-          {(loadError || publishError) && <p className="hint">{loadError || publishError}</p>}
-          <Canvas
-            scale={scale}
-            workspaceId={workspaceId ?? ""}
-            datasetId={datasetId ?? ""}
-            cross={cross}
-            onCross={setCross}
+          <RightPanel
+            tables={tables}
+            wells={spec?.wells ?? []}
+            bindings={selected?.wells ?? {}}
+            onRemoveBinding={(wellName, index) => {
+              if (!selected) return;
+              setWells(selected.id, removeBinding(selected.wells, wellName, index));
+            }}
           />
         </div>
-        {pane !== "closed" && (
-          <aside className="pane">
-            {pane === "filters" ? (
-              <FilterPane
-                tables={tables}
-                filters={report.pages[0]?.filters ?? []}
-                onChange={setPageFilters}
-              />
-            ) : (
-              <>
-                <div className="tabs">
-                  <button type="button" className={tab === "visuals" ? "on" : ""} onClick={() => setTab("visuals")}>
-                    Visuals
-                  </button>
-                  <button
-                    type="button"
-                    className={tab === "format" ? "on" : ""}
-                    onClick={() => {
-                      setTab("format");
-                      setTitle(typeof selected?.properties?.title === "string" ? selected.properties.title : "");
-                      setColor(typeof selected?.properties?.color === "string" ? selected.properties.color : "#118DFF");
-                    }}
-                  >
-                    Format
-                  </button>
-                </div>
-                {tab === "visuals" ? (
-                  <>
-                    <DataPane tables={tables} />
-                    <div className="gallery">
-                      {VISUALS.map((item) => (
-                        <button key={item.type} type="button" onClick={() => addVisual(item.type)}>
-                          {item.displayName}
-                        </button>
-                      ))}
-                    </div>
-                    <WellsPanel
-                      wells={spec?.wells ?? []}
-                      bindings={selected?.wells ?? {}}
-                      onRemove={(wellName, index) => {
-                        if (!selected) return;
-                        setWells(selected.id, removeBinding(selected.wells, wellName, index));
-                      }}
-                    />
-                  </>
-                ) : selected ? (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      setFormat(selected.id, title, color);
-                    }}
-                  >
-                    <label className="stack">
-                      Title
-                      <input value={title} onChange={(event) => setTitle(event.target.value)} />
-                    </label>
-                    <label className="stack">
-                      Color
-                      <input type="color" value={color} onChange={(event) => setColor(event.target.value)} />
-                    </label>
-                    <button type="submit">Apply</button>
-                  </form>
-                ) : (
-                  <p className="hint">Select a visual to set its title and color.</p>
-                )}
-              </>
-            )}
-          </aside>
-        )}
-        <div className="rails">
-          <button type="button" className={pane === "filters" ? "rail on" : "rail"} onClick={() => toggle("filters")}>
-            Filters
-          </button>
-          <button type="button" className={pane === "build" ? "rail on" : "rail"} onClick={() => toggle("build")}>
-            Build
-          </button>
-        </div>
-      </div>
       </DndContext>
+      <StatusBar
+        datasetId={datasetId ?? ""}
+        zoom={scale}
+        onZoomIn={() => setManualZoom(Math.min(2, (manualZoom ?? autoScale) + 0.1))}
+        onZoomOut={() => setManualZoom(Math.max(0.25, (manualZoom ?? autoScale) - 0.1))}
+        onFitToPage={() => setManualZoom(null)}
+      />
     </div>
   );
 }

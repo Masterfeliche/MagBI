@@ -36,7 +36,8 @@ export function Canvas({
   const moveVisual = useDesignerStore((state) => state.moveVisual);
   const resizeVisual = useDesignerStore((state) => state.resizeVisual);
   const setPageFilters = useDesignerStore((state) => state.setPageFilters);
-  const page = report.pages[0];
+  const activePageIndex = useDesignerStore((state) => state.activePageIndex);
+  const page = report.pages[activePageIndex];
   const frame = useRef<HTMLDivElement>(null);
   const offset = useRef({ dx: 0, dy: 0 });
   const dragRef = useRef<({ id: string } & Box) | null>(null);
@@ -54,9 +55,10 @@ export function Canvas({
     <div
       ref={frame}
       className="page"
-      style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT, transform: `scale(${scale})` }}
+      style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale }}
       onPointerDown={() => selectVisual(null)}
     >
+    <div className="page-inner" style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT, transform: `scale(${scale})` }}>
       {guides.map((guide) => (
         <div
           key={`${guide.axis}:${guide.at}`}
@@ -206,6 +208,7 @@ export function Canvas({
           </div>
         </VisualFrame>
       ))}
+    </div>
     </div>
   );
 }

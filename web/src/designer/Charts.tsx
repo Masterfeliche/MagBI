@@ -1,7 +1,6 @@
-/** ECharts and TanStack views for the six visuals that draw a query result. */
+/** Data-fetching wrapper + registry dispatch for visual rendering. */
 
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
-import ReactECharts from "echarts-for-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { apiFetch } from "../shared/api";
@@ -9,7 +8,8 @@ import type { DSR } from "../types/query";
 import type { FilterDefinition, VisualDefinition } from "../types/report";
 import { visualSpec } from "./catalog";
 import { buildQuery } from "./query";
-import { renderModel, type CartesianModel, type PieModel, type RenderModel } from "./render";
+import { renderModel } from "./render";
+import { VisualRenderer } from "./visuals/registry";
 
 export function VisualView({
   visual,
@@ -61,7 +61,10 @@ export function VisualView({
     return <SlicerField visual={visual} onSlicer={onSlicer} />;
   }
   if (error) return <div className="note">{error}</div>;
-  return <Drawn model={renderModel(visual.type, dsr)} title={title} color={color} onCategory={onCategory} />;
+
+  const model = renderModel(visual.type, dsr);
+  if (model.kind === "table") return <DataTable columns={model.columns} rows={model.rows} />;
+  return <VisualRenderer model={model} title={title} color={color} onCategory={onCategory} />;
 }
 
 function SlicerField({
@@ -87,106 +90,6 @@ function SlicerField({
       <input value={value} onChange={(event) => setValue(event.target.value)} />
       <button type="submit">Apply</button>
     </form>
-  );
-}
-
-function Drawn({
-  model,
-  title,
-  color,
-  onCategory,
-}: {
-  model: RenderModel;
-  title: string;
-  color: string;
-  onCategory?: (category: string) => void;
-}) {
-  if (model.kind === "note") {
-    return (
-      <div className="note">
-        {title && <strong>{title}</strong>}
-        <div>{model.message}</div>
-      </div>
-    );
-  }
-  if (model.kind === "card") {
-    return (
-      <div className="card-value">
-        {title && <span className="visual-label">{title}</span>}
-        {model.value}
-      </div>
-    );
-  }
-  if (model.kind === "table") return <DataTable columns={model.columns} rows={model.rows} />;
-  if (model.kind === "pie") return <PieChart model={model} title={title} color={color} onCategory={onCategory} />;
-  return <CartesianChart model={model} title={title} color={color} onCategory={onCategory} />;
-}
-
-function CartesianChart({
-  model,
-  title,
-  color,
-  onCategory,
-}: {
-  model: CartesianModel;
-  title: string;
-  color: string;
-  onCategory?: (category: string) => void;
-}) {
-  const horizontal = model.orientation === "bar";
-  const option = {
-    color: [color],
-    title: title ? { text: title, left: 8, textStyle: { fontSize: 14, fontWeight: 600 } } : undefined,
-    tooltip: { trigger: "axis" as const },
-    grid: { left: 48, right: 16, top: title ? 36 : 16, bottom: 32 },
-    xAxis: horizontal ? { type: "value" as const } : { type: "category" as const, data: model.categories },
-    yAxis: horizontal ? { type: "category" as const, data: model.categories } : { type: "value" as const },
-    series: model.series.map((series) => ({
-      type: model.orientation === "line" ? ("line" as const) : ("bar" as const),
-      name: series.name,
-      data: series.values,
-    })),
-  };
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height: "100%", width: "100%" }}
-      onEvents={{
-        click: (params: { name?: string }) => {
-          if (params.name && onCategory) onCategory(params.name);
-        },
-      }}
-    />
-  );
-}
-
-function PieChart({
-  model,
-  title,
-  color,
-  onCategory,
-}: {
-  model: PieModel;
-  title: string;
-  color: string;
-  onCategory?: (category: string) => void;
-}) {
-  const option = {
-    color: [color, "#12239E", "#E66C37", "#6B007B", "#E044A7", "#744EC2"],
-    title: title ? { text: title, left: 8, textStyle: { fontSize: 14, fontWeight: 600 } } : undefined,
-    tooltip: { trigger: "item" as const },
-    series: [{ type: "pie" as const, radius: "70%", data: model.slices }],
-  };
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height: "100%", width: "100%" }}
-      onEvents={{
-        click: (params: { name?: string }) => {
-          if (params.name && onCategory) onCategory(params.name);
-        },
-      }}
-    />
   );
 }
 

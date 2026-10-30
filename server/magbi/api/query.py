@@ -85,7 +85,7 @@ def _query_roles(
 
 
 def _cache(svc: Services) -> RedisQueryCache | None:
-    if svc.settings.environment == "test":
+    if svc.settings.environment in ("test", "dev"):
         return None
     try:
         import redis

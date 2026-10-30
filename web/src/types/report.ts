@@ -16,6 +16,8 @@ export interface PageDefinition {
   height: number;
   visuals: VisualDefinition[];
   filters?: FilterDefinition[];
+  pageType?: "regular" | "drillthrough";
+  drillthroughFilters?: FilterDefinition[];
 }
 
 export interface VisualDefinition {

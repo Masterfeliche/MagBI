@@ -26,12 +26,42 @@ export interface TableModel {
   rows: string[][];
 }
 
+export interface ScatterModel {
+  kind: "scatter";
+  series: { name: string; data: [number, number][] }[];
+}
+
+export interface FunnelModel {
+  kind: "funnel";
+  items: { name: string; value: number }[];
+}
+
+export interface GaugeModel {
+  kind: "gauge";
+  value: number;
+  name: string;
+}
+
+export interface TreemapModel {
+  kind: "treemap";
+  items: { name: string; value: number }[];
+}
+
+export interface WaterfallModel {
+  kind: "waterfall";
+  categories: string[];
+  values: number[];
+}
+
 export interface NoteModel {
   kind: "note";
   message: string;
 }
 
-export type RenderModel = CartesianModel | PieModel | CardModel | TableModel | NoteModel;
+export type RenderModel =
+  | CartesianModel | PieModel | CardModel | TableModel
+  | ScatterModel | FunnelModel | GaugeModel | TreemapModel | WaterfallModel
+  | NoteModel;
 
 export function renderModel(type: string, dsr: DSR | null): RenderModel {
   const spec = visualSpec(type);
@@ -53,6 +83,11 @@ export function renderModel(type: string, dsr: DSR | null): RenderModel {
     };
   }
   if (spec.renders === "pie") return pie(dsr);
+  if (spec.renders === "scatter") return scatter(dsr);
+  if (spec.renders === "funnel") return funnelModel(dsr);
+  if (spec.renders === "gauge") return gaugeModel(dsr);
+  if (spec.renders === "treemap") return treemapModel(dsr);
+  if (spec.renders === "waterfall") return waterfallModel(dsr);
   return cartesian(dsr, spec.orientation ?? "column");
 }
 
@@ -106,6 +141,59 @@ function pie(dsr: DSR): PieModel {
       name: categoryIndex === undefined ? String(index + 1) : text(row[categoryIndex]),
       value: measure === undefined ? 0 : number(row[measure]),
     })),
+  };
+}
+
+function scatter(dsr: DSR): ScatterModel {
+  const measures = indexes(dsr, true);
+  const groups = indexes(dsr, false);
+  const xIdx = measures[0];
+  const yIdx = measures[1] ?? measures[0];
+  if (xIdx === undefined) return { kind: "scatter", series: [] };
+  if (groups[0] === undefined) {
+    return {
+      kind: "scatter",
+      series: [{ name: "Series", data: dsr.rows.map((row) => [number(row[xIdx]), number(row[yIdx])]) }],
+    };
+  }
+  const legends = unique(dsr.rows.map((row) => text(row[groups[0]!])));
+  return {
+    kind: "scatter",
+    series: legends.map((legend) => ({
+      name: legend,
+      data: dsr.rows
+        .filter((row) => text(row[groups[0]!]) === legend)
+        .map((row) => [number(row[xIdx]), number(row[yIdx])]),
+    })),
+  };
+}
+
+function funnelModel(dsr: DSR): FunnelModel {
+  const result = pie(dsr);
+  return { kind: "funnel", items: result.slices };
+}
+
+function gaugeModel(dsr: DSR): GaugeModel {
+  const measureIdx = dsr.columns.findIndex((c) => c.isMeasure);
+  const idx = measureIdx >= 0 ? measureIdx : 0;
+  return { kind: "gauge", value: number(dsr.rows[0]?.[idx]), name: dsr.columns[idx]?.name ?? "Value" };
+}
+
+function treemapModel(dsr: DSR): TreemapModel {
+  const result = pie(dsr);
+  return { kind: "treemap", items: result.slices.map((s) => ({ name: s.name, value: s.value })) };
+}
+
+function waterfallModel(dsr: DSR): WaterfallModel {
+  const groups = indexes(dsr, false);
+  const measures = indexes(dsr, true);
+  const categoryIdx = groups[0];
+  const measureIdx = measures[0];
+  if (measureIdx === undefined) return { kind: "waterfall", categories: [], values: [] };
+  return {
+    kind: "waterfall",
+    categories: dsr.rows.map((row, i) => (categoryIdx !== undefined ? text(row[categoryIdx]) : String(i + 1))),
+    values: dsr.rows.map((row) => number(row[measureIdx])),
   };
 }
 

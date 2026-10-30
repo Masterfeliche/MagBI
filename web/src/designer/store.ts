@@ -1,6 +1,3 @@
-/**
- * Report document for the designer. Undo patches are recorded on commit, not on pointer move.
- */
 import { create } from "zustand";
 
 import type { FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
@@ -11,7 +8,9 @@ import { blankReport, PAGE_HEIGHT, PAGE_WIDTH, placeVisual, type Box } from "./l
 interface DesignerState {
   report: ReportDefinition;
   history: History;
+  activePageIndex: number;
   selectedVisualId: string | null;
+  clipboard: VisualDefinition | null;
   selectVisual: (id: string | null) => void;
   replaceReport: (report: ReportDefinition) => void;
   addVisual: (type: string) => void;
@@ -21,6 +20,15 @@ interface DesignerState {
   setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
   setPageFilters: (filters: FilterDefinition[]) => void;
   setFormat: (id: string, title: string, color: string) => void;
+  setProperties: (id: string, props: Record<string, unknown>) => void;
+  switchPage: (index: number) => void;
+  addPage: () => void;
+  removePage: (index: number) => void;
+  copyVisual: (id: string) => void;
+  pasteVisual: () => void;
+  bringToFront: (id: string) => void;
+  sendToBack: (id: string) => void;
+  drillThrough: (pageIndex: number, filters: FilterDefinition[]) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -28,58 +36,196 @@ interface DesignerState {
 export const useDesignerStore = create<DesignerState>((set, get) => ({
   report: blankReport("Report", ""),
   history: EMPTY_HISTORY,
+  activePageIndex: 0,
   selectedVisualId: null,
+  clipboard: null,
   selectVisual: (id) => set({ selectedVisualId: id }),
-  replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null }),
+  replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null, activePageIndex: 0 }),
+
+  switchPage: (index) => {
+    const pages = get().report.pages;
+    if (index >= 0 && index < pages.length) {
+      set({ activePageIndex: index, selectedVisualId: null });
+    }
+  },
+
+  addPage: () => {
+    const report = get().report;
+    const num = report.pages.length + 1;
+    const newPage = {
+      name: `page-${num}`,
+      displayName: `Page ${num}`,
+      width: PAGE_WIDTH,
+      height: PAGE_HEIGHT,
+      visuals: [] as VisualDefinition[],
+      filters: [] as FilterDefinition[],
+    };
+    const next = { ...report, pages: [...report.pages, newPage] };
+    commit(set, get, next);
+    set({ activePageIndex: report.pages.length, selectedVisualId: null });
+  },
+
+  removePage: (index) => {
+    const report = get().report;
+    if (report.pages.length <= 1) return;
+    const pages = report.pages.filter((_, i) => i !== index);
+    const next = { ...report, pages };
+    commit(set, get, next);
+    const current = get().activePageIndex;
+    if (current >= pages.length) {
+      set({ activePageIndex: pages.length - 1, selectedVisualId: null });
+    } else if (current === index) {
+      set({ selectedVisualId: null });
+    }
+  },
+
   addVisual: (type) => {
     const report = get().report;
-    const page = report.pages[0];
+    const pageIndex = get().activePageIndex;
+    const page = report.pages[pageIndex];
     if (!page) return;
     const visual = placeVisual(page.visuals, type, crypto.randomUUID());
     commit(set, get, {
       ...report,
-      pages: [{ ...page, visuals: [...page.visuals, visual] }],
+      pages: report.pages.map((p, i) =>
+        i === pageIndex ? { ...p, visuals: [...p.visuals, visual] } : p,
+      ),
     });
     set({ selectedVisualId: visual.id });
   },
+
   moveVisual: (id, x, y) => {
     const report = get().report;
-    const page = report.pages[0];
+    const pageIndex = get().activePageIndex;
+    const page = report.pages[pageIndex];
     if (!page) return;
-    const visuals = page.visuals.map((visual) =>
-      visual.id === id ? moved(visual, x, y) : visual,
-    );
-    commit(set, get, { ...report, pages: [{ ...page, visuals }] });
+    const visuals = page.visuals.map((v) => (v.id === id ? moved(v, x, y) : v));
+    commit(set, get, {
+      ...report,
+      pages: report.pages.map((p, i) => (i === pageIndex ? { ...p, visuals } : p)),
+    });
   },
+
   resizeVisual: (id, box) => {
-    updateVisual(set, get, id, (visual) => ({ ...visual, ...box }));
+    updateVisual(set, get, id, (v) => ({ ...v, ...box }));
   },
+
   removeVisual: (id) => {
     const report = get().report;
-    const page = report.pages[0];
+    const pageIndex = get().activePageIndex;
+    const page = report.pages[pageIndex];
     if (!page) return;
     commit(set, get, {
       ...report,
-      pages: [{ ...page, visuals: page.visuals.filter((visual) => visual.id !== id) }],
+      pages: report.pages.map((p, i) =>
+        i === pageIndex ? { ...p, visuals: p.visuals.filter((v) => v.id !== id) } : p,
+      ),
     });
     if (get().selectedVisualId === id) set({ selectedVisualId: null });
   },
+
   setWells: (id, wells) => {
-    updateVisual(set, get, id, (visual) => ({ ...visual, wells }));
+    updateVisual(set, get, id, (v) => ({ ...v, wells }));
   },
+
   setPageFilters: (filters) => {
     const report = get().report;
-    const page = report.pages[0];
+    const pageIndex = get().activePageIndex;
+    const page = report.pages[pageIndex];
     if (!page) return;
-    commit(set, get, { ...report, pages: [{ ...page, filters }] });
+    commit(set, get, {
+      ...report,
+      pages: report.pages.map((p, i) => (i === pageIndex ? { ...p, filters } : p)),
+    });
   },
+
   setFormat: (id, title, color) => {
-    updateVisual(set, get, id, (visual) => patchFormat(visual, title, color));
+    updateVisual(set, get, id, (v) => patchFormat(v, title, color));
   },
+
+  setProperties: (id, props) => {
+    updateVisual(set, get, id, (v) => ({
+      ...v,
+      properties: { ...v.properties, ...props },
+    }));
+  },
+
+  copyVisual: (id) => {
+    const page = get().report.pages[get().activePageIndex];
+    const visual = page?.visuals.find((v) => v.id === id);
+    if (visual) set({ clipboard: { ...visual } });
+  },
+
+  pasteVisual: () => {
+    const { clipboard, report, activePageIndex } = get();
+    if (!clipboard) return;
+    const page = report.pages[activePageIndex];
+    if (!page) return;
+    const newVisual: VisualDefinition = {
+      ...clipboard,
+      id: crypto.randomUUID(),
+      x: Math.min(clipboard.x + 40, PAGE_WIDTH - clipboard.width),
+      y: Math.min(clipboard.y + 40, PAGE_HEIGHT - clipboard.height),
+    };
+    commit(set, get, {
+      ...report,
+      pages: report.pages.map((p, i) =>
+        i === activePageIndex ? { ...p, visuals: [...p.visuals, newVisual] } : p,
+      ),
+    });
+    set({ selectedVisualId: newVisual.id });
+  },
+
+  bringToFront: (id) => {
+    const report = get().report;
+    const pageIndex = get().activePageIndex;
+    const page = report.pages[pageIndex];
+    if (!page) return;
+    const visual = page.visuals.find((v) => v.id === id);
+    if (!visual) return;
+    const others = page.visuals.filter((v) => v.id !== id);
+    commit(set, get, {
+      ...report,
+      pages: report.pages.map((p, i) =>
+        i === pageIndex ? { ...p, visuals: [...others, visual] } : p,
+      ),
+    });
+  },
+
+  sendToBack: (id) => {
+    const report = get().report;
+    const pageIndex = get().activePageIndex;
+    const page = report.pages[pageIndex];
+    if (!page) return;
+    const visual = page.visuals.find((v) => v.id === id);
+    if (!visual) return;
+    const others = page.visuals.filter((v) => v.id !== id);
+    commit(set, get, {
+      ...report,
+      pages: report.pages.map((p, i) =>
+        i === pageIndex ? { ...p, visuals: [visual, ...others] } : p,
+      ),
+    });
+  },
+
+  drillThrough: (pageIndex, filters) => {
+    const report = get().report;
+    const page = report.pages[pageIndex];
+    if (!page) return;
+    commit(set, get, {
+      ...report,
+      pages: report.pages.map((p, i) =>
+        i === pageIndex ? { ...p, filters: [...(p.filters ?? []), ...filters] } : p,
+      ),
+    });
+    set({ activePageIndex: pageIndex, selectedVisualId: null });
+  },
+
   undo: () => {
     const result = undo(get().report, get().history);
     set({ report: result.doc, history: result.history });
   },
+
   redo: () => {
     const result = redo(get().report, get().history);
     set({ report: result.doc, history: result.history });
@@ -98,13 +244,17 @@ function updateVisual(
   set: (partial: Partial<DesignerState>) => void,
   get: () => DesignerState,
   id: string,
-  map: (visual: VisualDefinition) => VisualDefinition,
+  map: (v: VisualDefinition) => VisualDefinition,
 ) {
   const report = get().report;
-  const page = report.pages[0];
+  const pageIndex = get().activePageIndex;
+  const page = report.pages[pageIndex];
   if (!page) return;
-  const visuals = page.visuals.map((visual) => (visual.id === id ? map(visual) : visual));
-  commit(set, get, { ...report, pages: [{ ...page, visuals }] });
+  const visuals = page.visuals.map((v) => (v.id === id ? map(v) : v));
+  commit(set, get, {
+    ...report,
+    pages: report.pages.map((p, i) => (i === pageIndex ? { ...p, visuals } : p)),
+  });
 }
 
 function moved(visual: VisualDefinition, x: number, y: number): VisualDefinition {

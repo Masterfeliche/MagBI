@@ -125,7 +125,7 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
-| SUB-0.1 | GL regression | Card Credit is `1,973,281.93`. Tooltip is `40,365.75`. Y-axis uses `40K`. Edit then refresh restores the report. Rapid well drops do not freeze. Ctrl+A+Delete then Ctrl+Z restores all visuals. Right-click opens the menu. Five new visuals do not overlap | 2h | [ ] |
+| SUB-0.1 | GL regression | Card Credit is `1,973,281.93`. Tooltip is `40,365.75`. Y-axis uses `40K`. Edit then refresh restores the report. Rapid well drops do not freeze. Ctrl+A+Delete then Ctrl+Z restores all visuals. Right-click opens the menu. Five new visuals do not overlap | 2h | [x] |
 | SUB-1.1 | Empty well placeholder | Empty wells are at least 40px, show “Drag field here”, and highlight on drag-over. A field drops on the first attempt | 2h | [ ] |
 | SUB-1.2 | Card auto-size | Default card is `360×180`. Short value uses a large font. `1,210,240.47` shrinks to fit. ResizeObserver updates font while resizing | 4h | [ ] |
 | SUB-1.3 | Visual type icons | Insert tab: 13 distinct SVG icons ≥32×32, buttons ≥48×48, tooltip with the type name | 3h | [ ] |
@@ -187,7 +187,7 @@ Order: 0.1 → 1.1 → 1.2 → 1.3 → 2.1 → 2.2 → 3.1 → 3.2 → 4.1 → 4
 
 ## 3. Execution Log
 
-- [ ] SUB-0.1: (Commit hash)
+- [x] SUB-0.1: (Commit hash pending)
 - [ ] SUB-1.1: (Commit hash)
 - [ ] SUB-1.2: (Commit hash)
 - [ ] SUB-1.3: (Commit hash)

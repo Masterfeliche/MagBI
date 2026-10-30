@@ -21,4 +21,27 @@ describe("canvas snap", () => {
     expect(PAGE_WIDTH).toBe(1760);
     expect(PAGE_HEIGHT).toBe(990);
   });
+
+  it("places five cards in a row then wraps without overlap", () => {
+    const cards = [];
+    for (let i = 0; i < 5; i += 1) {
+      cards.push(placeVisual(cards, "card", String(i)));
+    }
+    expect(cards.map((card) => ({ x: card.x, y: card.y }))).toEqual([
+      { x: 0, y: 0 },
+      { x: 360, y: 0 },
+      { x: 720, y: 0 },
+      { x: 1080, y: 0 },
+      { x: 0, y: 140 },
+    ]);
+    for (let i = 0; i < cards.length; i += 1) {
+      for (let j = i + 1; j < cards.length; j += 1) {
+        const a = cards[i];
+        const b = cards[j];
+        const hit = a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+        expect(hit).toBe(false);
+      }
+    }
+  });
 });
+

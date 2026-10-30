@@ -2,9 +2,11 @@
 
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
+import { BookmarkPanel } from "./BookmarkPanel";
+import { ConditionalFormatDialog } from "./ConditionalFormatDialog";
 import { MeasureEditor } from "../model-editor/MeasureEditor";
 import { RlsRolesDialog } from "../model-editor/RlsRolesDialog";
 import { ViewAsDialog } from "../model-editor/ViewAsDialog";
@@ -26,7 +28,8 @@ import { SelectionPane } from "./SelectionPane";
 import { TooltipPreview } from "./TooltipPreview";
 import { useDesignerStore } from "./store";
 import { themeById } from "../shared/themes";
-import { exportReport } from "./exportReport";
+import { exportReport, exportVisualData } from "./exportReport";
+import { visualDataOf } from "./visualData";
 import { TitleBar } from "./TitleBar";
 import { dropField, removeBinding, wellForDrop } from "./wells";
 import { pickReport } from "./pickReport";
@@ -34,6 +37,7 @@ import "./designer.css";
 
 export function DesignerPage() {
   const { workspaceId, datasetId } = useParams();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const report = useDesignerStore((s) => s.report);
   const selectedId = useDesignerStore((s) => s.selectedVisualId);
@@ -46,6 +50,7 @@ export function DesignerPage() {
   const setSaveStatus = useDesignerStore((s) => s.setSaveStatus);
   const copyVisual = useDesignerStore((s) => s.copyVisual);
   const pasteVisual = useDesignerStore((s) => s.pasteVisual);
+  const setProperties = useDesignerStore((s) => s.setProperties);
   const bringToFront = useDesignerStore((s) => s.bringToFront);
   const sendToBack = useDesignerStore((s) => s.sendToBack);
   const clipboard = useDesignerStore((s) => s.clipboard);
@@ -69,6 +74,8 @@ export function DesignerPage() {
   const [showMeasure, setShowMeasure] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
   const [showViewAs, setShowViewAs] = useState(false);
+  const [showCondFmt, setShowCondFmt] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
   const [showRefresh, setShowRefresh] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [cross, setCross] = useState<CrossFilter | null>(null);
@@ -215,6 +222,15 @@ export function DesignerPage() {
             onClick: () => drillThrough(dt.index, page?.filters ?? []),
           }))
         : [{ label: "Drillthrough", icon: "↗", disabled: true, onClick: () => {} }]),
+      { label: "Hide", icon: "👁", onClick: () => setProperties(visualId, { hidden: true }) },
+      { label: "Export CSV", icon: "⬇", onClick: () => {
+        const data = visualDataOf(visualId);
+        if (data) exportVisualData(data.columns, data.rows, "visual", "csv");
+      } },
+      { label: "Export Excel", icon: "⬇", onClick: () => {
+        const data = visualDataOf(visualId);
+        if (data) exportVisualData(data.columns, data.rows, "visual", "xlsx");
+      } },
       { label: "Show as table", icon: "⊞", disabled: true, divider: true, onClick: () => {} },
       { label: "Remove", icon: "🗑", danger: true, onClick: () => removeVisual(visualId) },
     ];
@@ -267,6 +283,12 @@ export function DesignerPage() {
         onNewMeasure={() => setShowMeasure(true)}
         onManageRoles={() => setShowRoles(true)}
         onViewAs={() => setShowViewAs(true)}
+        onModel={() => {
+          if (workspaceId && datasetId) navigate(`/workspaces/${workspaceId}/datasets/${datasetId}/model`);
+        }}
+        onCondFormat={() => setShowCondFmt(true)}
+        onBookmarks={() => setShowBookmarks(true)}
+        onImportTheme={(json) => useDesignerStore.getState().importThemeJson(json)}
         onTheme={(themeId) => useDesignerStore.getState().setTheme(themeById(themeId).colors)}
         onExport={() => {
           if (stage.current) exportReport(stage.current, report.name || "report");
@@ -309,6 +331,8 @@ export function DesignerPage() {
           onClose={() => setShowViewAs(false)}
         />
       )}
+      {showCondFmt && <ConditionalFormatDialog onClose={() => setShowCondFmt(false)} />}
+      {showBookmarks && <BookmarkPanel onClose={() => setShowBookmarks(false)} />}
       {showMeasure && workspaceId && datasetId && (
         <MeasureEditor
           workspaceId={workspaceId}

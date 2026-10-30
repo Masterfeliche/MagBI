@@ -14,6 +14,10 @@ export function Ribbon({
   onNewMeasure,
   onManageRoles,
   onViewAs,
+  onModel,
+  onCondFormat,
+  onBookmarks,
+  onImportTheme,
   onTheme,
   onExport,
 }: {
@@ -24,6 +28,10 @@ export function Ribbon({
   onNewMeasure: () => void;
   onManageRoles: () => void;
   onViewAs: () => void;
+  onModel: () => void;
+  onCondFormat: () => void;
+  onBookmarks: () => void;
+  onImportTheme: (json: string) => void;
   onTheme: (themeId: string) => void;
   onExport: () => void;
 }) {
@@ -110,7 +118,7 @@ export function Ribbon({
         </div>
         <div className="ribbon-group">
           <div className="ribbon-btns">
-            <button type="button" className="rb"><span>Relationships</span></button>
+            <button type="button" className="rb" onClick={onModel}><span>Relationships</span></button>
             <button type="button" className="rb" onClick={onManageRoles}><span>Security</span></button>
             <button type="button" className="rb" onClick={onViewAs}><span>View as</span></button>
           </div>
@@ -121,7 +129,7 @@ export function Ribbon({
       <div className={`ribbon-content${active === "view" ? " active" : ""}`}>
         <div className="ribbon-group">
           <div className="ribbon-btns">
-            <button type="button" className="rb"><span>Reading</span></button>
+            <button type="button" className="rb" onClick={onModel}><span>Model</span></button>
             <button type="button" className="rb"><span>Mobile</span></button>
           </div>
           <span className="ribbon-group-label">Page views</span>
@@ -130,7 +138,7 @@ export function Ribbon({
           <div className="ribbon-btns">
             <button type="button" className="rb"><span>Gridlines</span></button>
             <button type="button" className="rb"><span>Snap</span></button>
-            <button type="button" className="rb"><span>Bookmarks</span></button>
+            <button type="button" className="rb" onClick={onBookmarks}><span>Bookmarks</span></button>
             <button type="button" className="rb" onClick={onToggleSelection}><span>Selection</span></button>
           </div>
           <span className="ribbon-group-label">Show</span>
@@ -140,7 +148,7 @@ export function Ribbon({
       <div className={`ribbon-content${active === "format" ? " active" : ""}`}>
         <div className="ribbon-group">
           <div className="ribbon-btns">
-            <button type="button" className="rb"><span>Cond fmt</span></button>
+            <button type="button" className="rb" onClick={onCondFormat}><span>Cond fmt</span></button>
             <button type="button" className="rb"><span>Tooltips</span></button>
           </div>
           <span className="ribbon-group-label">Conditional</span>
@@ -149,7 +157,20 @@ export function Ribbon({
           <div className="ribbon-btns">
             <button type="button" className="rb" onClick={() => onTheme("msd")}><span>MSD theme</span></button>
             <button type="button" className="rb" onClick={() => onTheme("default")}><span>Default theme</span></button>
-            <button type="button" className="rb"><span>Wallpaper</span></button>
+            <label className="rb">
+              <span>Theme JSON</span>
+              <input
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void file.text().then(onImportTheme);
+                  event.target.value = "";
+                }}
+              />
+            </label>
           </div>
           <span className="ribbon-group-label">Theme</span>
         </div>

@@ -4,6 +4,7 @@ import ReactECharts from "echarts-for-react";
 import { useEffect, useRef, useState } from "react";
 
 import { canvasTextWidth, fitCardFontSize } from "../cardFont";
+import { cardSignColor } from "../condFormat";
 import { categoryOpacity } from "../filters";
 import {
   axisText,
@@ -39,17 +40,24 @@ interface RendererProps {
   properties?: FormatProps;
   palette?: string[];
   onCategory?: (category: string) => void;
+  onDrill?: (category: string) => void;
   highlightCategory?: string;
 }
 
-export function VisualRenderer({ model, title, color, properties, palette, onCategory, highlightCategory }: RendererProps) {
+export function VisualRenderer({ model, title, color, properties, palette, onCategory, onDrill, highlightCategory }: RendererProps) {
   switch (model.kind) {
     case "note":
       return <NoteView model={model} title={title} />;
     case "card":
-      return <CardVisual title={title} value={formatNumber(model.value)} />;
+      return (
+        <CardVisual
+          title={title}
+          value={formatNumber(model.value)}
+          color={properties?.condFormat === "cardSign" ? cardSignColor(formatNumber(model.value)) : undefined}
+        />
+      );
     case "cartesian":
-      return <CartesianChart model={model} title={title} color={color} properties={properties} palette={palette} onCategory={onCategory} highlightCategory={highlightCategory} />;
+      return <CartesianChart model={model} title={title} color={color} properties={properties} palette={palette} onCategory={onCategory} onDrill={onDrill} highlightCategory={highlightCategory} />;
     case "pie":
       return <PieChart model={model} title={title} properties={properties} palette={palette} onCategory={onCategory} highlightCategory={highlightCategory} />;
     case "scatter":
@@ -67,7 +75,7 @@ export function VisualRenderer({ model, title, color, properties, palette, onCat
   }
 }
 
-function CardVisual({ title, value }: { title: string; value: string }) {
+function CardVisual({ title, value, color }: { title: string; value: string; color?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [fontSize, setFontSize] = useState(28);
 
@@ -88,7 +96,7 @@ function CardVisual({ title, value }: { title: string; value: string }) {
   return (
     <div className="card-value" ref={ref}>
       {title && <span className="visual-label">{title}</span>}
-      <span className="card-number" style={{ fontSize }}>{value}</span>
+      <span className="card-number" style={{ fontSize, color }}>{value}</span>
     </div>
   );
 }
@@ -113,6 +121,7 @@ function CartesianChart({
   properties = {},
   palette,
   onCategory,
+  onDrill,
   highlightCategory,
 }: {
   model: CartesianModel;
@@ -121,6 +130,7 @@ function CartesianChart({
   properties?: FormatProps;
   palette?: string[];
   onCategory?: (category: string) => void;
+  onDrill?: (category: string) => void;
   highlightCategory?: string;
 }) {
   const horizontal = model.orientation === "bar";
@@ -135,7 +145,22 @@ function CartesianChart({
     color: chartColors(props, palette),
     title: titleFrom(props),
     legend: legendFrom(props),
-    tooltip: { trigger: "axis" as const, valueFormatter: exact },
+    tooltip: {
+      trigger: "axis" as const,
+      extraCssText: "padding:8px 12px;border:1px solid #E0E3E8;border-radius:4px;background:#fff;",
+      formatter: (params: unknown) => {
+        const items = Array.isArray(params) ? params : [params];
+        const index = Number((items[0] as { dataIndex?: number } | undefined)?.dataIndex ?? 0);
+        const lines = items.map((item) => {
+          const point = item as { seriesName?: string; value?: unknown };
+          return `${point.seriesName ?? ""}: ${exact(Number(point.value))}`;
+        });
+        for (const extra of model.tooltips ?? []) {
+          lines.push(`${extra.name}: ${extra.values[index] ?? ""}`);
+        }
+        return `<div>${lines.join("<br/>")}</div>`;
+      },
+    },
     grid: { left: 56, right: 16, top: props.title ? 36 : 16, bottom: categories > 12 ? 64 : 32 },
     xAxis: horizontal
       ? { type: "value" as const, show: props.yShow !== false, axisLabel: { formatter: format ?? valueLabel } }
@@ -173,7 +198,10 @@ function CartesianChart({
     <ReactECharts
       option={option}
       style={{ height: "100%", width: "100%" }}
-      onEvents={{ click: (p: { name?: string }) => { if (p.name && onCategory) onCategory(p.name); } }}
+      onEvents={{
+        click: (p: { name?: string }) => { if (p.name && onCategory) onCategory(p.name); },
+        dblclick: (p: { name?: string }) => { if (p.name && onDrill) onDrill(p.name); },
+      }}
     />
   );
 }

@@ -7,11 +7,13 @@ import { apiFetch } from "../shared/api";
 import type { DSR } from "../types/query";
 import type { FilterDefinition, VisualDefinition } from "../types/report";
 import { visualSpec } from "./catalog";
+import { colorScale, dataBarWidth, statusColor } from "./condFormat";
 import { slicerFilters, type SlicerMode } from "./slicer";
 import type { FormatProps } from "./formatChart";
 import { useDesignerStore } from "./store";
 import { buildQuery } from "./query";
 import { renderModel } from "./render";
+import { rememberVisualData } from "./visualData";
 import { VisualRenderer } from "./visuals/registry";
 
 export function VisualView({
@@ -34,12 +36,18 @@ export function VisualView({
   const spec = visualSpec(visual.type);
   const [dsr, setDsr] = useState<DSR | null>(null);
   const [error, setError] = useState("");
-  const query = useMemo(() => buildQuery(visual.wells, filters), [visual.wells, filters]);
+  const drillLevel = Number(visual.properties?.drillLevel ?? 0);
+  const query = useMemo(
+    () => buildQuery(visual.wells, filters, { drillLevel }),
+    [visual.wells, filters, drillLevel],
+  );
   const queryKey = JSON.stringify(query);
   const title = typeof visual.properties?.title === "string" ? visual.properties.title : "";
   const color = typeof visual.properties?.color === "string" ? visual.properties.color : "#118DFF";
   const palette = useDesignerStore((state) => state.report.theme?.colors);
   const viewAs = useDesignerStore((state) => state.viewAs);
+  const drillUp = useDesignerStore((state) => state.drillUp);
+  const drillDown = useDesignerStore((state) => state.drillDown);
 
   useEffect(() => {
     if (spec.renders === "map" || spec.renders === "none" || spec.renders === "slicer") return;
@@ -56,7 +64,9 @@ export function VisualView({
         signal: controller.signal,
       })
         .then((result) => {
-          if (!controller.signal.aborted) setDsr(result);
+          if (controller.signal.aborted) return;
+          setDsr(result);
+          rememberVisualData(visual.id, result.columns.map((column) => column.name), result.rows);
         })
         .catch((reason: unknown) => {
           if (controller.signal.aborted) return;
@@ -67,7 +77,7 @@ export function VisualView({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [spec.renders, queryKey, workspaceId, datasetId, query, viewAs]);
+  }, [spec.renders, queryKey, workspaceId, datasetId, query, viewAs, visual.id]);
 
   if (spec.renders === "slicer") {
     return (
@@ -82,18 +92,39 @@ export function VisualView({
   }
   if (error) return <div className="note">{error}</div>;
 
-  const model = renderModel(visual.type, dsr);
-  if (model.kind === "table") return <DataTable columns={model.columns} rows={model.rows} />;
+  const hierarchy = visual.wells.hierarchy ?? [];
+  const crumb = hierarchy.slice(0, drillLevel).map((item) => item.column ?? item.measure).filter(Boolean);
+  const model = renderModel(visual.type, dsr, (visual.wells.tooltips ?? []).length);
+  if (model.kind === "table") {
+    return (
+      <DataTable
+        columns={model.columns}
+        rows={model.rows}
+        condFormat={typeof visual.properties?.condFormat === "string" ? visual.properties.condFormat : ""}
+      />
+    );
+  }
   return (
-    <VisualRenderer
-      model={model}
-      title={title}
-      color={color}
-      properties={(visual.properties ?? {}) as FormatProps}
-      palette={palette}
-      onCategory={onCategory}
-      highlightCategory={highlightCategory}
-    />
+    <>
+      {hierarchy.length > 0 && (
+        <div className="drill-crumb">
+          {crumb.length > 0 && (
+            <button type="button" onClick={() => drillUp(visual.id)}>Up</button>
+          )}
+          <span>{crumb.join(" / ") || "All"}</span>
+        </div>
+      )}
+      <VisualRenderer
+        model={model}
+        title={title}
+        color={color}
+        properties={(visual.properties ?? {}) as FormatProps}
+        palette={palette}
+        onCategory={onCategory}
+        onDrill={(category) => drillDown(visual.id, category)}
+        highlightCategory={highlightCategory}
+      />
+    </>
   );
 }
 
@@ -220,7 +251,15 @@ function selectedSlicerValues(filters: FilterDefinition[], visual: VisualDefinit
   return Array.isArray(config?.values) ? config.values.map(String) : [];
 }
 
-function DataTable({ columns, rows }: { columns: string[]; rows: string[][] }) {
+function DataTable({
+  columns,
+  rows,
+  condFormat,
+}: {
+  columns: string[];
+  rows: string[][];
+  condFormat: string;
+}) {
   const data = rows.map((row) =>
     Object.fromEntries(columns.map((name, index) => [name, row[index] ?? ""])),
   );
@@ -243,9 +282,25 @@ function DataTable({ columns, rows }: { columns: string[]; rows: string[][] }) {
       <tbody>
         {table.getRowModel().rows.map((row) => (
           <tr key={row.id}>
-            {row.getVisibleCells().map((cell) => (
-              <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-            ))}
+            {row.getVisibleCells().map((cell, index) => {
+              const raw = String(cell.getValue() ?? "");
+              const numeric = rows.map((item) => Number(item[index])).filter((item) => Number.isFinite(item));
+              const n = Number(raw);
+              const background =
+                condFormat === "rules"
+                  ? statusColor(raw)
+                  : condFormat === "colorScale" && Number.isFinite(n)
+                    ? colorScale(numeric, n)
+                    : undefined;
+              return (
+                <td key={cell.id} style={{ background, position: "relative" }}>
+                  {condFormat === "dataBar" && Number.isFinite(n) && (
+                    <span className="data-bar" style={{ width: dataBarWidth(numeric, n) }} />
+                  )}
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              );
+            })}
           </tr>
         ))}
       </tbody>

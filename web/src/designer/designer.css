@@ -1319,6 +1319,20 @@
   background: #FAFBFC;
 }
 
+.data-bar {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  background: rgba(17, 141, 255, 0.25);
+  z-index: 0;
+}
+
+.data-table td > * {
+  position: relative;
+  z-index: 1;
+}
+
 .data-table tr:hover td {
   background: var(--selection);
 }
@@ -1370,6 +1384,14 @@ label.stack select:focus {
   font-weight: 600;
   font-size: 11px;
   color: var(--text);
+}
+
+.drill-crumb {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  padding: 4px 8px;
 }
 
 .view-as-banner {

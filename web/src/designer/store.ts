@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { BUILT_IN_THEMES } from "../shared/theme";
+import { BUILT_IN_THEMES, type ReaderTheme, type SavedThemes } from "../shared/theme";
 import { importThemeFile } from "../shared/themeFile";
 import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, ThemeOverrides, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
@@ -51,6 +51,18 @@ interface DesignerState {
   setViewAs: (next: { roles: string[]; user?: string } | null) => void;
   dataAsAt: string | null;
   setDataAsAt: (value: string | null) => void;
+  /** The organisation's and the workspace's saved themes. */
+  savedThemes: SavedThemes;
+  setSavedThemes: (value: SavedThemes) => void;
+  /** Set by the viewer's ?theme= preview: draw that built-in theme and ignore saved ones. */
+  themePreview: boolean;
+  setThemePreview: (value: boolean) => void;
+  /** A host app's theme pick for an embedded report; it stands in for the report's own. */
+  hostTheme: ThemeOverrides | null;
+  setHostTheme: (value: ThemeOverrides | null) => void;
+  /** The reader's own needs: High Contrast and larger text. Never saved with the report. */
+  reader: ReaderTheme;
+  setReader: (value: Partial<ReaderTheme>) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -67,6 +79,14 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   setViewAs: (next) => set({ viewAs: next }),
   dataAsAt: null,
   setDataAsAt: (value) => set({ dataAsAt: value }),
+  savedThemes: { organisation: [], workspace: [] },
+  setSavedThemes: (value) => set({ savedThemes: value }),
+  themePreview: false,
+  setThemePreview: (value) => set({ themePreview: value }),
+  hostTheme: null,
+  setHostTheme: (value) => set({ hostTheme: value }),
+  reader: { contrast: false, larger: false },
+  setReader: (value) => set({ reader: { ...get().reader, ...value } }),
   selectVisual: (id) => set({ selectedVisualId: id }),
   replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null, activePageIndex: 0 }),
 

@@ -49,7 +49,7 @@ export interface MagbiTheme {
   status: Record<Tone, StatusToken>;
   /** ``scale`` multiplies every font size; the layout itself does not move. */
   type: { family: string; scale: number; numberWeight?: number };
-  /** ``touch`` is the smallest height of anything a reader taps, in px. */
+  /** ``touch`` is the smallest tap target, in px. Kept for the phone layout: on the fixed 1760 px page a phone shrinks it to a few pixels, so the kit does not apply it. */
   shape: { radius: number; border: number; density: "compact" | "comfortable"; touch?: number };
   chart: { gridlines: boolean };
   /** Chart series carry a pattern as well as a colour. */
@@ -131,8 +131,78 @@ export function reportLayer(fields: ReportThemeFields | undefined): ThemeLayer |
   return layer;
 }
 
-export function themeForReport(fields: ReportThemeFields | undefined): MagbiTheme {
-  return resolveTheme(builtInTheme(fields?.id), [fields?.overrides, reportLayer(fields)]);
+/** A theme saved for the organisation or a workspace: a layer over a built-in theme. */
+export interface SavedTheme {
+  id: string;
+  scope: "organisation" | "workspace";
+  name: string;
+  definition: ThemeLayer & { extends?: string };
+  isDefault: boolean;
+  locked: boolean;
+  version: number;
+}
+
+/** The saved themes a report can see: the organisation's and its workspace's. */
+export interface SavedThemes {
+  organisation: SavedTheme[];
+  workspace: SavedTheme[];
+}
+
+/** A report refers to a saved theme as ``saved:<id>``. */
+export const SAVED_PREFIX = "saved:";
+
+export function savedTheme(saved: SavedTheme): MagbiTheme {
+  const { extends: base, ...layer } = saved.definition;
+  const theme = resolveTheme(builtInTheme(base), [layer]);
+  return { ...theme, id: `${SAVED_PREFIX}${saved.id}`, name: saved.name };
+}
+
+export function findSaved(saved: SavedThemes | undefined, id: string | undefined): SavedTheme | undefined {
+  if (!saved || !id?.startsWith(SAVED_PREFIX)) return undefined;
+  const key = id.slice(SAVED_PREFIX.length);
+  return [...saved.organisation, ...saved.workspace].find((theme) => theme.id === key);
+}
+
+/** The organisation's default theme when it is locked; reports then keep it. */
+export function lockedTheme(saved: SavedThemes | undefined): SavedTheme | undefined {
+  return saved?.organisation.find((theme) => theme.isDefault && theme.locked);
+}
+
+/** The theme a report gets when it has not picked one: the workspace default, else the organisation's. */
+export function defaultSaved(saved: SavedThemes | undefined): SavedTheme | undefined {
+  return saved?.workspace.find((theme) => theme.isDefault) ?? saved?.organisation.find((theme) => theme.isDefault);
+}
+
+/** What a reader turned on for themselves. */
+export interface ReaderTheme {
+  /** High Contrast, even over a locked organisation theme: a reader's need outranks the brand. */
+  contrast: boolean;
+  /** Larger text (phones), on top of whatever theme applies. */
+  larger: boolean;
+}
+
+export const LARGER: ThemeLayer = { type: { scale: 1.15 }, shape: { touch: 44 } };
+
+export function forReader(theme: MagbiTheme, reader: ReaderTheme | undefined): MagbiTheme {
+  if (reader?.contrast) return reader.larger ? resolveTheme(builtInTheme("high-contrast"), [LARGER]) : builtInTheme("high-contrast");
+  if (!reader?.larger) return theme;
+  return resolveTheme(theme, [{ ...LARGER, type: { scale: Math.max(theme.type.scale, LARGER.type?.scale ?? 1) } }]);
+}
+
+/**
+ * The theme a report is drawn in. A locked organisation theme always wins and
+ * the report may change its chart colours only. Otherwise the report's own
+ * pick, else the workspace default, else the organisation default, else
+ * Enterprise Light; the report's own changes go on top.
+ */
+export function themeForReport(fields: ReportThemeFields | undefined, saved?: SavedThemes): MagbiTheme {
+  const own = [fields?.overrides, reportLayer(fields)];
+  const locked = lockedTheme(saved);
+  if (locked) return resolveTheme(savedTheme(locked), [{ locked: true }, ...own]);
+  const picked = findSaved(saved, fields?.id);
+  const fallback = defaultSaved(saved);
+  const base = picked ? savedTheme(picked) : fields?.id ? builtInTheme(fields.id) : fallback ? savedTheme(fallback) : DEFAULT_THEME;
+  return resolveTheme(base, own);
 }
 
 /** A stored colour may be a surface or text token name ("frame", "line") or a literal colour. */

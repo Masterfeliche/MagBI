@@ -1540,3 +1540,10 @@ label.stack select:focus {
 .theme-problems p { margin: 0 0 4px; font-weight: 600; }
 .theme-problems ul { margin: 0; padding-left: 18px; }
 @media (max-width: 720px) { .theme-dialog-body { grid-template-columns: 1fr; } }
+.theme-section h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text2); }
+.theme-tile:disabled { cursor: not-allowed; opacity: 0.6; }
+.theme-tile.on:disabled { opacity: 1; }
+.theme-locked { margin: 4px 0 8px; padding: 8px 10px; font-size: 13px; background: #DCE8F6; color: #335C96; border-radius: 4px; }
+.theme-fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
+.theme-fieldset:disabled { opacity: 0.55; }
+.theme-field input[type="text"] { grid-column: 2 / 4; font: inherit; padding: 3px 6px; }

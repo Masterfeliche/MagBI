@@ -10,6 +10,8 @@ import { PAGE_HEIGHT, PAGE_WIDTH } from "../designer/layout";
 import { PageTabs } from "../designer/PageTabs";
 import { useDesignerStore } from "../designer/store";
 import { BUILT_IN_THEMES } from "../shared/theme";
+import { useSavedThemesLoader } from "../designer/useReportTheme";
+import { hostThemeFrom, readContrast, saveContrast } from "./readerTheme";
 import { apiFetch } from "../shared/api";
 import type { ReportDefinition } from "../types/report";
 import "../designer/designer.css";
@@ -41,6 +43,32 @@ export function ReportViewer({
   const token = searchParams.get("token");
   // ?theme=<id> previews a built-in theme without saving anything (QA and theme checks).
   const previewTheme = searchParams.get("theme");
+  const setThemePreview = useDesignerStore((state) => state.setThemePreview);
+  const setHostTheme = useDesignerStore((state) => state.setHostTheme);
+  const reader = useDesignerStore((state) => state.reader);
+  const setReader = useDesignerStore((state) => state.setReader);
+  useSavedThemesLoader(workspaceId, token);
+
+  // The reader's own needs: High Contrast is remembered on this device; larger text is on for phone-width screens.
+  useEffect(() => {
+    setReader({ contrast: readContrast() || searchParams.get("contrast") === "1", larger: window.innerWidth < 768 });
+    return () => setReader({ contrast: false, larger: false });
+  }, [searchParams, setReader]);
+
+  // An embedding app may pick the theme in the URL (?themeId=) or later with the SDK's setTheme.
+  useEffect(() => {
+    setHostTheme(hostThemeFrom({ id: searchParams.get("themeId") ?? undefined }));
+    const listen = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.data?.type !== "setTheme") return;
+      setHostTheme(hostThemeFrom(event.data.theme ?? {}));
+      if (typeof event.data.theme?.contrast === "boolean") setReader({ contrast: event.data.theme.contrast });
+    };
+    window.addEventListener("message", listen);
+    return () => {
+      window.removeEventListener("message", listen);
+      setHostTheme(null);
+    };
+  }, [searchParams, setHostTheme, setReader]);
 
   useEffect(() => {
     if (!workspaceId || !reportId) return;
@@ -54,7 +82,9 @@ export function ReportViewer({
     }>(`/workspaces/${workspaceId}/reports/${reportId}`, { headers })
       .then((body) => {
         if (cancelled) return;
-        const preview = BUILT_IN_THEMES.some((theme) => theme.id === previewTheme) ? { theme: { id: previewTheme as string } } : {};
+        const previewing = BUILT_IN_THEMES.some((theme) => theme.id === previewTheme);
+        const preview = previewing ? { theme: { id: previewTheme as string } } : {};
+        setThemePreview(previewing);
         replaceReport({ ...body.definition, ...preview, name: body.name || body.definition.name });
         setDataAsAt(body.last_refreshed_at ?? null);
         setDatasetId(body.dataset_id);
@@ -89,6 +119,27 @@ export function ReportViewer({
         <div className="viewer-bar">
           <strong>{report.name}</strong>
           <div className="viewer-fits">
+            <button
+              type="button"
+              className={reader.contrast ? "ws-btn small primary" : "ws-btn small"}
+              aria-pressed={reader.contrast}
+              title="Black on white with patterns, for you only; the report is not changed"
+              onClick={() => {
+                saveContrast(!reader.contrast);
+                setReader({ contrast: !reader.contrast });
+              }}
+            >
+              ◐ High contrast
+            </button>
+            <button
+              type="button"
+              className={reader.larger ? "ws-btn small primary" : "ws-btn small"}
+              aria-pressed={reader.larger}
+              title="Larger text, for you only; the report is not changed"
+              onClick={() => setReader({ larger: !reader.larger })}
+            >
+              A+ Larger text
+            </button>
             <button type="button" className={fit === "page" ? "ws-btn small primary" : "ws-btn small"} onClick={() => setFit("page")}>
               Fit to page
             </button>

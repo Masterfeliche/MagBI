@@ -27,10 +27,11 @@ import { StatusBar } from "./StatusBar";
 import { SelectionPane } from "./SelectionPane";
 import { TooltipPreview } from "./TooltipPreview";
 import { useDesignerStore } from "./store";
-import { themeForReport } from "../shared/theme";
 import { exportThemeFile } from "../shared/themeFile";
 import { ThemeDialog } from "./ThemeDialog";
 import { ThemeGallery } from "./ThemeGallery";
+import { fetchSavedThemes, useReportTheme, useSavedThemesLoader } from "./useReportTheme";
+import { findSaved, lockedTheme, SAVED_PREFIX } from "../shared/theme";
 import { exportReport, exportVisualData } from "./exportReport";
 import { visualDataOf } from "./visualData";
 import { TitleBar } from "./TitleBar";
@@ -81,6 +82,9 @@ export function DesignerPage() {
   const [showViewAs, setShowViewAs] = useState(false);
   const [showCondFmt, setShowCondFmt] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
+  useSavedThemesLoader(workspaceId);
+  const resolvedTheme = useReportTheme();
+  const savedThemes = useDesignerStore((state) => state.savedThemes);
   const [showCustomize, setShowCustomize] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showRefresh, setShowRefresh] = useState(false);
@@ -319,7 +323,7 @@ export function DesignerPage() {
         onThemes={() => setShowThemes(true)}
         onCustomizeTheme={() => setShowCustomize(true)}
         onExportTheme={() => {
-          const theme = themeForReport(report.theme);
+          const theme = resolvedTheme;
           const link = document.createElement("a");
           link.href = URL.createObjectURL(new Blob([exportThemeFile(theme)], { type: "application/json" }));
           link.download = `${theme.name.replace(/[^\w -]+/g, "").trim() || "theme"}.json`;
@@ -370,7 +374,8 @@ export function DesignerPage() {
       {showCondFmt && <ConditionalFormatDialog onClose={() => setShowCondFmt(false)} />}
       {showThemes && (
         <ThemeGallery
-          current={report.theme?.id ?? "enterprise-light"}
+          current={resolvedTheme.id}
+          saved={savedThemes}
           onPick={(id) => {
             useDesignerStore.getState().applyTheme(id);
             setShowThemes(false);
@@ -380,9 +385,18 @@ export function DesignerPage() {
       )}
       {showCustomize && (
         <ThemeDialog
-          current={report.theme?.id ?? "enterprise-light"}
-          resolved={themeForReport(report.theme)}
-          onSave={(theme) => useDesignerStore.getState().setThemeFields(theme)}
+          baseId={findSaved(savedThemes, resolvedTheme.id)?.definition.extends ?? (resolvedTheme.id.startsWith(SAVED_PREFIX) ? "enterprise-light" : resolvedTheme.id)}
+          resolved={resolvedTheme}
+          locked={lockedTheme(savedThemes)?.name}
+          workspaceId={workspaceId}
+          onSaveReport={(theme) => useDesignerStore.getState().setThemeFields(theme)}
+          onShared={(themeId) => {
+            if (!workspaceId) return;
+            void fetchSavedThemes(workspaceId).then((saved) => {
+              useDesignerStore.getState().setSavedThemes(saved);
+              useDesignerStore.getState().applyTheme(themeId);
+            });
+          }}
           onClose={() => setShowCustomize(false)}
         />
       )}

@@ -1656,3 +1656,40 @@ label.stack select:focus {
 }
 .phone-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Viewer under 768 px: tap targets of at least 44 px; with a phone layout, the page edge to edge, scrolling down. */
+.designer.viewer.phone .stage {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.designer.viewer.phone .stage-canvas {
+  flex: none;
+  padding: 0;
+  margin: 0 auto;
+  overflow: visible;
+}
+.designer.viewer.narrow .viewer-bar {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+}
+.designer.viewer.narrow .viewer-fits {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.designer.viewer.narrow .viewer-bar .ws-btn,
+.designer.viewer.narrow .page-tab {
+  min-height: 44px;
+  min-width: 44px;
+}
+.designer.viewer.narrow .page-tabs {
+  height: auto;
+  overflow-x: auto;
+}
+.designer.viewer.phone .kit-slicer select,
+.designer.viewer.phone .visual button,
+.designer.viewer.phone .visual input[type="checkbox"] + span,
+.designer.viewer.phone .visual select {
+  min-height: 44px;
+}
+/* On a narrow window the reader buttons keep their glyph; the name stays as the button's label. */
+.designer.viewer.narrow .viewer-btn-word { display: none; }

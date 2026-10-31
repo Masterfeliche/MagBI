@@ -2,14 +2,19 @@
 
 Aggregates on different tables are rejected. ``+`` and ``-`` treat NULL as 0.
 ``DIVIDE`` by zero is NULL. CALCULATE replaces filters on the columns it
-mentions; ALL removes them. A table named by a filter or by ``also`` is joined
-on the active relationship path.
+mentions; ALL removes them. A table named by a filter, by RELATED, by a
+context function or by ``also`` is joined on the active relationship path.
+
+Iterators (SUMX…) aggregate a row expression over their table's rows.
+SELECTEDVALUE and HASONEVALUE look at the rows in the current filter context.
+RANKX is a window over the visual's rows, so it ranks what the visual shows.
 """
 
 from __future__ import annotations
 
 import calendar
 import datetime as dt
+import re
 from dataclasses import dataclass
 from typing import cast
 
@@ -17,7 +22,7 @@ from sqlglot import exp
 
 from magbi.dax.binder import bind_measure
 from magbi.dax.errors import DaxError
-from magbi.dax.functions import AGGREGATES, IDENTITY
+from magbi.dax.functions import AGGREGATES, CONTEXT, IDENTITY, ITERATORS
 from magbi.dax.parser import (
     Binary,
     BoolLit,
@@ -61,7 +66,28 @@ def compile_row_expression(model: DatasetDefinition, source: str) -> exp.Express
     """Compile a calculated column. Aggregations are rejected by the binder."""
     from magbi.dax.binder import bind_calculated_column
 
-    return _scalar(bind_calculated_column(model, source), {}, (), model)
+    expr = bind_calculated_column(model, source)
+    extra: set[str] = set()
+    _extra_tables(expr, extra)
+    if extra:
+        raise DaxError("calculated columns can use their own table's columns only, yet", expr.line, expr.col)
+    return _scalar(expr, {}, (), model)
+
+
+def home_table(model: DatasetDefinition, source: str) -> str:
+    """The table a measure aggregates over, found without compiling it.
+
+    Compiling needs the filter context (time intelligence reads the date
+    filter), which the engine only knows once it has the home table.
+    """
+    expr = bind_measure(model, source)
+    facts: set[str] = set()
+    _facts(expr, facts)
+    if not facts:
+        _context_tables(expr, facts)
+    if len(facts) != 1:
+        raise DaxError("measures that combine two fact tables are compiled by the query engine", expr.line, expr.col)
+    return next(iter(facts))
 
 
 def compile_aggregate(
@@ -123,6 +149,9 @@ def _prepare(
     )
     facts: set[str] = set()
     _facts(expr, facts)
+    if not facts:
+        # Only SELECTEDVALUE or HASONEVALUE: their column's table is the home table.
+        _context_tables(expr, facts)
     if len(facts) != 1:
         raise DaxError(
             "measures that combine two fact tables are compiled by the query engine",
@@ -133,6 +162,7 @@ def _prepare(
     scalar = _scalar(expr, {}, context, model)
     mentioned: set[str] = set()
     _filter_tables(expr, context, mentioned, model)
+    _extra_tables(expr, mentioned)
     tables = tuple(table for table in mentioned if table != fact)
     return fact, scalar, tables, expr
 
@@ -165,8 +195,41 @@ def _facts(expr: Expr, found: set[str]) -> None:
     if isinstance(expr, Call) and expr.name.casefold() in AGGREGATES:
         found.add(_fact_of(expr))
         return
+    if isinstance(expr, Call) and expr.name.casefold() in ITERATORS:
+        found.add(_iterated(expr.args[0]))
+        return
+    if isinstance(expr, Call) and expr.name.casefold() in CONTEXT:
+        return
     for child in _children(expr):
         _facts(child, found)
+
+
+def _context_tables(expr: Expr, found: set[str]) -> None:
+    if isinstance(expr, Call) and expr.name.casefold() in CONTEXT - {"isfiltered"}:
+        arg = expr.args[0]
+        if isinstance(arg, ColumnRef):
+            found.add(arg.table)
+        return
+    for child in _children(expr):
+        _context_tables(child, found)
+
+
+def _extra_tables(expr: Expr, found: set[str]) -> None:
+    """Tables a measure reads besides its filters: RELATED columns and context-function columns."""
+    if isinstance(expr, Call) and expr.name.casefold() in {"related", "selectedvalue", "hasonevalue"}:
+        arg = expr.args[0] if expr.args else None
+        if isinstance(arg, ColumnRef):
+            found.add(arg.table)
+    for child in _children(expr):
+        _extra_tables(child, found)
+
+
+def _iterated(source: Expr) -> str:
+    if isinstance(source, TableRef):
+        return source.name
+    if isinstance(source, Call) and source.name.casefold() == "filter" and source.args and isinstance(source.args[0], TableRef):
+        return source.args[0].name
+    raise DaxError("an iterator walks a table, or FILTER(<table>, <condition>)", source.line, source.col)
 
 
 def _fact_of(call: Call) -> str:
@@ -262,7 +325,13 @@ def _call(
         return _scalar(expr.args[0], scope, updated, model)
     if name in AGGREGATES:
         return _where(_aggregate(expr)[1], filters)
+    special = _special(expr, scope, filters, model)
+    if special is not None:
+        return special
     args = [_scalar(arg, scope, filters, model) for arg in expr.args]
+    plain = _plain(name, args, expr)
+    if plain is not None:
+        return plain
     if name == "blank":
         return exp.Null()
     if name == "isblank":
@@ -285,6 +354,228 @@ def _call(
     if name in IDENTITY:
         raise DaxError(f"{expr.name.upper()}() works only in row-level security rules", expr.line, expr.col)
     raise DaxError(f"{expr.name} cannot be compiled yet", expr.line, expr.col)
+
+
+# ---------------------------------------------------------------- functions added for Power BI parity
+
+
+_ITERATED = {"sumx": exp.Sum, "averagex": exp.Avg, "minx": exp.Min, "maxx": exp.Max, "countx": exp.Count}
+_INTERVALS = {"DAY": "day", "WEEK": "week", "MONTH": "month", "QUARTER": "quarter", "YEAR": "year"}
+
+
+def _arity(expr: Call, low: int, high: int | None = None) -> None:
+    high = low if high is None else high
+    if not low <= len(expr.args) <= high:
+        count = str(low) if low == high else f"{low} to {high}"
+        raise DaxError(f"{expr.name.upper()} expects {count} arguments", expr.line, expr.col)
+
+
+def _special(
+    expr: Call,
+    scope: dict[str, Expr],
+    filters: tuple[Constraint, ...],
+    model: DatasetDefinition,
+) -> exp.Expression | None:
+    """Functions that read the filter context, a table, or a keyword argument."""
+    name = expr.name.casefold()
+    if name in _ITERATED:
+        source = expr.args[0]
+        rows = filters
+        if isinstance(source, Call):
+            _arity(source, 2)
+            rows = filters + _constraints(source.args[1], source)
+        row = _scalar(expr.args[1], scope, (), model)
+        return _where(cast(exp.Expression, _ITERATED[name](this=row)), rows)
+    if name == "related":
+        arg = expr.args[0]
+        if not isinstance(arg, ColumnRef):
+            raise DaxError("RELATED expects one column", expr.line, expr.col)
+        return exp.column(arg.column, table=arg.table, quoted=True)
+    if name in {"selectedvalue", "hasonevalue"}:
+        column = expr.args[0]
+        if not isinstance(column, ColumnRef):
+            raise DaxError(f"{expr.name.upper()} expects a column", expr.line, expr.col)
+        ref = exp.column(column.column, table=column.table, quoted=True)
+        one = exp.EQ(this=_where(exp.Count(this=exp.Distinct(expressions=[ref])), filters), expression=exp.Literal.number(1))
+        if name == "hasonevalue":
+            return one
+        alternate = _scalar(expr.args[1], scope, filters, model) if len(expr.args) == 2 else exp.Null()
+        return exp.If(this=one, true=_where(exp.Min(this=ref.copy()), filters), false=alternate)
+    if name == "isfiltered":
+        column = expr.args[0]
+        if not isinstance(column, ColumnRef):
+            raise DaxError("ISFILTERED expects a column", expr.line, expr.col)
+        return exp.Boolean(this=any((column.table, column.column) in item.columns for item in filters))
+    if name in {"totalqtd", "totalmtd"}:
+        _arity(expr, 2)
+        period = "quarter" if name == "totalqtd" else "month"
+        return _scalar(expr.args[0], scope, _to_date(filters, expr.args[1], expr, model, period), model)
+    if name == "datediff":
+        _arity(expr, 3)
+        interval = expr.args[2]
+        if not isinstance(interval, NameRef) or interval.name.upper() not in _INTERVALS:
+            raise DaxError("DATEDIFF interval must be DAY, WEEK, MONTH, QUARTER or YEAR", expr.line, expr.col)
+        start, end = (_date(_scalar(arg, scope, filters, model)) for arg in expr.args[:2])
+        return exp.Anonymous(this="DATE_DIFF", expressions=[exp.Literal.string(_INTERVALS[interval.name.upper()]), start, end])
+    if name == "weekday":
+        _arity(expr, 1, 2)
+        kind = expr.args[1] if len(expr.args) == 2 else NumberLit(1, expr.line, expr.col)
+        if not isinstance(kind, NumberLit) or kind.value not in {1, 2, 3}:
+            raise DaxError("WEEKDAY type must be 1, 2 or 3", expr.line, expr.col)
+        day = _date(_scalar(expr.args[0], scope, filters, model))
+        if kind.value == 1:  # Sunday 1 … Saturday 7
+            return exp.Add(this=exp.Anonymous(this="DAYOFWEEK", expressions=[day]), expression=exp.Literal.number(1))
+        iso = exp.Anonymous(this="ISODOW", expressions=[day])  # Monday 1 … Sunday 7
+        return iso if kind.value == 2 else exp.Sub(this=iso, expression=exp.Literal.number(1))
+    if name == "format":
+        _arity(expr, 2)
+        pattern = expr.args[1]
+        if not isinstance(pattern, StringLit):
+            raise DaxError("FORMAT expects a format in quotes, such as \"#,0\" or \"dd mmm yyyy\"", expr.line, expr.col)
+        return _format(_scalar(expr.args[0], scope, filters, model), pattern.value, expr)
+    if name == "switch":
+        return _switch(expr, scope, filters, model)
+    if name == "rankx":
+        return _rankx(expr, scope, filters, model)
+    return None
+
+
+def _plain(name: str, args: list[exp.Expression], expr: Call) -> exp.Expression | None:
+    """Scalar functions that map straight onto SQL."""
+    one = {"upper": exp.Upper, "lower": exp.Lower, "abs": exp.Abs, "int": exp.Floor}
+    if name in one:
+        _arity(expr, 1)
+        return cast(exp.Expression, one[name](this=args[0]))
+    if name == "len":
+        _arity(expr, 1)
+        return exp.Length(this=_blank_text(args[0]))
+    if name in {"left", "right"}:
+        _arity(expr, 2)
+        return exp.Anonymous(this=name.upper(), expressions=[args[0], args[1]])
+    if name == "mid":
+        _arity(expr, 3)
+        return exp.Substring(this=args[0], start=args[1], length=args[2])
+    if name == "concatenate":
+        _arity(expr, 2)
+        return exp.DPipe(this=_blank_text(args[0]), expression=_blank_text(args[1]))
+    if name == "coalesce":
+        if len(args) < 2:
+            raise DaxError("COALESCE expects two or more arguments", expr.line, expr.col)
+        return exp.Coalesce(this=args[0], expressions=args[1:])
+    if name == "iferror":
+        _arity(expr, 2)
+        # Division by zero is already blank here, and DuckDB's TRY cannot wrap an
+        # aggregate, so over an aggregate a blank result takes the alternate too.
+        inner = args[0] if args[0].find(exp.AggFunc) else exp.Anonymous(this="TRY", expressions=[args[0]])
+        return exp.Coalesce(this=inner, expressions=[args[1]])
+    if name == "round":
+        _arity(expr, 1, 2)
+        digits = args[1] if len(args) == 2 else exp.Literal.number(0)
+        return exp.Round(this=args[0], decimals=digits)
+    if name == "mod":
+        _arity(expr, 2)
+        # The remainder takes the divisor's sign, as in DAX.
+        quotient = exp.Floor(this=exp.Div(this=args[0].copy(), expression=exp.Nullif(this=args[1].copy(), expression=exp.Literal.number(0))))
+        return exp.Sub(this=args[0], expression=exp.Mul(this=args[1], expression=quotient))
+    if name == "power":
+        _arity(expr, 2)
+        return exp.Pow(this=args[0], expression=args[1])
+    if name in {"year", "month", "day"}:
+        _arity(expr, 1)
+        return exp.Anonymous(this=name.upper(), expressions=[_date(args[0])])
+    if name == "today":
+        _arity(expr, 0)
+        return exp.CurrentDate()
+    if name == "date":
+        _arity(expr, 3)
+        return exp.Anonymous(this="MAKE_DATE", expressions=args)
+    if name == "eomonth":
+        _arity(expr, 2)
+        moved = exp.Add(this=_date(args[0]), expression=exp.Anonymous(this="TO_MONTHS", expressions=[exp.Cast(this=args[1], to=exp.DataType.build("INTEGER"))]))
+        return exp.Anonymous(this="LAST_DAY", expressions=[moved])
+    return None
+
+
+def _date(value: exp.Expression) -> exp.Expression:
+    return exp.Cast(this=value, to=exp.DataType.build("DATE"))
+
+
+def _switch(
+    expr: Call,
+    scope: dict[str, Expr],
+    filters: tuple[Constraint, ...],
+    model: DatasetDefinition,
+) -> exp.Expression:
+    """SWITCH(value, match, result, …, [else]); SWITCH(TRUE(), condition, result, …) tests conditions."""
+    if len(expr.args) < 3:
+        raise DaxError("SWITCH expects a value, then pairs of match and result", expr.line, expr.col)
+    first = expr.args[0]
+    tests_conditions = isinstance(first, BoolLit) and first.value or (
+        isinstance(first, Call) and first.name.casefold() == "true"
+    )
+    pairs = expr.args[1:]
+    otherwise = _scalar(pairs[-1], scope, filters, model) if len(pairs) % 2 else exp.Null()
+    ifs: list[exp.Expression] = []
+    for match, result in zip(pairs[0::2], pairs[1::2], strict=False):
+        condition = (
+            _scalar(match, scope, filters, model)
+            if tests_conditions
+            else _eq(_scalar(first, scope, filters, model), _scalar(match, scope, filters, model))
+        )
+        ifs.append(exp.If(this=condition, true=_scalar(result, scope, filters, model)))
+    return exp.Case(ifs=ifs, default=otherwise)
+
+
+def _rankx(
+    expr: Call,
+    scope: dict[str, Expr],
+    filters: tuple[Constraint, ...],
+    model: DatasetDefinition,
+) -> exp.Expression:
+    """RANKX(ALL(...), <expression>, , [ASC|DESC], [SKIP|DENSE]) as a rank over the visual's rows."""
+    _arity(expr, 2, 5)
+    table = expr.args[0]
+    if not (isinstance(table, TableRef) or (isinstance(table, Call) and table.name.casefold() in {"all", "removefilters"})):
+        raise DaxError("RANKX ranks over ALL(<table or column>)", expr.line, expr.col)
+    if len(expr.args) >= 3 and not (isinstance(expr.args[2], Call) and expr.args[2].name.casefold() == "blank"):
+        raise DaxError("RANKX's third argument (a value to rank) isn't supported yet; leave it empty or BLANK()", expr.line, expr.col)
+    words = [arg.name.upper() for arg in expr.args[3:] if isinstance(arg, NameRef)]
+    if len(words) != len(expr.args[3:]) or any(word not in {"ASC", "DESC", "SKIP", "DENSE"} for word in words):
+        raise DaxError("RANKX order is ASC or DESC, and ties are SKIP or DENSE", expr.line, expr.col)
+    value = _scalar(expr.args[1], scope, filters, model)
+    kind = "DENSE_RANK" if "DENSE" in words else "RANK"
+    ordered = exp.Ordered(this=value, desc="ASC" not in words, nulls_first=False)
+    return exp.Window(this=exp.Anonymous(this=kind, expressions=[]), order=exp.Order(expressions=[ordered]))
+
+
+_DATE_TOKENS = (("yyyy", "%Y"), ("yy", "%y"), ("mmmm", "%B"), ("mmm", "%b"), ("mm", "%m"), ("dddd", "%A"), ("ddd", "%a"), ("dd", "%d"))
+_NUMBER_FORMAT = re.compile(r"^(#,)?0(?:\.(0+))?(%?)$")
+
+
+def _format(value: exp.Expression, pattern: str, at: Call) -> exp.Expression:
+    """FORMAT for the common Power BI patterns: numbers (#,0 / 0.0 / 0%) and dates (dd mmm yyyy…)."""
+    number = _NUMBER_FORMAT.match(pattern.strip())
+    if number:
+        digits = len(number.group(2) or "")
+        grouping = "," if number.group(1) else ""
+        if number.group(3):
+            value = exp.Mul(this=value, expression=exp.Literal.number(100))
+        decimal = exp.Cast(this=value, to=exp.DataType.build("DOUBLE"))
+        suffix = "%" if number.group(3) else ""
+        return exp.Anonymous(this="FORMAT", expressions=[exp.Literal.string(f"{{:{grouping}.{digits}f}}{suffix}"), decimal])
+    if any(token in pattern.lower() for token, _ in _DATE_TOKENS):
+        out, rest = "", pattern
+        while rest:
+            for token, code in _DATE_TOKENS:
+                if rest.lower().startswith(token):
+                    out += code
+                    rest = rest[len(token):]
+                    break
+            else:
+                out += rest[0].replace("%", "%%")
+                rest = rest[1:]
+        return exp.Anonymous(this="STRFTIME", expressions=[exp.Cast(this=value, to=exp.DataType.build("DATE")), exp.Literal.string(out)])
+    raise DaxError('FORMAT supports "0", "0.0", "#,0", "#,0.00", "0%", "0.0%" and dates such as "dd mmm yyyy" or "mmm yy"', at.line, at.col)
 
 
 def _divide(
@@ -396,6 +687,11 @@ def _apply(
         return _shift_dates(filters, modifier, model, years=-1)
     if isinstance(modifier, Call) and modifier.name.casefold() == "dateadd":
         return _dateadd(filters, modifier, model)
+    if isinstance(modifier, Call) and modifier.name.casefold() == "datesytd":
+        _arity(modifier, 1)
+        return _ytd(filters, modifier.args[0], modifier, model)
+    if isinstance(modifier, Call) and modifier.name.casefold() in {"previousmonth", "previousyear", "parallelperiod"}:
+        return _whole_periods(filters, modifier, model)
     if isinstance(modifier, Call) and modifier.name.casefold() in {
         "all",
         "removefilters",
@@ -650,6 +946,63 @@ def _ytd(
         Constraint(((table, name),), ">=", start),
         Constraint(((table, name),), "<=", latest),
     )
+
+
+def _context_dates(filters: tuple[Constraint, ...], table: str, name: str, at: Call) -> list[dt.date]:
+    dates: list[dt.date] = []
+    for item in filters:
+        if (table, name) not in item.columns:
+            continue
+        values = item.value if isinstance(item.value, tuple) else (item.value,)
+        dates.extend(value.date() if isinstance(value, dt.datetime) else value for value in values if isinstance(value, dt.date))
+    if not dates:
+        raise DaxError(f"{at.name.upper()} needs a date filter", at.line, at.col)
+    return dates
+
+
+def _period_start(day: dt.date, period: str, fiscal_start: int = 1) -> dt.date:
+    if period == "month":
+        return day.replace(day=1)
+    step = 3 if period == "quarter" else 12
+    offset = (day.month - fiscal_start) % step
+    month_index = day.month - 1 - offset
+    return dt.date(day.year + month_index // 12, month_index % 12 + 1, 1)
+
+
+def _to_date(
+    filters: tuple[Constraint, ...], column: Expr, at: Call, model: DatasetDefinition, period: str
+) -> tuple[Constraint, ...]:
+    """Quarter or month to date: from the period's first day to the latest date in context."""
+    table, name = _date_key(column, at, model)
+    latest = max(_context_dates(filters, table, name, at))
+    start = _period_start(latest, period, model.date_table.fiscal_year_start_month)
+    kept = tuple(item for item in filters if (table, name) not in item.columns)
+    return kept + (Constraint(((table, name),), ">=", start), Constraint(((table, name),), "<=", latest))
+
+
+def _whole_periods(filters: tuple[Constraint, ...], call: Call, model: DatasetDefinition) -> tuple[Constraint, ...]:
+    """PREVIOUSMONTH, PREVIOUSYEAR and PARALLELPERIOD: whole periods moved from the dates in context."""
+    name = call.name.casefold()
+    if name == "parallelperiod":
+        _arity(call, 3)
+        count, interval = call.args[1], call.args[2]
+        if isinstance(count, Unary) and count.op == "-" and isinstance(count.expr, NumberLit):
+            count = NumberLit(-count.expr.value, count.line, count.col)
+        if not isinstance(count, NumberLit) or not isinstance(interval, NameRef) or interval.name.upper() not in {"MONTH", "QUARTER", "YEAR"}:
+            raise DaxError("PARALLELPERIOD expects the date column, a whole number, and MONTH, QUARTER or YEAR", call.line, call.col)
+        period, step = interval.name.lower(), int(count.value)
+    else:
+        _arity(call, 1)
+        period, step = ("month", -1) if name == "previousmonth" else ("year", -1)
+    table, key = _date_key(call.args[0], call, model)
+    dates = _context_dates(filters, table, key, call)
+    months = {"month": 1, "quarter": 3, "year": 12}[period] * step
+    first = _move(_period_start(min(dates), period), 0, months, 0, call)
+    last_start = _move(_period_start(max(dates), period), 0, months, 0, call)
+    span = {"month": 1, "quarter": 3, "year": 12}[period]
+    last = _move(last_start, 0, span, 0, call) - dt.timedelta(days=1)
+    kept = tuple(item for item in filters if (table, key) not in item.columns)
+    return kept + (Constraint(((table, key),), ">=", first), Constraint(((table, key),), "<=", last))
 
 
 def _date_key(column: Expr, at: Call, model: DatasetDefinition) -> tuple[str, str]:

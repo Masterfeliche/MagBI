@@ -303,15 +303,22 @@ class _Parser:
         self._advance()
         args: list[Expr] = []
         if self._cur().kind is not TokenKind.RPAREN:
-            args.append(self._statement())
+            args.append(self._argument())
             while self._cur().kind is TokenKind.COMMA:
                 self._advance()
-                args.append(self._statement())
+                args.append(self._argument())
         self._expect(TokenKind.RPAREN, "')'")
         problem = function_error(name.text)
         if problem is not None:
             raise DaxError(problem, name.line, name.col)
         return Call(name.text, tuple(args), name.line, name.col)
+
+    def _argument(self) -> Expr:
+        """An argument; an empty one, as in RANKX(t, e, , DESC), is BLANK()."""
+        token = self._cur()
+        if token.kind in (TokenKind.COMMA, TokenKind.RPAREN):
+            return Call("BLANK", (), token.line, token.col)
+        return self._statement()
 
 
 def _is_comparison(expr: Expr) -> bool:

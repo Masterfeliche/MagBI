@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from magbi.dax.compiler import AggregatePlan, compile_aggregate
+from magbi.dax.compiler import AggregatePlan, compile_aggregate, home_table
 from magbi.dax.errors import DaxError
 from magbi.engine.errors import QueryError
 from magbi.engine.filter_context import BoundFilter
@@ -46,7 +46,7 @@ def fact_groups(
     order: list[str] = []
     for measure in bound.measures:
         try:
-            fact = compile_aggregate(model, measure.expression).fact
+            fact = home_table(model, measure.expression)
             if fact not in seen:
                 seen[fact] = filters_for_fact(model, fact, filters)
             plan = compile_aggregate(model, measure.expression, filters=seen[fact][0])

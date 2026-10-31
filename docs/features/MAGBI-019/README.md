@@ -92,9 +92,9 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | SUB-5.3 | Export a page to PDF on the server (headless Chrome, the QA gate's renderer) | PDF of each Warehouse dashboard matches its screenshot; filters applied | 2d | [x] |
 | SUB-5.4 | Email subscriptions (PDF of a page on a schedule), off until SMTP is configured | With a test SMTP server, a daily subscription arrives with the PDF | 2d | [x] |
 | SUB-5.5 | Alerts on a card or KPI value crossing a threshold, checked after each refresh | An alert fires once per crossing; in-app notice, email when SMTP is set | 2d | [x] |
-| SUB-6.1 | PostgreSQL connector on the `Connector` base, read-only guard included | Same connector test suite as SQL Server passes | 2d | [ ] |
-| SUB-6.2 | MySQL connector | Same suite | 1.5d | [ ] |
-| SUB-6.3 | OData / REST JSON connector (paged GET, flattening) | Imports a public OData feed into a table | 3d | [ ] |
+| SUB-6.1 | PostgreSQL connector on the `Connector` base, read-only guard included | Same connector test suite as SQL Server passes | 2d | [x] |
+| SUB-6.2 | MySQL connector | Same suite | 1.5d | [x] |
+| SUB-6.3 | OData / REST JSON connector (paged GET, flattening) | Imports a public OData feed into a table | 3d | [x] |
 | SUB-7.1 | Lockout after 5 failed sign-ins in 15 minutes, with audit | Sixth attempt refused for 15 minutes; admin can unlock | 1d | [ ] |
 | SUB-7.2 | Change password and admin-issued reset link | Old password stops working; link expires after 1 hour | 1.5d | [ ] |
 | SUB-7.3 | OpenID Connect sign-in (Entra ID, Google, Keycloak) | A test identity provider signs a user in; first sign-in creates the user | 3d | [ ] |
@@ -124,6 +124,7 @@ About 57 days in total. Phases 1–2 (7 days) are the recommended next step; pha
 - [x] Analysis and Plan approved 31 Oct 2026; phases 1 and 2 started.
 - [x] Phases 1 and 2 done 31 Oct 2026 (commits listed by `git log --grep magbi-019` and the feat/fix commits before it).
 - [x] Phases 3, 4 and 5 done 31 Oct 2026.
+- [x] Phase 6 done 31 Oct 2026; phase 8 (phone) running alongside in its own session and branch.
 
 ### Phases 1–2 result (31 Oct 2026)
 
@@ -240,6 +241,33 @@ New tables (migration 0008): `report_shares`, `apps`, `app_reports`, `app_audien
 - PDF export: the 3 Warehouse dashboards export in about 7 s each as one page that matches the dashboard on screen.
 - Email: a PDF sent through `SmtpMailer` to a local SMTP server arrives with the subject and the PDF, byte for byte.
 - End to end: 47 of 47. QA gate (`--themes all --quick`): 30 of 30 pass, the 3 Warehouse dashboards in every theme.
+
+### Phase 6 result (31 Oct 2026)
+
+MagBI now imports from four kinds of source, up from one.
+
+| Kind | What it reads | How it stays safe | Where |
+|------|---------------|-------------------|-------|
+| PostgreSQL | Tables, views, materialised and partitioned tables in every schema the login can use; primary keys; row estimates; SQL queries | Settings go to the driver one by one, never pasted into a string. The session is read-only at the server (`default_transaction_read_only`) with a time limit per statement. Every query passes the read-only guard. Rows stream through a server-side cursor | `connectors/postgresql.py` |
+| MySQL and MariaDB | Every database the login can read (a MySQL schema is a database), tables and views, primary keys, row estimates, SQL queries | A read-only session set at the server, a time limit (MySQL's and MariaDB's own settings), the session time zone set to UTC, the read-only guard, and an unbuffered cursor | `connectors/mysql.py` |
+| OData (v4 and v2 JSON) | Each entity set is a table, with columns, types and keys from `$metadata`; complex types flattened into columns (`ShipTo_City`); pages followed by their next links; the count from `$count` | Only GETs, and only to the configured host: a next link to another host is refused and redirects aren't followed. The password or token travels only in the Authorization header. No SQL ever reaches the service | `connectors/odata.py` |
+| REST JSON | One endpoint returning a list of records, or an object holding one (records path), with the next page's URL in the response (next page path). Columns and types are read from the first page | As for OData | `connectors/odata.py` (`format: "json"`) |
+
+Types are planned per source (`plan_columns(columns, dialect)` in `connectors/types.py`). For example: PostgreSQL `timestamptz` is converted to UTC in the query, and arrays, enums and JSON come in as text. MySQL `bigint unsigned` becomes DECIMAL(20,0), and MySQL's zero dates come in blank. OData dates, decimals and times arrive as text in the JSON and are converted on arrival. The host allow-list (`MAGBI_CONNECTOR_ALLOWED_HOSTS`) now also covers web sources, by the host of their URL.
+
+The New Connection form asks for each kind's own settings: SSL mode for PostgreSQL, an optional database for MySQL, and URL, authentication (none, user name and password, or bearer token) and paging for web sources.
+
+**Found and fixed**
+- **Datasets made from a connection had no columns.** The dataset wizard creates each table with no columns, and nothing filled them in. The first refresh imported the data, but the model still listed no columns, so no visual or query could use it. SQL Server was affected too; the MSD dashboards weren't, because their models were built by scripts. Now a refresh gives each table with no columns the columns it imported, typed, and with sums as the default for numbers.
+- **The connection form never showed a test result.** The server answers `success`, but the form read `ok`, so every Test Connection showed "Connection failed: null", even for SQL Server.
+
+**Checks**
+- Backend: 620 passed, 17 skipped (new: 19 PostgreSQL, 17 MySQL and 15 OData/REST tests on fake drivers and a mock web service, as the SQL Server suite does; type planning and conversion; the column fill; secrets and the host allow-list for the new kinds). Frontend: 95 passed. ruff, mypy and the type build are clean.
+- A real public OData service (the Northwind demo at services.odata.org): 26 entity sets listed. Orders (830 rows, over several pages, matching the service's own count) and Customers (91) imported with typed columns in 7 s.
+- In the app, 15 of 15 checks pass: the four kinds offered, Test Connection on the public service, a missing PostgreSQL server failing with a clear message, saving the connection, browsing 26 tables with types, a 5-row preview, creating a dataset from Orders and Customers, a refresh that succeeds, and a query giving 830 orders in 21 countries. The form shows each kind's own fields, and Test Connection in the form reports "Connected successfully — OData 4.0 at services.odata.org".
+- End to end: **49 of 49**, including a real refresh from MSD_ERP (SQL Server, read-only) through the changed importer. QA gate: the 3 Warehouse dashboards pass.
+
+**Not yet checked against a real server**: PostgreSQL and MySQL ran against fake drivers only. No server is installed here and Docker isn't running. A check against real servers needs the official `postgres` and `mysql` Docker images downloaded (about 150 MB each).
 
 ---
 

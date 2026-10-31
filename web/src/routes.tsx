@@ -6,6 +6,7 @@ import { ModelView } from "./model-editor/ModelView";
 import { RequireSession } from "./shared/RequireSession";
 import { LandingPage } from "./site/LandingPage";
 import { LoginPage } from "./site/LoginPage";
+import { AppView } from "./viewer/AppView";
 import { ReportViewer } from "./viewer/ReportViewer";
 import { AppShell } from "./workspace/AppShell";
 import { ConnectionForm } from "./workspace/ConnectionForm";
@@ -36,6 +37,7 @@ export function AppRoutes() {
         path="/workspaces/:workspaceId/reports/:reportId/view"
         element={<RequireSession><ReportViewer /></RequireSession>}
       />
+      <Route path="/apps/:appId" element={<RequireSession><AppView /></RequireSession>} />
       <Route path="/embed/:reportId" element={<EmbedHost />} />
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />

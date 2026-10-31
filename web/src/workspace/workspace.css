@@ -802,3 +802,48 @@
 .dax-functions li button:hover, .dax-functions li button:focus-visible { background: var(--selection, rgba(59, 130, 246, 0.08)); }
 .dax-functions code { font-size: 12px; }
 .dax-functions span { font-size: 12px; color: var(--text2, #64748B); }
+
+/* ── Sharing: dialogs, apps, Shared with me, notifications ── */
+.modal h3 { margin: 0 0 6px; font-size: 16px; }
+.modal .form-row { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.modal .form-row .ws-input { flex: 1; min-width: 140px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.modal.notify-dialog { width: min(680px, 94vw); }
+.notify-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.notify-alert-row .ws-input[type="number"] { max-width: 140px; }
+.modal.app-dialog { width: min(600px, 94vw); }
+.app-field { display: grid; gap: 4px; margin: 10px 0; font-size: 13px; border: none; padding: 0; }
+.app-field > span, .app-field > legend { color: var(--text2); font-size: 12px; }
+.app-field textarea { font: inherit; resize: vertical; }
+.app-reports { max-height: 200px; overflow: auto; }
+.app-check { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 2px 0; }
+.ws-section { margin-top: 28px; }
+.ws-section h2 { font-size: 15px; margin: 0 0 10px; }
+
+.bell { position: relative; margin-left: auto; }
+.bell + .app-topbar-signout { margin-left: 0; }
+.bell-button { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 30px; background: transparent; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 6px; color: #fff; cursor: pointer; }
+.bell-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.bell-count { position: absolute; top: -4px; right: -7px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+.bell-panel { position: absolute; right: 0; top: 36px; width: min(360px, 92vw); max-height: 70vh; overflow: auto; background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18); z-index: 50; }
+.bell-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.bell-empty { padding: 12px; margin: 0; }
+.bell-list { list-style: none; margin: 0; padding: 0; }
+.bell-item { display: grid; gap: 2px; width: 100%; text-align: left; padding: 10px 12px; border: none; border-bottom: 1px solid var(--border); background: transparent; font: inherit; color: inherit; cursor: pointer; }
+.bell-item:hover { background: var(--bg); }
+.bell-item.unread { border-left: 3px solid var(--blue); padding-left: 9px; }
+.bell-item.unread .bell-title::before { content: "● "; color: var(--blue); }
+.bell-title { font-weight: 600; font-size: 13px; }
+.bell-body { font-size: 12px; color: var(--text2); }
+.bell-time { font-size: 11px; color: var(--text3); }
+
+.viewer-share { flex-wrap: wrap; justify-content: flex-end; }
+.viewer-notice { margin: 0; padding: 6px 16px; }
+.app-view { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); font: 13px "Segoe UI", system-ui, -apple-system, sans-serif; }
+.app-view .designer { height: 100%; }
+.app-view-bar { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 44px; background: var(--navy); color: #fff; flex-shrink: 0; }
+.app-view-tabs { display: flex; gap: 2px; overflow-x: auto; }
+.app-view-tab { background: transparent; border: none; border-bottom: 2px solid transparent; color: rgba(255, 255, 255, 0.75); font: inherit; font-size: 13px; padding: 12px 10px 10px; cursor: pointer; white-space: nowrap; }
+.app-view-tab.active { color: #fff; border-bottom-color: var(--accent); }
+.app-view-report { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.app-view-empty { padding: 20px; }

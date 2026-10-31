@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate, useParams } from "react-router-dom";
 
 import { clearToken, hasSession } from "../shared/session";
+import { NotificationBell } from "./NotificationBell";
 import "./workspace.css";
 
 export function AppShell() {
@@ -19,6 +20,7 @@ export function AppShell() {
             </>
           )}
         </nav>
+        {hasSession() && <NotificationBell />}
         {hasSession() && (
           <button
             type="button"

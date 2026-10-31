@@ -4,12 +4,13 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
 import { canEdit, type Workspace } from "../types/api";
+import { AppsPanel } from "./AppsPanel";
 import { ConnectionList } from "./ConnectionList";
 import { DatasetList } from "./DatasetList";
 import { MembersPanel } from "./MembersPanel";
 import { ReportList } from "./ReportList";
 
-type Tab = "datasets" | "reports" | "connections" | "members";
+type Tab = "datasets" | "reports" | "apps" | "connections" | "members";
 
 export function WorkspaceDetail() {
   const { workspaceId } = useParams();
@@ -43,6 +44,7 @@ export function WorkspaceDetail() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "datasets", label: "Datasets" },
     { key: "reports", label: "Reports" },
+    ...(editor ? [{ key: "apps" as const, label: "Apps" }] : []),
     { key: "connections", label: "Connections" },
     { key: "members", label: "Members" },
   ];
@@ -93,6 +95,7 @@ export function WorkspaceDetail() {
       <div className="ws-tab-content">
         {activeTab === "datasets" && <DatasetList workspaceId={workspaceId} canEdit={editor} />}
         {activeTab === "reports" && <ReportList workspaceId={workspaceId} canEdit={editor} />}
+        {activeTab === "apps" && <AppsPanel workspaceId={workspaceId} />}
         {activeTab === "connections" && <ConnectionList workspaceId={workspaceId} />}
         {activeTab === "members" && <MembersPanel workspaceId={workspaceId} />}
       </div>

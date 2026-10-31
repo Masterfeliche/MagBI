@@ -13,10 +13,14 @@ import { BUILT_IN_THEMES } from "../shared/theme";
 import { useSavedThemesLoader } from "../designer/useReportTheme";
 import { hostThemeFrom, readContrast, saveContrast } from "./readerTheme";
 import { apiFetch } from "../shared/api";
+import { downloadPdf } from "../shared/sharing";
+import { canEdit, type Workspace } from "../types/api";
 import type { ReportDefinition } from "../types/report";
 import "../designer/designer.css";
 import "../workspace/workspace.css";
 import { fitScale, type FitMode } from "./fitScale";
+import { AlertDialog, SubscribeDialog } from "./NotifyDialogs";
+import { ShareDialog } from "./ShareDialog";
 
 export function ReportViewer({
   chrome = true,
@@ -43,6 +47,10 @@ export function ReportViewer({
   const token = searchParams.get("token");
   // ?export=1 draws every page at full size, one per printed page, for the server's PDF export.
   const exporting = searchParams.get("export") === "1";
+  const [dialog, setDialog] = useState<"share" | "subscribe" | "alerts" | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [editor, setEditor] = useState(false);
   // ?theme=<id> previews a built-in theme without saving anything (QA and theme checks).
   const previewTheme = searchParams.get("theme");
   const setThemePreview = useDesignerStore((state) => state.setThemePreview);
@@ -100,6 +108,27 @@ export function ReportViewer({
     };
   }, [workspaceId, reportId, replaceReport, setDataAsAt, token]);
 
+  // Only workspace editors may share; people a report is shared with aren't members at all.
+  useEffect(() => {
+    if (!workspaceId || token || exporting || !chrome) return;
+    apiFetch<Workspace>(`/workspaces/${workspaceId}`)
+      .then((workspace) => setEditor(canEdit(workspace.my_role)))
+      .catch(() => setEditor(false));
+  }, [workspaceId, token, exporting, chrome]);
+
+  async function exportPdf() {
+    if (!workspaceId || !reportId || printing) return;
+    setPrinting(true);
+    setNotice("");
+    try {
+      await downloadPdf(workspaceId, reportId, report.name);
+    } catch (reason: unknown) {
+      setNotice(reason instanceof Error ? reason.message : "Export failed");
+    } finally {
+      setPrinting(false);
+    }
+  }
+
   useEffect(() => {
     const node = stage.current;
     if (!node) return;
@@ -110,7 +139,8 @@ export function ReportViewer({
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
-  }, [fit]);
+    // The stage appears only once the report has loaded, so measure again then.
+  }, [fit, datasetId]);
 
   if (error) return <p className="ws-error">{error}</p>;
   if (!workspaceId || !datasetId) return <p className="ws-loading">Loading report...</p>;
@@ -164,8 +194,29 @@ export function ReportViewer({
               Fit to width
             </button>
           </div>
+          {!token && reportId && (
+            <div className="viewer-fits viewer-share">
+              {editor && (
+                <button type="button" className="ws-btn small" onClick={() => setDialog("share")}>Share</button>
+              )}
+              <button type="button" className="ws-btn small" onClick={() => void exportPdf()} disabled={printing}
+                title="Every page as a PDF, as you see it">
+                {printing ? "Exporting…" : "Export PDF"}
+              </button>
+              <button type="button" className="ws-btn small" onClick={() => setDialog("subscribe")}>Subscribe</button>
+              <button type="button" className="ws-btn small" onClick={() => setDialog("alerts")}>Alerts</button>
+            </div>
+          )}
         </div>
       )}
+      {notice && <p className="ws-error viewer-notice" role="alert">{notice}</p>}
+      {dialog === "share" && workspaceId && reportId && (
+        <ShareDialog workspaceId={workspaceId} reportId={reportId} reportName={report.name} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "subscribe" && reportId && (
+        <SubscribeDialog reportId={reportId} reportName={report.name} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "alerts" && reportId && <AlertDialog reportId={reportId} report={report} onClose={() => setDialog(null)} />}
       <DndContext>
         <div className="desk">
           <div className="stage" ref={stage} style={{ flex: 1 }}>

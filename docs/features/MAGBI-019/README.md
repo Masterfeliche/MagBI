@@ -271,6 +271,7 @@ Each report page can have its own phone layout. Phones and windows under 768 px 
 - A diff before and after shows that only `pages[].phone` changed, in each published definition and in the draft. Names and publish state are the same.
 - Outbound & Transfers still has its unpublished draft (an editor's slicer and position changes), now with the same phone layout.
 - QA gate, with every filter value as well as the unfiltered view: **3 of 3 pass**. Each uses its phone layout at 390 × 844, in 5 screens. The only warnings are panel subtitles cut short on the phone, which the gate allows, and the tables that already scroll on the desktop. The phone screenshots were looked at screen by screen: header, filters, step chain, key figures, charts, heat matrix and tables are readable, with no sideways scroll.
+- Embedded, at 390 × 844: an embed token was minted for the 3 reports (10 minutes) from a service token made for this check and revoked right after. Each `/embed/<id>` uses the phone layout, without the viewer bar, with no sideways scroll, and the gate's render and phone checks find no failures.
 
 ---
 

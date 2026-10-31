@@ -13,10 +13,11 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    // MAGBI_WEB_PORT and MAGBI_API_URL let a second copy run beside this one (the CI end-to-end run).
+    port: Number(process.env.MAGBI_WEB_PORT ?? 3000),
     fs: { allow: [".", "../server/magbi/themes"] },
     proxy: {
-      "/api": "http://127.0.0.1:8000",
+      "/api": process.env.MAGBI_API_URL ?? "http://127.0.0.1:8000",
     },
   },
   test: {

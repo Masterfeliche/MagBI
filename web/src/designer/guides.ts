@@ -10,12 +10,16 @@ export interface Guide {
   at: number;
 }
 
-export function moveWithGuides(desired: Box, others: Box[]): { box: Box; guides: Guide[] } {
-  const x = shift(desired.x, desired.width, "x", others, PAGE_WIDTH);
-  const y = shift(desired.y, desired.height, "y", others, PAGE_HEIGHT);
+export function moveWithGuides(
+  desired: Box,
+  others: Box[],
+  page: { width: number; height: number } = { width: PAGE_WIDTH, height: PAGE_HEIGHT },
+): { box: Box; guides: Guide[] } {
+  const x = shift(desired.x, desired.width, "x", others, page.width);
+  const y = shift(desired.y, desired.height, "y", others, page.height);
   const box = {
-    x: clamp(x.value, 0, PAGE_WIDTH - desired.width),
-    y: clamp(y.value, 0, PAGE_HEIGHT - desired.height),
+    x: clamp(x.value, 0, page.width - desired.width),
+    y: clamp(y.value, 0, page.height - desired.height),
     width: desired.width,
     height: desired.height,
   };

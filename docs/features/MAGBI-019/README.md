@@ -98,8 +98,8 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | SUB-7.1 | Lockout after 5 failed sign-ins in 15 minutes, with audit | Sixth attempt refused for 15 minutes; admin can unlock | 1d | [ ] |
 | SUB-7.2 | Change password and admin-issued reset link | Old password stops working; link expires after 1 hour | 1.5d | [ ] |
 | SUB-7.3 | OpenID Connect sign-in (Entra ID, Google, Keycloak) | A test identity provider signs a user in; first sign-in creates the user | 3d | [ ] |
-| SUB-8.1 | Phone layout per page: separate visual positions on a 360 px-wide canvas, edited in the designer | Designer has Desktop / Phone tabs; unplaced visuals listed | 3d | [ ] |
-| SUB-8.2 | Viewer uses the phone layout under 768 px, with 44 px tap targets | The 3 Warehouse dashboards readable on a 390 px phone; gate render check at 390 × 844 | 2d | [ ] |
+| SUB-8.1 | Phone layout per page: separate visual positions on a 360 px-wide canvas, edited in the designer | Designer has Desktop / Phone tabs; unplaced visuals listed | 3d | [x] |
+| SUB-8.2 | Viewer uses the phone layout under 768 px, with 44 px tap targets | The 3 Warehouse dashboards readable on a 390 px phone; gate render check at 390 × 844 | 2d | [x] |
 | SUB-9.1 | E2E suite in the repo (`server/scripts/e2e.py`) and run in CI against a seeded dev server | All review steps pass, including the 3 former gaps | 1.5d | [ ] |
 
 **Phases and effort** (one engineer; days of work, not calendar):
@@ -240,6 +240,38 @@ New tables (migration 0008): `report_shares`, `apps`, `app_reports`, `app_audien
 - PDF export: the 3 Warehouse dashboards export in about 7 s each as one page that matches the dashboard on screen.
 - Email: a PDF sent through `SmtpMailer` to a local SMTP server arrives with the subject and the PDF, byte for byte.
 - End to end: 47 of 47. QA gate (`--themes all --quick`): 30 of 30 pass, the 3 Warehouse dashboards in every theme.
+
+### Phase 8 result (31 Oct 2026)
+
+Each report page can have its own phone layout. Phones and windows under 768 px read it, and pages without one are shrunk to fit as before.
+
+| Part | What it does | Where |
+|------|--------------|-------|
+| Phone layout in the report | `pages[].phone.visuals`: an id, x, y, width and height per visual on a 360 px-wide canvas that grows downwards. A visual left out isn't shown on a phone. The desktop page (1760 × 990) is unchanged. The server stores definitions as JSON without checking pages, so it needed no change | `types/report.ts`, `designer/phone.ts` |
+| Desktop / Phone tabs | Above the canvas. Phone shows the narrow canvas at its real size (smaller when the window is short of room), where visuals are moved and resized with the same snapping and guides. A side panel lists the visuals not on the phone yet, each with Add, plus Auto arrange, Clear and Remove selected. On the phone tab, Delete takes a visual off the phone only. Deleting a visual on the desktop also takes it off the phone | `designer/PhoneLayoutPanel.tsx`, `Canvas.tsx`, `DesignerPage.tsx`, `store.ts` |
+| Auto arrange | Stacks the page's shown visuals full width in phone reading order: header, filters (two slicers to a row), the step chain, key figures, then everything else top to bottom. A label goes with the visual under it. Decorative frames are left out. Each visual gets a phone height for its type: a KPI keeps its desktop height, a donut has room for its legend under the ring, and a heat matrix shows every row | `designer/phone.ts` (`autoPhoneLayout`) |
+| Undo and drafts | Every phone change is one undo step. Autosave writes it to the draft, and Publish to the definition | `store.ts` |
+| Viewer and embeds | Under 768 px a page with a phone layout is drawn from it, edge to edge, scrolling down; it is enlarged at most 1.25 times on small tablets. Under 768 px, every viewer button and page tab is at least 44 × 44 px, and dropdowns and buttons in visuals are at least 44 px high; High contrast and Larger text keep their glyph. Embeds use the same viewer, so they behave the same | `viewer/ReportViewer.tsx`, `useNarrowWindow.ts`, `fitScale.ts`, `designer.css` |
+| Standard-kit visuals on a phone | The header stacks its title, question and as-at line. The step chain scrolls sideways with steps wide enough to read. The donut puts its legend under the ring. The heat matrix's headers fit | `kit/kit.css` |
+| QA gate | Every report is also rendered at 390 × 844 as a phone. It runs the same render checks, then requires that a page with a phone layout uses it, nothing is wider than the phone, and the 44 px tap targets hold. A page without one passes with a warning. Screenshots are taken one screenful at a time down the page (`<name>--phone-<n>.png`) | `server/scripts/qa_gate.py` |
+
+**Found and fixed**: without a phone layout, the viewer's buttons on a phone were 26 px high, under the 44 px tap minimum. They are now 44 px on any window under 768 px.
+
+**Differences from Power BI to know**
+- Power BI's phone layout uses a fixed grid. MagBI's is free-form, snapping to 10 px with alignment guides, like the desktop page.
+- Visual formatting is shared between the two layouts; only positions and sizes are per layout.
+
+**Checks**
+- Frontend: 98 passed (new: auto arrange order and slicer pairing, no overlaps, nothing outside 360 px, the unplaced list, placing under the rest, the page height, clamping and resizing on the narrow canvas, phone scale, and store actions with undo and redo). ESLint, the type build and the production build are clean. ruff and mypy are clean on the gate. The server is unchanged apart from the gate.
+- Designer, in headless Chrome on a scratch E2E report: Phone tab, Add, Auto arrange, dragging a visual 300 px down, resizing it narrower, and Ctrl+Z twice restoring it. The draft holds the phone layout, while the published definition and every desktop position stay unchanged. After Publish, the viewer at 390 × 844 draws the phone layout.
+- The 3 Warehouse dashboards at 390 × 844, with auto-arranged phone layouts put into the report response in headless Chrome (nothing stored): phone layout used, no sideways scroll, every tap target at least 44 px, and the gate's render checks find no failures. The only warnings are panel subtitles cut short, which the gate allows. Screenshots were looked at, screen by screen.
+
+**Warehouse dashboards (31 Oct 2026, approved by the owner)**: the 3 Warehouse reports now have their phone layouts. They were saved with the owner account through `python -m scripts.apply_phone_layouts --write`, from `server/scripts/warehouse_phone_layouts.json`.
+- Every report's definition, and the Outbound & Transfers draft, was backed up first.
+- A diff before and after shows that only `pages[].phone` changed, in each published definition and in the draft. Names and publish state are the same.
+- Outbound & Transfers still has its unpublished draft (an editor's slicer and position changes), now with the same phone layout.
+- QA gate, with every filter value as well as the unfiltered view: **3 of 3 pass**. Each uses its phone layout at 390 × 844, in 5 screens. The only warnings are panel subtitles cut short on the phone, which the gate allows, and the tables that already scroll on the desktop. The phone screenshots were looked at screen by screen: header, filters, step chain, key figures, charts, heat matrix and tables are readable, with no sideways scroll.
+- Embedded, at 390 × 844: an embed token was minted for the 3 reports (10 minutes) from a service token made for this check and revoked right after. Each `/embed/<id>` uses the phone layout, without the viewer bar, with no sideways scroll, and the gate's render and phone checks find no failures.
 
 ---
 

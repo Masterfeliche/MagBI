@@ -1,0 +1,50 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "enterprise-light",
+  "name": "Enterprise Light",
+  "description": "Calm, light and dense enough for daily operational dashboards at a desk.",
+  "mode": "light",
+  "surface": {
+    "page": "#EEF2F7",
+    "panel": "#FFFFFF",
+    "strip": "#E9EEF5",
+    "frame": "#F8FAFC",
+    "line": "#D3DCE6",
+    "lineStrong": "#BCC8D6",
+    "grid": "#E2E8EF",
+    "zero": "#F3F6FA",
+    "selected": "#DCE8F6",
+    "selectedLine": "#3F6FB0",
+    "overlay": "rgba(255, 255, 255, 0.9)",
+    "focus": "#5F8BC9"
+  },
+  "text": {
+    "ink": "#22324A",
+    "muted": "#66758A",
+    "caption": "#5A6A80",
+    "accent": "#2C4F80",
+    "onData": "#FFFFFF"
+  },
+  "data": {
+    "categorical": ["#3F6FB0", "#5F8BC9", "#82A6D6", "#B3C3D8"],
+    "sequential": ["#DCE8F6", "#3F6FB0"],
+    "diverging": ["#C76E6C", "#E9EDF2", "#3F6FB0"]
+  },
+  "status": {
+    "good": { "color": "#4E9E77", "ink": "#2F7354", "soft": "#DCEFE5", "glyph": "▲", "word": "On track" },
+    "watch": { "color": "#D49A55", "ink": "#8F5F27", "soft": "#F5E3CC", "glyph": "◆", "word": "Watch" },
+    "action": { "color": "#C76E6C", "ink": "#9A4442", "soft": "#F4D9D8", "glyph": "▼", "word": "Action" },
+    "none": { "color": "#9EABBC", "ink": "#5A6A80", "soft": "#E9EDF2", "glyph": "–", "word": "No data" },
+    "info": { "color": "#5F8BC9", "ink": "#335C96", "soft": "#DCE8F6", "glyph": "●", "word": "Information" }
+  },
+  "type": {
+    "family": "\"Segoe UI\", \"IBM Plex Sans\", system-ui, sans-serif",
+    "scale": 1
+  },
+  "shape": {
+    "radius": 6,
+    "border": 1,
+    "density": "comfortable"
+  },
+  "pattern": false
+}

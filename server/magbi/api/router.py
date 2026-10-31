@@ -11,6 +11,7 @@ from magbi.api import (
     query,
     refresh,
     reports,
+    themes,
     transforms,
     workspaces,
 )
@@ -30,3 +31,4 @@ api_router.include_router(refresh.router, dependencies=workspace_role)
 api_router.include_router(query.router)
 api_router.include_router(reports.router, dependencies=workspace_role)
 api_router.include_router(transforms.router, dependencies=workspace_role)
+api_router.include_router(themes.router)

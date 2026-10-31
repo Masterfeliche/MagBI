@@ -87,11 +87,11 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | SUB-4.2 | Combo (columns and a line on one value axis), area, stacked and 100 % stacked column and bar | Each draws from the E2E dataset and cross-filters | 2d | [x] |
 | SUB-4.3 | Filled map from bundled Tanzania regions GeoJSON; point map from latitude and longitude | Warehouses plotted by region; no map tile service needed | 2d | [x] |
 | SUB-4.4 | Remove "draws nothing" types from the gallery until they draw | Every gallery visual draws something with data | 0.5d | [x] |
-| SUB-5.1 | Share a report with people (viewer access to that report only) and revoke | Shared user sees only that report; audit log rows | 2d | [ ] |
-| SUB-5.2 | Apps: publish a named set of reports to an audience with its own navigation | An app user sees the app, not the workspace | 3d | [ ] |
-| SUB-5.3 | Export a page to PDF on the server (headless Chrome, the QA gate's renderer) | PDF of each Warehouse dashboard matches its screenshot; filters applied | 2d | [ ] |
-| SUB-5.4 | Email subscriptions (PDF of a page on a schedule), off until SMTP is configured | With a test SMTP server, a daily subscription arrives with the PDF | 2d | [ ] |
-| SUB-5.5 | Alerts on a card or KPI value crossing a threshold, checked after each refresh | An alert fires once per crossing; in-app notice, email when SMTP is set | 2d | [ ] |
+| SUB-5.1 | Share a report with people (viewer access to that report only) and revoke | Shared user sees only that report; audit log rows | 2d | [x] |
+| SUB-5.2 | Apps: publish a named set of reports to an audience with its own navigation | An app user sees the app, not the workspace | 3d | [x] |
+| SUB-5.3 | Export a page to PDF on the server (headless Chrome, the QA gate's renderer) | PDF of each Warehouse dashboard matches its screenshot; filters applied | 2d | [x] |
+| SUB-5.4 | Email subscriptions (PDF of a page on a schedule), off until SMTP is configured | With a test SMTP server, a daily subscription arrives with the PDF | 2d | [x] |
+| SUB-5.5 | Alerts on a card or KPI value crossing a threshold, checked after each refresh | An alert fires once per crossing; in-app notice, email when SMTP is set | 2d | [x] |
 | SUB-6.1 | PostgreSQL connector on the `Connector` base, read-only guard included | Same connector test suite as SQL Server passes | 2d | [ ] |
 | SUB-6.2 | MySQL connector | Same suite | 1.5d | [ ] |
 | SUB-6.3 | OData / REST JSON connector (paged GET, flattening) | Imports a public OData feed into a table | 3d | [ ] |
@@ -123,6 +123,7 @@ About 57 days in total. Phases 1–2 (7 days) are the recommended next step; pha
 ## 3. Execution Log
 - [x] Analysis and Plan approved 31 Oct 2026; phases 1 and 2 started.
 - [x] Phases 1 and 2 done 31 Oct 2026 (commits listed by `git log --grep magbi-019` and the feat/fix commits before it).
+- [x] Phases 3, 4 and 5 done 31 Oct 2026.
 
 ### Phases 1–2 result (31 Oct 2026)
 
@@ -205,6 +206,40 @@ Every visual in the gallery now draws something, and a test keeps it that way.
 - Frontend: 90 passed (new: chart models, matrix builder, map matching, legend placement, every gallery visual draws). Lint, types and the production build are clean.
 - In headless Chrome on the E2E data, 15 of 15 checks pass: each new chart draws; the matrix has Region rows × Product columns plus Total; the grand total equals the engine's (26,244); Expand all opens 12 Product rows; a row's arrow collapses it; North's subtotal is the engine's average; the point map places 4 sites over the region boundaries; the filled map shades real regions (Dodoma, Mwanza, Dar es Salaam Region, Songwe, Kaskazini Unguja), lists only "Zanzibar North" as unmatched, and both maps show the credit.
 - End to end: 47 of 47. QA gate: the 3 Warehouse dashboards pass.
+
+### Phase 5 result (31 Oct 2026)
+
+Reports now reach people who don't build them: by a share, an app, a PDF, an email or an alert.
+
+| Part | What it does | Where |
+|------|--------------|-------|
+| Share a report | An editor shares one report by email and can stop sharing it. The person sees that report and nothing else in the workspace: not its other reports, its model or the edit actions. Row-level security still applies to them. Each share and unshare is in the audit log | `api/sharing.py`, `sharing/__init__.py`, `api/deps.py` (`_granted_read`), `viewer/ShareDialog.tsx` |
+| Apps | An editor picks a set of the workspace's reports and an audience, then publishes. The audience opens the app at `/apps/<id>` with its reports as tabs, and sees the reports but not who else is in the audience. Unpublishing it, or taking someone out of the audience, ends their access at once | `api/sharing.py`, `workspace/AppsPanel.tsx`, `viewer/AppView.tsx` |
+| Shared with me | The workspace list shows Apps and Shared with me. Someone who only has shares no longer sees "No workspaces yet" | `workspace/SharedWithMe.tsx` |
+| Export PDF | The viewer's Export PDF button returns every page of the published report, one page per sheet at the report's own size, as the person sees it, row-level security included. The server prints the viewer's new `?export=1` mode in headless Chrome or Edge. It signs in with a 10-minute token held in the page's session storage, never in the URL. Text in the PDF is real text, so it can be searched | `notify/pdf.py`, `api/notify.py`, `viewer/ReportViewer.tsx` |
+| Subscriptions | A person subscribes to a report on a schedule (every day, weekdays, Mondays or the first of the month, at 07:00 server time) and gets it as a PDF by email; Send now checks how it looks. Subscriptions are off until mail is set up (`MAGBI_SMTP_HOST`, `_PORT`, `_USERNAME`, `_PASSWORD`, `_FROM`, `_STARTTLS`), and the dialog says so | `notify/subscriptions.py`, `notify/mail.py`, `viewer/NotifyDialogs.tsx` |
+| Data alerts | A person sets an alert on a card, KPI card or gauge: above, at or above, below, at or below, equal to or not equal to a threshold. It is checked after each successful refresh, as that person sees the value, with the visual's own filters. It fires once when the condition becomes true, not again while it stays true. The person gets an in-app notification, plus an email when mail is set up. An alert stops if the person loses access to the report | `notify/alerts.py`, `notify/visuals.py` |
+| Notifications | A bell in the top bar shows the unread count. A notification opens its report, and all can be marked read | `workspace/NotificationBell.tsx` |
+| Scheduler | Runs in the API server every `MAGBI_SCHEDULER_INTERVAL_SECONDS` (60; 0 turns it off). Each pass queues and runs due scheduled refreshes, checks the alerts after each, then sends due subscriptions | `notify/subscriptions.py` (`run_scheduler`), `main.py` |
+
+New tables (migration 0008): `report_shares`, `apps`, `app_reports`, `app_audience`, `subscriptions`, `alerts`, `notifications`. New settings: `MAGBI_WEB_BASE_URL` (where the web app is served, for export and email links) and `MAGBI_CHROME_PATH` (found automatically when empty).
+
+**Found and fixed**
+- **Scheduled refreshes never ran.** Datasets could be given a refresh schedule, but nothing ever called the code that queues them. The new scheduler runs them.
+- **Fit to page didn't fit.** The viewer measured its stage before the report had loaded, so on screens narrower than the page (1760 px) the page opened unscaled and ran off the right edge. It now measures again once the report is loaded. The QA gate uses a 1920 px window, which is why this went unnoticed.
+
+**Differences from Power BI to know**
+- The PDF shows the report as published, with its saved filters. Slicer choices made on screen aren't carried into it yet.
+- Subscriptions send the whole report, not one page, and the schedules are the four offered.
+- Alerts fire when the condition becomes true after a refresh, at most once per crossing. Power BI also offers "at most once an hour or a day".
+- Sharing is by email address of an existing MagBI user. An admin adds new people first, because there's no invitation email yet.
+
+**Checks**
+- Backend: 566 passed, 17 skipped (new: 5 sharing and 7 notify tests: share and revoke, row-level security for a shared person, apps and their audience, alerts firing once per crossing with the visual's filters, losing access, subscriptions needing mail and sending on schedule, PDF export access, the scheduler pass). Frontend: 93 passed. ruff, mypy and the type build are clean.
+- In headless Chrome, 14 of 14 checks pass. As an editor: Share, Export PDF, Subscribe and Alerts in the viewer; sharing with a person, and an unknown email refused with a message; adding an alert that shows the card's value now (26,244); the mail notice; Export PDF finishing without an error; the bell's unread count; a notification opening its report; publishing an app from the Apps tab. As an outsider with no workspace: Apps and Shared with me listed, the app opening its report, the dataset's row-level security applied to them, and no Share button. Fit to page fits a 1600 px window.
+- PDF export: the 3 Warehouse dashboards export in about 7 s each as one page that matches the dashboard on screen.
+- Email: a PDF sent through `SmtpMailer` to a local SMTP server arrives with the subject and the PDF, byte for byte.
+- End to end: 47 of 47. QA gate (`--themes all --quick`): 30 of 30 pass, the 3 Warehouse dashboards in every theme.
 
 ---
 

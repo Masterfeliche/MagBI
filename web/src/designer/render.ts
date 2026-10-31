@@ -10,6 +10,11 @@ export interface CartesianModel {
   categories: string[];
   series: { name: string; values: number[] }[];
   tooltips?: { name: string; values: string[] }[];
+  /** Stacked series, or each category stacked to 100%. */
+  stack?: "stacked" | "percent";
+  area?: boolean;
+  /** How many of the last series are drawn as lines (Line and column). */
+  lineCount?: number;
 }
 
 export interface PieModel {
@@ -57,6 +62,16 @@ export interface WaterfallModel {
   values: number[];
 }
 
+export interface MapModel {
+  kind: "map";
+  points: { name: string; lat: number; lon: number; value: number | null }[];
+}
+
+export interface FilledMapModel {
+  kind: "filledMap";
+  regions: { name: string; value: number }[];
+}
+
 export interface NoteModel {
   kind: "note";
   message: string;
@@ -65,13 +80,10 @@ export interface NoteModel {
 export type RenderModel =
   | CartesianModel | PieModel | CardModel | TableModel
   | ScatterModel | FunnelModel | GaugeModel | TreemapModel | WaterfallModel
-  | NoteModel;
+  | MapModel | FilledMapModel | NoteModel;
 
-export function renderModel(type: string, dsr: DSR | null, extraTooltipCount = 0): RenderModel {
+export function renderModel(type: string, dsr: DSR | null, extraTooltipCount = 0, options: { lineCount?: number } = {}): RenderModel {
   const spec = visualSpec(type);
-  if (spec.renders === "map") {
-    return { kind: "note", message: "This map needs latitude and longitude." };
-  }
   if (spec.renders === "none" || spec.renders === "slicer") {
     return { kind: "note", message: "This visual is not drawn as a chart." };
   }
@@ -89,13 +101,30 @@ export function renderModel(type: string, dsr: DSR | null, extraTooltipCount = 0
       rows: dsr.rows.map((row) => row.map((cell) => text(cell))),
     };
   }
+  if (spec.renders === "map") return mapModel(dsr);
+  if (spec.renders === "filledMap") return { kind: "filledMap", regions: pie(dsr).slices };
   if (spec.renders === "pie") return pie(dsr);
   if (spec.renders === "scatter") return scatter(dsr);
   if (spec.renders === "funnel") return funnelModel(dsr);
   if (spec.renders === "gauge") return gaugeModel(dsr);
   if (spec.renders === "treemap") return treemapModel(dsr);
   if (spec.renders === "waterfall") return waterfallModel(dsr);
-  return cartesian(dsr, spec.orientation ?? "column", extraTooltipCount);
+  const model = cartesian(dsr, spec.orientation ?? "column", extraTooltipCount);
+  return {
+    ...model,
+    ...(spec.stack ? { stack: spec.stack } : {}),
+    ...(spec.area ? { area: true } : {}),
+    ...(options.lineCount ? { lineCount: options.lineCount } : {}),
+  };
+}
+
+/** Each category's values as shares of that category's total, in percent. */
+export function percentOfCategory(series: { name: string; values: number[] }[]): { name: string; values: number[] }[] {
+  const totals = series[0]?.values.map((_, index) => series.reduce((sum, item) => sum + Math.abs(item.values[index] ?? 0), 0)) ?? [];
+  return series.map((item) => ({
+    name: item.name,
+    values: item.values.map((value, index) => (totals[index] ? (100 * value) / totals[index] : 0)),
+  }));
 }
 
 function cartesian(dsr: DSR, orientation: "column" | "bar" | "line", extraTooltipCount = 0): CartesianModel {
@@ -196,6 +225,24 @@ function scatter(dsr: DSR): ScatterModel {
         .map((row) => [number(row[xIdx]), number(row[yIdx])]),
     })),
   };
+}
+
+/** Points from [Location], Latitude, Longitude and an optional size measure, in that order. */
+function mapModel(dsr: DSR): MapModel | NoteModel {
+  const groups = indexes(dsr, false);
+  const measure = indexes(dsr, true)[0];
+  if (groups.length < 2) return { kind: "note", message: "Add latitude and longitude to place points." };
+  const [nameAt, latAt, lonAt] = groups.length >= 3 ? groups : [undefined, groups[0], groups[1]];
+  const points = dsr.rows
+    .map((row, index) => ({
+      name: nameAt === undefined ? String(index + 1) : text(row[nameAt]),
+      lat: Number(row[latAt!]),
+      lon: Number(row[lonAt!]),
+      value: measure === undefined ? null : number(row[measure]),
+    }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon) && Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180);
+  if (points.length === 0) return { kind: "note", message: "None of the rows has a usable latitude and longitude." };
+  return { kind: "map", points };
 }
 
 function funnelModel(dsr: DSR): FunnelModel {

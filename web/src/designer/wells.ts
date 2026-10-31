@@ -5,8 +5,8 @@ import type { VisualSpec, WellSpec } from "./catalog";
 import { isNumeric, type DesignerField } from "./model";
 import { bindingFor } from "./query";
 
-const MEASURE_WELLS = ["y-axis", "columns", "field", "x-axis", "legend"];
-const GROUP_WELLS = ["x-axis", "legend", "columns", "field", "y-axis"];
+const MEASURE_WELLS = ["y-axis", "values", "line", "columns", "field", "x-axis", "legend"];
+const GROUP_WELLS = ["x-axis", "rows", "legend", "columns", "field", "y-axis"];
 
 /** The well a field lands in when it is dropped on the visual itself. */
 export function wellForDrop(

@@ -131,11 +131,20 @@ export function labelPlacement(position: unknown): string {
   return "top";
 }
 
-export function legendFrom(props: FormatProps): { show: boolean; top?: string; left?: string } {
+/** The legend's place. A top legend sits on its own line under a title, never on top of it. */
+export function legendFrom(props: FormatProps): { show: boolean; top?: string | number; left?: string; type?: "scroll" } {
   if (props.legendShow === false) return { show: false };
   const pos = typeof props.legendPos === "string" ? props.legendPos.toLowerCase() : "top";
-  if (pos === "left" || pos === "right") return { show: true, left: pos };
-  return { show: true, top: pos === "bottom" ? "bottom" : "top" };
+  if (pos === "left" || pos === "right") return { show: true, left: pos, type: "scroll" };
+  if (pos === "bottom") return { show: true, top: "bottom", type: "scroll" };
+  return { show: true, top: titleFrom(props) ? 26 : "top", left: "left", type: "scroll" };
+}
+
+/** Space above the plot: the title's line, then the top legend's line when it is shown. */
+export function plotTop(props: FormatProps, seriesCount: number): number {
+  const legend = legendFrom(props);
+  const topLegend = legend.show && seriesCount > 1 && legend.top !== undefined && legend.top !== "bottom";
+  return 16 + (titleFrom(props) ? 22 : 0) + (topLegend ? 24 : 0);
 }
 
 export function markLines(values: number[], props: FormatProps): { yAxis: number; name: string }[] {

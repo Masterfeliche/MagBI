@@ -1,4 +1,4 @@
-/** Visual gallery. Six types draw a query; the rest stay in the gallery without a fake chart. */
+/** Visual gallery. Every type draws: classic charts through the render models, the standard kit through KitVisual. */
 
 export interface WellSpec {
   name: string;
@@ -12,8 +12,12 @@ export interface VisualSpec {
   displayName: string;
   abbr: string;
   icon: string;
-  renders: "cartesian" | "pie" | "card" | "table" | "map" | "slicer" | "scatter" | "funnel" | "gauge" | "treemap" | "waterfall" | "none";
+  renders: "cartesian" | "pie" | "card" | "table" | "matrix" | "map" | "filledMap" | "slicer" | "scatter" | "funnel" | "gauge" | "treemap" | "waterfall" | "none";
   orientation?: "column" | "bar" | "line";
+  /** Stacked series, or stacked to 100% of each category. */
+  stack?: "stacked" | "percent";
+  /** A line with the area under it filled. */
+  area?: boolean;
   wells: WellSpec[];
 }
 
@@ -31,6 +35,14 @@ const ICONS: Record<string, string> = {
   gauge: "M12 3a9 9 0 0 0-9 15h4.2A5.5 5.5 0 1 1 17 14.5L20.2 18A9 9 0 0 0 12 3zm1 7.2 4.2 4.8-1.5 1.3-4.7-5.3V7h2z",
   treemap: "M2 2h12v12H2V2zm14 0h6v7h-6V2zm0 9h6v11h-6V11zM2 16h12v6H2v-6z",
   waterfall: "M2 20V8h4v12H2zm6 0v-6h4v6H8zm6 0V4h4v16h-4zm6 0v-9h4v9h-4z",
+  stackedColumn: "M3 13h4v8H3v-8zm0-5h4v4H3V8zm7 4h4v9h-4v-9zm0-8h4v7h-4V4zm7 6h4v11h-4V10zm0-4h4v3h-4V6z",
+  stackedBar: "M3 4h8v4H3V4zm9 0h6v4h-6V4zM3 10h5v4H3v-4zm6 0h10v4H9v-4zM3 16h11v4H3v-4zm12 0h4v4h-4v-4z",
+  column100: "M3 3h4v9H3V3zm0 10h4v8H3v-8zm7-10h4v5h-4V3zm0 6h4v12h-4V9zm7-6h4v13h-4V3zm0 14h4v4h-4v-4z",
+  bar100: "M3 4h11v4H3V4zm12 0h6v4h-6V4zM3 10h6v4H3v-4zm7 0h11v4H10v-4zM3 16h15v4H3v-4zm16 0h2v4h-2v-4z",
+  area: "M3 19l5-7 4 3 9-10v14H3z",
+  stackedArea: "M3 21v-5l5-4 4 2 9-7v14H3zm0-8l5-6 4 3 9-8v3l-9 7-4-2-5 4v-1z",
+  combo: "M3 13h4v8H3v-8zm7-4h4v12h-4V9zm7 6h4v6h-4v-6zM3 9l6-5 5 3 7-5 1 1.5-8 5.5-5-3-5 4.5L3 9z",
+  matrix: "M3 3h18v18H3V3zm2 2v4h4V5H5zm6 0v4h8V5h-8zM5 11v8h4v-8H5zm6 0v3h8v-3h-8zm0 5v3h8v-3h-8z",
 };
 
 const axisWells: WellSpec[] = [
@@ -49,6 +61,23 @@ export const VISUALS: VisualSpec[] = [
   spec("column", "Column", "Co", { renders: "cartesian", orientation: "column" }),
   spec("bar", "Bar", "Ba", { renders: "cartesian", orientation: "bar" }),
   spec("line", "Line", "Li", { renders: "cartesian", orientation: "line" }),
+  spec("area", "Area", "Ar", { renders: "cartesian", orientation: "line", area: true }),
+  spec("stackedArea", "Stacked area", "SA", { renders: "cartesian", orientation: "line", area: true, stack: "stacked" }),
+  spec("stackedColumn", "Stacked column", "SC", { renders: "cartesian", orientation: "column", stack: "stacked" }),
+  spec("stackedBar", "Stacked bar", "SB", { renders: "cartesian", orientation: "bar", stack: "stacked" }),
+  spec("column100", "100% stacked column", "C%", { renders: "cartesian", orientation: "column", stack: "percent" }),
+  spec("bar100", "100% stacked bar", "B%", { renders: "cartesian", orientation: "bar", stack: "percent" }),
+  spec("combo", "Line and column", "LC", {
+    renders: "cartesian",
+    orientation: "column",
+    // One value axis for both, so columns and lines are read on the same scale.
+    wells: [
+      { name: "x-axis", displayName: "X-axis", kind: "grouping", max: 1 },
+      { name: "y-axis", displayName: "Column values", kind: "measure", max: 4 },
+      { name: "line", displayName: "Line values", kind: "measure", max: 4 },
+      { name: "tooltips", displayName: "Tooltips", kind: "any", max: 4 },
+    ],
+  }),
   spec("pie", "Pie", "Pi", {
     renders: "pie",
     wells: [
@@ -64,7 +93,31 @@ export const VISUALS: VisualSpec[] = [
     renders: "table",
     wells: [{ name: "columns", displayName: "Columns", kind: "any", max: 8 }],
   }),
-  spec("map", "Map", "Ma", { renders: "map", wells: [] }),
+  spec("matrix", "Matrix", "Mx", {
+    renders: "matrix",
+    wells: [
+      { name: "rows", displayName: "Rows", kind: "grouping", max: 3 },
+      { name: "columns", displayName: "Columns", kind: "grouping", max: 1 },
+      { name: "values", displayName: "Values", kind: "measure", max: 6 },
+    ],
+  }),
+  spec("map", "Map", "Ma", {
+    renders: "map",
+    wells: [
+      { name: "x-axis", displayName: "Location", kind: "grouping", max: 1 },
+      { name: "latitude", displayName: "Latitude", kind: "grouping", max: 1 },
+      { name: "longitude", displayName: "Longitude", kind: "grouping", max: 1 },
+      { name: "y-axis", displayName: "Bubble size", kind: "measure", max: 1 },
+    ],
+  }),
+  spec("filledMap", "Filled map", "FM", {
+    renders: "filledMap",
+    icon: "M4 4l6-2 5 3 5-2v16l-5 2-5-3-6 2V4zm6 0v13m5-12v13",
+    wells: [
+      { name: "x-axis", displayName: "Region", kind: "grouping", max: 1 },
+      { name: "y-axis", displayName: "Value", kind: "measure", max: 1 },
+    ],
+  }),
   spec("slicer", "Slicer", "Sl", {
     renders: "slicer",
     wells: [{ name: "field", displayName: "Field", kind: "grouping", max: 1 }],

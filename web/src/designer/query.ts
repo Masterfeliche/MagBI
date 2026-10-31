@@ -37,8 +37,12 @@ export function buildQuery(
   const xAxis = hierarchy[level] ? [hierarchy[level]] : wells["x-axis"] ?? [];
   const ordered = [
     ...xAxis,
+    // Coordinates are plain columns: a point's latitude is never summed.
+    ...(wells.latitude ?? []).map(({ table, column }): FieldBinding => ({ table, column })),
+    ...(wells.longitude ?? []).map(({ table, column }): FieldBinding => ({ table, column })),
     ...(wells.legend ?? []),
     ...(wells["y-axis"] ?? []),
+    ...(wells.line ?? []),
     ...(wells.columns ?? []),
     ...(wells.tooltips ?? []),
   ];

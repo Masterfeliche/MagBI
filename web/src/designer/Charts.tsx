@@ -17,6 +17,7 @@ import { renderModel } from "./render";
 import { KitVisual } from "../kit/KitVisual";
 import { isKitType } from "../kit/query";
 import { rememberVisualData } from "./visualData";
+import { MatrixVisual } from "./visuals/MatrixVisual";
 import { VisualRenderer } from "./visuals/registry";
 
 type ViewProps = {
@@ -83,7 +84,7 @@ function ClassicView({
   const drillDown = useDesignerStore((state) => state.drillDown);
 
   useEffect(() => {
-    if (spec.renders === "map" || spec.renders === "none" || spec.renders === "slicer") return;
+    if (spec.renders === "none" || spec.renders === "slicer" || spec.renders === "matrix") return;
     if (query.select.length === 0 || !workspaceId || !datasetId) {
       setDsr(null);
       return;
@@ -112,6 +113,18 @@ function ClassicView({
     };
   }, [spec.renders, queryKey, workspaceId, datasetId, query, viewAs, visual.id]);
 
+  if (spec.renders === "matrix") {
+    return (
+      <MatrixVisual
+        visual={visual}
+        workspaceId={workspaceId}
+        datasetId={datasetId}
+        filters={filters}
+        onCategory={onCategory}
+        highlightCategory={highlightCategory}
+      />
+    );
+  }
   if (spec.renders === "slicer") {
     return (
       <SlicerField
@@ -128,7 +141,7 @@ function ClassicView({
 
   const hierarchy = visual.wells.hierarchy ?? [];
   const crumb = hierarchy.slice(0, drillLevel).map((item) => item.column ?? item.measure).filter(Boolean);
-  const model = renderModel(visual.type, dsr, (visual.wells.tooltips ?? []).length);
+  const model = renderModel(visual.type, dsr, (visual.wells.tooltips ?? []).length, { lineCount: (visual.wells.line ?? []).length });
   if (model.kind === "table") {
     return (
       <DataTable

@@ -34,6 +34,19 @@ class Settings(BaseSettings):
     import_batch_size: int = 10_000
     insecure_admin_api: bool = False
     connector_allowed_hosts: str = ""
+    # Sharing and export: where the web app is served (PDF export opens it in
+    # headless Chrome), the browser to use (found automatically when empty), and
+    # mail for subscriptions and alerts (off until a host is set).
+    web_base_url: str = "http://localhost:3000"
+    chrome_path: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_starttls: bool = True
+    # Seconds between checks for scheduled refreshes and subscriptions; 0 turns the scheduler off.
+    scheduler_interval_seconds: int = 60
 
     model_config = {"env_prefix": "MAGBI_"}
 

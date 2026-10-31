@@ -114,7 +114,7 @@ def test_conflict_while_a_refresh_is_active(
     async def never_runs(*_a: Any, **_k: Any) -> None:  # leaves the refresh queued
         return None
 
-    monkeypatch.setattr("magbi.api.refresh.run_refresh", never_runs)
+    monkeypatch.setattr("magbi.api.refresh.refresh_and_check", never_runs)
     wid = api.workspace()
     did = make_dataset(api, wid)
     base = f"{V1}/workspaces/{wid}/datasets/{did}/refresh"
@@ -139,7 +139,7 @@ def test_other_datasets_are_not_blocked(
     async def never_runs(*_a: Any, **_k: Any) -> None:
         return None
 
-    monkeypatch.setattr("magbi.api.refresh.run_refresh", never_runs)
+    monkeypatch.setattr("magbi.api.refresh.refresh_and_check", never_runs)
     wid = api.workspace()
     a, b = make_dataset(api, wid), make_dataset(api, wid)
     assert (

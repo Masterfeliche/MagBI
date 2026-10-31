@@ -168,7 +168,7 @@ def _check_role(request: Request, actor: Actor, minimum: str) -> None:
 
 
 # Routes a person with a share or an app (and no workspace role) may read.
-_GRANTED_READS = ("/workspaces/{wid}/reports/{rid}", "/workspaces/{wid}/themes")
+_GRANTED_READS = ("/workspaces/{wid}/reports/{rid}", "/workspaces/{wid}/reports/{rid}/export.pdf", "/workspaces/{wid}/themes")
 
 
 async def workspace_access(request: Request, actor: ActorDep, session: SessionDep) -> None:
@@ -197,7 +197,7 @@ async def _granted_read(request: Request, actor: Actor, session: AsyncSession) -
         return False
     try:
         wid = uuid.UUID(str(request.path_params["wid"]))
-        if template.endswith("{rid}"):
+        if "{rid}" in template:
             return await report_granted(session, actor, wid, uuid.UUID(str(request.path_params["rid"])))
         return await workspace_granted(session, actor, wid)
     except (KeyError, ValueError):

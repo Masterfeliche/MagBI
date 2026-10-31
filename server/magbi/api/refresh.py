@@ -21,7 +21,8 @@ from magbi.api.deps import ServicesDep, SessionDep
 from magbi.api.errors import ApiError
 from magbi.api.schemas import RefreshOut
 from magbi.metadata.models import DatasetRefresh
-from magbi.refresh.orchestrator import queue_refresh, run_refresh
+from magbi.notify.alerts import refresh_and_check
+from magbi.refresh.orchestrator import queue_refresh
 from magbi.refresh.schedule import validate_cron
 
 router = APIRouter(tags=["refresh"])
@@ -96,7 +97,7 @@ async def trigger_refresh(
     refresh = await queue_refresh(
         session, dataset.id, platform_limit=svc.settings.max_concurrent_refreshes
     )
-    background.add_task(run_refresh, svc.refresh, refresh.id)
+    background.add_task(refresh_and_check, svc, refresh.id)
     return {"refresh_id": str(refresh.id), "status": refresh.status.value}
 
 

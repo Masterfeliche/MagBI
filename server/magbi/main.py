@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import tempfile
 from collections.abc import AsyncIterator
@@ -18,6 +20,7 @@ from magbi.config import Settings
 from magbi.config import settings as default_settings
 from magbi.connections import ConnectionService, parse_allowed_hosts
 from magbi.metadata.db import check_connection, create_engine, create_session_factory
+from magbi.notify.mail import mailer_from
 from magbi.refresh.orchestrator import RefreshDeps, sweep_stale_refreshes
 from magbi.services import Services
 from magbi.storage.credentials import CredentialVault
@@ -64,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             vault=vault,
             connections=connections,
             refresh=RefreshDeps(sessions, store, connections, cfg.import_batch_size),
+            mailer=mailer_from(cfg),
         )
         try:
             from magbi.auth.bootstrap import ensure_bootstrap_admin
@@ -77,9 +81,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             log.warning("stale refresh sweep skipped: %s", type(exc).__name__)
         if cfg.credential_key == "":
             log.warning("MAGBI_CREDENTIAL_KEY is not set; connection secrets disabled")
+        scheduler: asyncio.Task[None] | None = None
+        if cfg.scheduler_interval_seconds > 0 and cfg.environment != "test":
+            from magbi.notify.subscriptions import run_scheduler
+
+            scheduler = asyncio.create_task(run_scheduler(app.state.services, cfg.scheduler_interval_seconds))
         try:
             yield
         finally:
+            if scheduler is not None:
+                scheduler.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await scheduler
             await engine.dispose()
 
     app = FastAPI(

@@ -57,7 +57,7 @@ async def run_dataset_query(
             cache=_cache(svc),
             dataset_id=str(dataset.id),
             version=dataset.current_version,
-            roles=_query_roles(
+            roles=query_roles(
                 actor, body.roles, str(wid), str(dataset.id), model,
                 granted=not permits(actor, str(wid), "viewer") and await dataset_granted(session, actor, wid, did),
             ),
@@ -69,7 +69,7 @@ async def run_dataset_query(
         con.close()
 
 
-def _query_roles(
+def query_roles(
     actor: Actor, requested: list[str], workspace_id: str, dataset_id: str, model: DatasetDefinition, granted: bool = False
 ) -> tuple[str, ...]:
     """The roles a query runs under.

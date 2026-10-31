@@ -1,4 +1,4 @@
-/** The MSD standard visual kit: data, panel chrome, and every kit visual. */
+/** The standard visual kit: data, panel chrome, and every kit visual, drawn in the report's theme. */
 
 import ReactECharts from "echarts-for-react";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { whereClauses } from "../designer/query";
 import { useDesignerStore } from "../designer/store";
 import { apiFetch } from "../shared/api";
+import { buildEChartsTheme, cssVars, themeForReport, tokenColour, withAlpha, type MagbiTheme } from "../shared/theme";
 import type { DSR } from "../types/query";
 import type { FilterDefinition, VisualDefinition } from "../types/report";
 import { kitQuery, memberQuery, mergeMembers } from "./query";
@@ -17,7 +18,6 @@ import {
   STATUS,
   toNumber,
   toneOf,
-  TOKENS,
   type Tone,
   type ToneRule,
   type ValueFormat,
@@ -39,6 +39,16 @@ interface Loaded {
 function str(props: Props, key: string, fallback = ""): string {
   const value = props[key];
   return typeof value === "string" ? value : fallback;
+}
+
+/** The report's resolved theme. */
+export function useKitTheme(): MagbiTheme {
+  const fields = useDesignerStore((state) => state.report.theme);
+  return useMemo(() => themeForReport(fields), [fields]);
+}
+
+function themeStyle(theme: MagbiTheme, extra: CSSProperties = {}): CSSProperties {
+  return { ...(cssVars(theme) as CSSProperties), ...extra };
 }
 
 function post(workspaceId: string, datasetId: string, query: unknown, roles: string[], signal: AbortSignal): Promise<DSR & { ignoredFilters?: string[] }> {
@@ -117,11 +127,12 @@ export function KitVisual({
   highlightCategory?: string;
 }) {
   const props = (visual.properties ?? {}) as Props;
+  const theme = useKitTheme();
   const { data, error, loading } = useKitData(visual, workspaceId, datasetId, filters);
 
-  if (visual.type === "header") return <Header props={props} />;
-  if (visual.type === "label") return <Label props={props} />;
-  if (visual.type === "frame") return <Frame props={props} />;
+  if (visual.type === "header") return <Header props={props} theme={theme} />;
+  if (visual.type === "label") return <Label props={props} theme={theme} />;
+  if (visual.type === "frame") return <Frame props={props} theme={theme} />;
 
   const body = (() => {
     if (error) return <div className="kit-state kit-error">Couldn't load: {error}</div>;
@@ -170,14 +181,14 @@ export function KitVisual({
   const note = data && data.ignored.length > 0 ? `Not filtered by ${data.ignored.map(fieldLabel).join(", ")}` : "";
   if (!PANEL_TYPES.has(visual.type)) {
     return (
-      <div className="kit-bare">
+      <div className="kit-bare" style={themeStyle(theme)}>
         {body}
         {note && <div className="kit-ignored" title={note}>{note}</div>}
       </div>
     );
   }
   return (
-    <section className="kit-panel">
+    <section className="kit-panel" style={themeStyle(theme)}>
       <header className="kit-panel-hd">
         <h3>{str(props, "title")}</h3>
         <span className="kit-panel-sub">{str(props, "subtitle")}</span>
@@ -195,11 +206,11 @@ function fieldLabel(name: string): string {
 
 // ---------------------------------------------------------------- static parts
 
-function Header({ props }: { props: Props }) {
+function Header({ props, theme }: { props: Props; theme: MagbiTheme }) {
   const asAt = useDesignerStore((state) => state.dataAsAt);
   const crumb = str(props, "crumb").split("/").map((part) => part.trim()).filter(Boolean);
   return (
-    <div className="kit-header">
+    <div className="kit-header" style={themeStyle(theme)}>
       <div className="kit-header-left">
         <div className="kit-crumb">
           {crumb.map((part, index) => (
@@ -231,15 +242,20 @@ export function asAtText(iso: string): string {
   return `${day}, ${time}`;
 }
 
-function Label({ props }: { props: Props }) {
-  return <div className={`kit-label kit-label-${str(props, "variant", "section")}`}>{str(props, "text")}</div>;
+function Label({ props, theme }: { props: Props; theme: MagbiTheme }) {
+  return (
+    <div className={`kit-label kit-label-${str(props, "variant", "section")}`} style={themeStyle(theme)}>
+      {str(props, "text")}
+    </div>
+  );
 }
 
-function Frame({ props }: { props: Props }) {
+/** ``fill`` and ``border`` are token names ("frame", "line"); a literal colour still works. */
+function Frame({ props, theme }: { props: Props; theme: MagbiTheme }) {
   const style: CSSProperties = {
-    background: str(props, "fill", TOKENS.surface),
-    border: `1px solid ${str(props, "border", TOKENS.line)}`,
-    borderRadius: typeof props.radius === "number" ? props.radius : 6,
+    background: tokenColour(theme, str(props, "fill") || undefined, "frame"),
+    border: `${theme.shape.border}px solid ${tokenColour(theme, str(props, "border") || undefined, "line")}`,
+    borderRadius: typeof props.radius === "number" ? props.radius : theme.shape.radius,
   };
   return <div className="kit-frame" style={style} />;
 }
@@ -258,13 +274,13 @@ export interface KpiState {
  * above zero for the card to mean anything (e.g. batches on hand): when it is
  * 0 or blank the card shows "–" and No data, never a reassuring status.
  */
-export function kpiState(props: Props, row: unknown[]): KpiState {
+export function kpiState(props: Props, row: unknown[], status: MagbiTheme["status"] = STATUS): KpiState {
   const format = str(props, "format", "whole") as ValueFormat;
   const extraFormats = (Array.isArray(props.extraFormats) ? props.extraFormats : []) as ValueFormat[];
   const shown = [formatValue(row[0], format), ...row.slice(1).map((value, index) => formatValue(value, extraFormats[index] ?? "whole"))];
   const words = (props.status ?? {}) as Partial<Record<Tone, string>>;
   if (typeof props.noDataIf === "number" && !toNumber(row[props.noDataIf])) {
-    return { value: "–", tone: "none", status: STATUS.none.word, context: str(props, "contextNoData", "Nothing held in this view") };
+    return { value: "–", tone: "none", status: status.none.word, context: str(props, "contextNoData", "Nothing held in this view") };
   }
   const value = toNumber(row[0]);
   // A card may show one figure and take its status from another, e.g. transfers coloured by late ones.
@@ -274,14 +290,15 @@ export function kpiState(props: Props, row: unknown[]): KpiState {
   return {
     value: shown[0] ?? "–",
     tone,
-    status: fill(words[tone] ?? STATUS[tone].word, shown),
+    status: fill(words[tone] ?? status[tone].word, shown),
     context: fill(zeroContext ?? str(props, "context"), shown),
   };
 }
 
 function Kpi({ props, rows }: { props: Props; rows: unknown[][] }) {
-  const state = kpiState(props, rows[0] ?? []);
-  const status = STATUS[state.tone];
+  const theme = useKitTheme();
+  const state = kpiState(props, rows[0] ?? [], theme.status);
+  const status = theme.status[state.tone];
   return (
     <div className="kit-kpi" style={{ borderLeftColor: status.color }}>
       <div className="kit-kpi-cap">{str(props, "caption")}</div>
@@ -308,6 +325,7 @@ export function chainTone(count: number | null, age: number | null, flags: numbe
 }
 
 function Chain({ props, rows }: { props: Props; rows: unknown[][] }) {
+  const theme = useKitTheme();
   const highlight = new Set(Array.isArray(props.highlight) ? props.highlight.map(String) : []);
   const notes = (props.notes ?? {}) as Record<string, string>;
   const stages = [...rows].sort((a, b) => (toNumber(a[1]) ?? 0) - (toNumber(b[1]) ?? 0));
@@ -317,7 +335,7 @@ function Chain({ props, rows }: { props: Props; rows: unknown[][] }) {
         const name = String(row[0] ?? "");
         const count = toNumber(row[6]);
         const tone = chainTone(count, toNumber(row[7]), toNumber(row[8]), toNumber(row[5]), row[3], row[4]);
-        const status = STATUS[tone];
+        const status = theme.status[tone];
         const text = `${formatValue(count ?? 0)} ${String(row[2] ?? "")}`.trim();
         const tip = [`${name}: ${text}`, `${status.glyph} ${status.word}`, notes[name]].filter(Boolean).join(" · ");
         return (
@@ -337,14 +355,18 @@ function Chain({ props, rows }: { props: Props; rows: unknown[][] }) {
 
 // ---------------------------------------------------------------- charts
 
-const AXIS = { color: TOKENS.muted, fontSize: 11, fontFamily: "Segoe UI, IBM Plex Sans, sans-serif" };
-const BASE = { textStyle: { fontFamily: "Segoe UI, IBM Plex Sans, sans-serif", color: TOKENS.ink }, animationDuration: 300 };
+/** Chart colours, axes and type from the report's theme. */
+function useChartTheme() {
+  const theme = useKitTheme();
+  return useMemo(() => ({ theme, ...buildEChartsTheme(theme) }), [theme]);
+}
 
-function colourFor(name: string, rank: number, colours: Record<string, string>): string {
+function colourFor(theme: MagbiTheme, name: string, rank: number, colours: Record<string, string>): string {
   const set = colours[name];
-  if (set) return isTone(set) ? STATUS[set].color : set;
-  if (isNoData(name)) return STATUS.none.color;
-  return TOKENS.data[Math.min(rank, TOKENS.data.length - 1)] ?? TOKENS.data[0];
+  const data = theme.data.categorical;
+  if (set) return isTone(set) ? theme.status[set].color : set;
+  if (isNoData(name)) return theme.status.none.color;
+  return data[Math.min(rank, data.length - 1)] ?? data[0];
 }
 
 /** Calendar rows: Label, SortKey, Flag, Value. Every member is present when allMembers is on. */
@@ -353,12 +375,13 @@ function Calendar({ props, rows, onPick, highlight }: { props: Props; rows: unkn
   const flagTone = (isTone(props.flagTone) ? props.flagTone : "watch") as Tone;
   const template = str(props, "tooltip", "{0} in {1}");
   const every = typeof props.labelEvery === "number" ? props.labelEvery : 1;
+  const { theme, base, axisLabel, axisLine, splitLine } = useChartTheme();
   return (
     <ReactECharts
       style={{ height: "100%", width: "100%" }}
       onEvents={{ click: (event: { name?: string }) => event.name && onPick(event.name) }}
       option={{
-        ...BASE,
+        ...base,
         grid: { left: 40, right: 12, top: 22, bottom: 26 },
         tooltip: {
           trigger: "axis",
@@ -372,11 +395,11 @@ function Calendar({ props, rows, onPick, highlight }: { props: Props; rows: unkn
         xAxis: {
           type: "category",
           data: ordered.map((row) => String(row[0] ?? "")),
-          axisLabel: { ...AXIS, interval: every - 1 },
+          axisLabel: { ...axisLabel, interval: every - 1 },
           axisTick: { show: false },
-          axisLine: { lineStyle: { color: TOKENS.line2 } },
+          axisLine,
         },
-        yAxis: { type: "value", minInterval: 1, axisLabel: AXIS, splitLine: { lineStyle: { color: TOKENS.line2 } } },
+        yAxis: { type: "value", minInterval: 1, axisLabel, splitLine },
         series: [
           {
             type: "bar",
@@ -388,13 +411,13 @@ function Calendar({ props, rows, onPick, highlight }: { props: Props; rows: unkn
               return {
                 value: toNumber(row[3]) ?? 0,
                 itemStyle: {
-                  color: flagged ? STATUS[flagTone].color : TOKENS.data[0],
+                  color: flagged ? theme.status[flagTone].color : theme.data.categorical[0],
                   opacity: dim ? 0.3 : 1,
                   borderRadius: [2, 2, 0, 0],
                 },
               };
             }),
-            label: { show: true, position: "top", fontSize: 10.5, color: TOKENS.ink, formatter: (item: { value: number }) => (item.value ? formatValue(item.value) : "") },
+            label: { show: true, position: "top", fontSize: 10.5, color: theme.text.ink, formatter: (item: { value: number }) => (item.value ? formatValue(item.value) : "") },
           },
         ],
       }}
@@ -409,7 +432,8 @@ function Donut({ props, rows, centre, hasCentre, onPick }: { props: Props; rows:
     .filter((slice) => slice.value > 0);
   const colours = (props.colours ?? {}) as Record<string, string>;
   const ranked = slices.filter((slice) => !colours[slice.name] && !isNoData(slice.name)).sort((a, b) => b.value - a.value).map((slice) => slice.name);
-  const colourOf = (name: string) => colourFor(name, ranked.indexOf(name), colours);
+  const { theme, base } = useChartTheme();
+  const colourOf = (name: string) => colourFor(theme, name, ranked.indexOf(name), colours);
   const total = slices.reduce((sum, slice) => sum + slice.value, 0);
   const centreText = hasCentre ? formatValue(centre, str(props, "centreFormat", "whole") as ValueFormat) : formatValue(total);
   const ordered = [...slices].sort((a, b) => {
@@ -424,7 +448,7 @@ function Donut({ props, rows, centre, hasCentre, onPick }: { props: Props; rows:
           style={{ height: "100%", width: "100%" }}
           onEvents={{ click: (event: { name?: string }) => event.name && onPick(event.name) }}
           option={{
-            ...BASE,
+            ...base,
             tooltip: { trigger: "item", formatter: (item: { name: string; value: number; percent: number }) => `${item.name}: ${formatValue(item.value)} ${str(props, "unit")} (${Math.round(item.percent)}%)` },
             series: [
               {
@@ -433,7 +457,7 @@ function Donut({ props, rows, centre, hasCentre, onPick }: { props: Props; rows:
                 center: ["50%", "50%"],
                 label: { show: false },
                 labelLine: { show: false },
-                itemStyle: { borderColor: "#FFFFFF", borderWidth: 2 },
+                itemStyle: { borderColor: theme.surface.panel, borderWidth: 2 },
                 data: ordered.map((slice) => ({ name: slice.name, value: slice.value, itemStyle: { color: colourOf(slice.name) } })),
               },
             ],
@@ -479,32 +503,33 @@ function Pareto({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPi
     return total ? Math.round((100 * running) / total) : 0;
   });
   const series = str(props, "seriesName", "Count");
+  const { theme, base, axisLabel, axisLine, splitLine, legendText } = useChartTheme();
   if (pairs.length === 0) return <div className="kit-state">{EMPTY_TEXT}</div>;
   return (
     <ReactECharts
       style={{ height: "100%", width: "100%" }}
       onEvents={{ click: (event: { name?: string }) => event.name && onPick(event.name) }}
       option={{
-        ...BASE,
+        ...base,
         grid: { left: 40, right: 44, top: 30, bottom: 50 },
-        legend: { top: 0, left: 0, itemWidth: 12, itemHeight: 8, textStyle: { color: TOKENS.muted, fontSize: 11 } },
+        legend: { top: 0, left: 0, itemWidth: 12, itemHeight: 8, textStyle: legendText },
         tooltip: { trigger: "axis" },
-        xAxis: { type: "category", data: pairs.map((pair) => pair.name), axisLabel: { ...AXIS, interval: 0, rotate: pairs.length > 4 ? 25 : 0 }, axisTick: { show: false }, axisLine: { lineStyle: { color: TOKENS.line2 } } },
+        xAxis: { type: "category", data: pairs.map((pair) => pair.name), axisLabel: { ...axisLabel, interval: 0, rotate: pairs.length > 4 ? 25 : 0 }, axisTick: { show: false }, axisLine },
         yAxis: [
-          { type: "value", minInterval: 1, axisLabel: AXIS, splitLine: { lineStyle: { color: TOKENS.line2 } } },
-          { type: "value", min: 0, max: 100, axisLabel: { ...AXIS, formatter: "{value}%" }, splitLine: { show: false } },
+          { type: "value", minInterval: 1, axisLabel, splitLine },
+          { type: "value", min: 0, max: 100, axisLabel: { ...axisLabel, formatter: "{value}%" }, splitLine: { show: false } },
         ],
         series: [
-          { name: series, type: "bar", barMaxWidth: 40, data: pairs.map((pair) => pair.value), itemStyle: { color: TOKENS.data[0], borderRadius: [2, 2, 0, 0] }, label: { show: true, position: "top", fontSize: 10.5, color: TOKENS.ink } },
+          { name: series, type: "bar", barMaxWidth: 40, data: pairs.map((pair) => pair.value), itemStyle: { color: theme.data.categorical[0], borderRadius: [2, 2, 0, 0] }, label: { show: true, position: "top", fontSize: 10.5, color: theme.text.ink } },
           {
             name: "Cumulative %",
             type: "line",
             yAxisIndex: 1,
             data: cumulative,
             symbolSize: 6,
-            lineStyle: { color: STATUS.watch.color, width: 2.5 },
-            itemStyle: { color: STATUS.watch.color },
-            markLine: { silent: true, symbol: "none", data: [{ yAxis: 80 }], lineStyle: { color: TOKENS.muted, type: "dashed" }, label: { show: false } },
+            lineStyle: { color: theme.status.watch.color, width: 2.5 },
+            itemStyle: { color: theme.status.watch.color },
+            markLine: { silent: true, symbol: "none", data: [{ yAxis: 80 }], lineStyle: { color: theme.text.muted, type: "dashed" }, label: { show: false } },
           },
         ],
       }}
@@ -520,6 +545,9 @@ function Heat({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPick
   const names = [...new Set(rows.map((row) => String(row[0] ?? "")))];
   const totals = new Map(names.map((name) => [name, order.reduce((sum, column) => sum + (cell.get(`${name}\u0000${column}`) ?? 0), 0)]));
   const shown = names.filter((name) => (totals.get(name) ?? 0) > 0).sort((a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0));
+  const theme = useKitTheme();
+  const more = theme.data.categorical[0];
+  const flagged = theme.status.action.color;
   const max = Math.max(1, ...shown.flatMap((name) => order.map((column) => cell.get(`${name}\u0000${column}`) ?? 0)));
   if (shown.length === 0) return <div className="kit-state">{EMPTY_TEXT}</div>;
   return (
@@ -543,9 +571,9 @@ function Heat({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPick
                 const value = cell.get(`${name}\u0000${column}`) ?? 0;
                 if (!value) return <td key={column} className="kit-heat-zero">–</td>;
                 const alpha = 0.2 + 0.8 * Math.sqrt(value / max);
-                const base = column === action ? "199,110,108" : "63,111,176";
+                const tint = withAlpha(column === action ? flagged : more, alpha);
                 return (
-                  <td key={column} style={{ background: `rgba(${base},${alpha.toFixed(2)})`, color: alpha > 0.55 ? "#FFFFFF" : TOKENS.ink }}>
+                  <td key={column} style={{ background: tint, color: alpha > 0.55 ? theme.text.onData : theme.text.ink }}>
                     {formatValue(value)}
                   </td>
                 );
@@ -555,9 +583,9 @@ function Heat({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPick
         </tbody>
       </table>
       <div className="kit-heat-key">
-        <span><i style={{ background: "rgba(63,111,176,.9)" }} />More</span>
-        <span><i style={{ background: "rgba(63,111,176,.25)" }} />Less</span>
-        {action && <span><i style={{ background: "rgba(199,110,108,.85)" }} />{str(props, "actionLabel", action)}</span>}
+        <span><i style={{ background: withAlpha(more, 0.9) }} />More</span>
+        <span><i style={{ background: withAlpha(more, 0.25) }} />Less</span>
+        {action && <span><i style={{ background: withAlpha(flagged, 0.85) }} />{str(props, "actionLabel", action)}</span>}
       </div>
     </div>
   );
@@ -583,6 +611,7 @@ export function pillTone(pill: NonNullable<GridColumn["pill"]>, value: unknown, 
 /** Grid rows arrive sorted and limited by the server. */
 function Grid({ props, rows }: { props: Props; rows: unknown[][] }) {
   const columns = (Array.isArray(props.columns) ? props.columns : []) as GridColumn[];
+  const theme = useKitTheme();
   const visible = columns.map((column, index) => ({ column, index })).filter(({ column }) => !column.hidden);
   return (
     <div className="kit-grid-wrap">
@@ -602,7 +631,7 @@ function Grid({ props, rows }: { props: Props; rows: unknown[][] }) {
                 const text = formatValue(value, column.format ?? (typeof value === "number" ? "whole" : "text"));
                 if (column.pill) {
                   const tone = pillTone(column.pill, value, row);
-                  const status = STATUS[tone];
+                  const status = theme.status[tone];
                   return (
                     <td key={index} className={column.align === "right" ? "n" : undefined}>
                       <span className="kit-pill" style={{ background: status.soft, color: status.ink }}>
@@ -629,8 +658,9 @@ function Grid({ props, rows }: { props: Props; rows: unknown[][] }) {
 function Meter({ props, rows }: { props: Props; rows: unknown[][] }) {
   const value = toNumber(rows[0]?.[0]);
   const target = toNumber(props.target);
+  const theme = useKitTheme();
   const tone = toneOf(value, props.rule as ToneRule | undefined);
-  const status = STATUS[tone];
+  const status = theme.status[tone];
   const format = str(props, "format", "pct1") as ValueFormat;
   const words = (props.status ?? {}) as Partial<Record<Tone, string>>;
   const share = value === null ? 0 : Math.max(0, Math.min(1, value));
@@ -652,7 +682,7 @@ function Meter({ props, rows }: { props: Props; rows: unknown[][] }) {
   return (
     <div className="kit-meter">
       <svg viewBox="0 0 200 112" role="img" aria-label={`${formatValue(value, format)} ${line}`}>
-        <path d={arc(0, 1)} stroke={TOKENS.line2} strokeWidth="16" fill="none" strokeLinecap="butt" />
+        <path d={arc(0, 1)} stroke={theme.surface.grid} strokeWidth="16" fill="none" strokeLinecap="butt" />
         {value !== null && share > 0 && <path d={arc(0, share)} stroke={status.color} strokeWidth="16" fill="none" strokeLinecap="butt" />}
         {tick !== null && (
           <line
@@ -660,15 +690,15 @@ function Meter({ props, rows }: { props: Props; rows: unknown[][] }) {
             y1={100 - (radius - 13) * Math.sin(tick)}
             x2={100 + (radius + 13) * Math.cos(tick)}
             y2={100 - (radius + 13) * Math.sin(tick)}
-            stroke={TOKENS.ink}
+            stroke={theme.text.ink}
             strokeWidth="2.5"
           />
         )}
-        <text x="100" y="96" textAnchor="middle" fontSize="26" fontWeight="700" fill={value === null ? STATUS.none.ink : status.ink}>
+        <text x="100" y="96" textAnchor="middle" fontSize="26" fontWeight="700" fill={value === null ? theme.status.none.ink : status.ink}>
           {formatValue(value, format)}
         </text>
       </svg>
-      <div className="kit-meter-line" style={{ color: value === null ? STATUS.none.ink : status.ink }}>{line}</div>
+      <div className="kit-meter-line" style={{ color: value === null ? theme.status.none.ink : status.ink }}>{line}</div>
     </div>
   );
 }
@@ -681,22 +711,23 @@ function Bars({ props, rows, visual, onPick }: { props: Props; rows: unknown[][]
     ? rows.map((row) => ({ name: String(row[0] ?? ""), value: toNumber(row[1]) ?? 0 }))
     : (visual.wells["y-axis"] ?? []).map((binding, index) => ({ name: labels[index] ?? binding.measure ?? binding.column ?? "", value: toNumber(rows[0]?.[index]) ?? 0 }));
   const sorted = props.sort === false ? pairs : [...pairs].sort((a, b) => b.value - a.value);
+  const { theme, base, axisLabel, axisLine } = useChartTheme();
   return (
     <ReactECharts
       style={{ height: "100%", width: "100%" }}
       onEvents={{ click: (event: { name?: string }) => byCategory && event.name && onPick(event.name) }}
       option={{
-        ...BASE,
+        ...base,
         grid: { left: 8, right: 48, top: 8, bottom: 8, containLabel: true },
         tooltip: { trigger: "item", formatter: (item: { name: string; value: number }) => `${item.name}: ${formatValue(item.value)} ${str(props, "unit")}`.trim() },
         xAxis: { type: "value", show: false, minInterval: 1 },
-        yAxis: { type: "category", inverse: true, data: sorted.map((pair) => pair.name), axisLabel: { ...AXIS, fontSize: 12, color: TOKENS.ink }, axisTick: { show: false }, axisLine: { lineStyle: { color: TOKENS.line2 } } },
+        yAxis: { type: "category", inverse: true, data: sorted.map((pair) => pair.name), axisLabel: { ...axisLabel, fontSize: 12, color: theme.text.ink }, axisTick: { show: false }, axisLine },
         series: [
           {
             type: "bar",
             barMaxWidth: 22,
-            data: sorted.map((pair) => ({ value: pair.value, itemStyle: { color: TOKENS.data[0], borderRadius: [0, 2, 2, 0] } })),
-            label: { show: true, position: "right", fontSize: 11, color: TOKENS.ink, formatter: (item: { value: number }) => formatValue(item.value) },
+            data: sorted.map((pair) => ({ value: pair.value, itemStyle: { color: theme.data.categorical[0], borderRadius: [0, 2, 2, 0] } })),
+            label: { show: true, position: "right", fontSize: 11, color: theme.text.ink, formatter: (item: { value: number }) => formatValue(item.value) },
           },
         ],
       }}
@@ -719,14 +750,15 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
   const value = (category: string, part: string) => toNumber(rows.find((row) => String(row[0]) === category && String(row[1]) === part)?.[2]) ?? 0;
   const totals = new Map(categories.map((category) => [category, parts.reduce((sum, part) => sum + value(category, part), 0)]));
   const shown = categories.filter((category) => (totals.get(category) ?? 0) > 0).sort((a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0));
+  const { theme, base, axisLabel, legendText } = useChartTheme();
   if (shown.length === 0) return <div className="kit-state">{EMPTY_TEXT}</div>;
   return (
     <ReactECharts
       style={{ height: "100%", width: "100%" }}
       onEvents={{ click: (event: { name?: string }) => event.name && onPick(event.name) }}
       option={{
-        ...BASE,
-        legend: { top: 0, left: 0, itemWidth: 12, itemHeight: 8, textStyle: { color: TOKENS.muted, fontSize: 11 } },
+        ...base,
+        legend: { top: 0, left: 0, itemWidth: 12, itemHeight: 8, textStyle: legendText },
         grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
         tooltip: {
           trigger: "item",
@@ -734,16 +766,16 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
             `${item.name} · ${item.seriesName}: ${formatValue(item.data.count)} (${sharePercent(item.data.value)})`,
         },
         xAxis: { type: "value", max: 100, show: false },
-        yAxis: { type: "category", inverse: true, data: shown, axisLabel: { ...AXIS, fontSize: 12, color: TOKENS.ink }, axisTick: { show: false }, axisLine: { show: false } },
+        yAxis: { type: "category", inverse: true, data: shown, axisLabel: { ...axisLabel, fontSize: 12, color: theme.text.ink }, axisTick: { show: false }, axisLine: { show: false } },
         series: parts.map((part, rank) => ({
           name: part,
           type: "bar",
           stack: "all",
           barMaxWidth: 24,
-          itemStyle: { color: colourFor(part, rank, colours) },
+          itemStyle: { color: colourFor(theme, part, rank, colours) },
           label: {
             show: true,
-            color: "#FFFFFF",
+            color: theme.text.onData,
             fontSize: 11,
             formatter: (item: { data: { count: number; value: number } }) => (item.data.value >= 12 ? `${formatValue(item.data.count)} · ${sharePercent(item.data.value)}` : ""),
           },
@@ -762,6 +794,7 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
 function Flow({ props, rows, visual }: { props: Props; rows: unknown[][]; visual: VisualDefinition }) {
   const labels = (Array.isArray(props.labels) ? props.labels : []) as string[];
   const stages = (visual.wells["y-axis"] ?? []).map((binding, index) => ({ name: labels[index] ?? binding.measure ?? "", value: toNumber(rows[0]?.[index]) ?? 0 }));
+  const theme = useKitTheme();
   const first = stages[0]?.value ?? 0;
   if (stages.length === 0 || first === 0) return <div className="kit-state">{EMPTY_TEXT}</div>;
   return (
@@ -773,7 +806,7 @@ function Flow({ props, rows, visual }: { props: Props; rows: unknown[][]; visual
           <div key={stage.name} className="kit-flow-row" title={`${stage.name}: ${formatValue(stage.value)} (${Math.round(share * 100)}% of ${stages[0]?.name ?? ""})`}>
             <div className="kit-flow-name">{stage.name}</div>
             <div className="kit-flow-track">
-              <div className="kit-flow-bar" style={{ width: `${width}%`, background: stage.value === 0 ? STATUS.watch.color : TOKENS.data[0] }} />
+              <div className="kit-flow-bar" style={{ width: `${width}%`, background: stage.value === 0 ? theme.status.watch.color : theme.data.categorical[0] }} />
             </div>
             <div className="kit-flow-val">
               <b>{formatValue(stage.value)}</b> <span>{Math.round(share * 100)}%</span>

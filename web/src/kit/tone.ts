@@ -1,29 +1,11 @@
 /** The MSD status vocabulary and value formats shared by every kit visual. */
 
-export type Tone = "good" | "watch" | "action" | "none" | "info";
+import { DEFAULT_THEME, type Tone } from "../shared/theme";
 
-export const TOKENS = {
-  page: "#EEF2F7",
-  surface: "#F8FAFC",
-  panel: "#FFFFFF",
-  strip: "#E9EEF5",
-  line: "#D3DCE6",
-  line2: "#E2E8EF",
-  ink: "#22324A",
-  muted: "#66758A",
-  caption: "#5A6A80",
-  crumb: "#2C4F80",
-  zero: "#F3F6FA",
-  data: ["#3F6FB0", "#5F8BC9", "#82A6D6", "#B3C3D8"],
-} as const;
+export type { Tone };
 
-export const STATUS: Record<Tone, { color: string; ink: string; glyph: string; word: string; soft: string }> = {
-  good: { color: "#4E9E77", ink: "#2F7354", glyph: "▲", word: "On track", soft: "#DCEFE5" },
-  watch: { color: "#D49A55", ink: "#8F5F27", glyph: "◆", word: "Watch", soft: "#F5E3CC" },
-  action: { color: "#C76E6C", ink: "#9A4442", glyph: "▼", word: "Action", soft: "#F4D9D8" },
-  none: { color: "#9EABBC", ink: "#5A6A80", glyph: "–", word: "No data", soft: "#E9EDF2" },
-  info: { color: "#5F8BC9", ink: "#335C96", glyph: "●", word: "Information", soft: "#DCE8F6" },
-};
+/** The default theme's status tokens, for code that runs outside a report. */
+export const STATUS = DEFAULT_THEME.status;
 
 export function isTone(value: unknown): value is Tone {
   return typeof value === "string" && value in STATUS;

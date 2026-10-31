@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
 import type { Workspace } from "../types/api";
+import { SharedWithMe } from "./SharedWithMe";
 import "./workspace.css";
 
 export function WorkspaceList() {
@@ -14,6 +15,7 @@ export function WorkspaceList() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [sharedCount, setSharedCount] = useState(0);
 
   useEffect(() => {
     apiFetch<Workspace[]>("/workspaces")
@@ -72,7 +74,7 @@ export function WorkspaceList() {
 
       {loading ? (
         <p className="ws-loading">Loading workspaces...</p>
-      ) : workspaces.length === 0 ? (
+      ) : workspaces.length === 0 && sharedCount > 0 ? null : workspaces.length === 0 ? (
         <div className="ws-empty">
           <p>No workspaces yet.</p>
           <p className="ws-hint">Create one to get started with your dashboards.</p>
@@ -89,6 +91,8 @@ export function WorkspaceList() {
           ))}
         </div>
       )}
+
+      <SharedWithMe onFound={setSharedCount} />
     </div>
   );
 }

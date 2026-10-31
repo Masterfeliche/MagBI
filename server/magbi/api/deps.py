@@ -167,10 +167,41 @@ def _check_role(request: Request, actor: Actor, minimum: str) -> None:
         raise ApiError(403, "FORBIDDEN", f"the workspace {minimum} role is required")
 
 
-async def workspace_access(request: Request, actor: ActorDep) -> None:
-    """Reading a workspace needs viewer; any other method needs editor."""
+# Routes a person with a share or an app (and no workspace role) may read.
+_GRANTED_READS = ("/workspaces/{wid}/reports/{rid}", "/workspaces/{wid}/reports/{rid}/export.pdf", "/workspaces/{wid}/themes")
+
+
+async def workspace_access(request: Request, actor: ActorDep, session: SessionDep) -> None:
+    """Reading a workspace needs viewer; any other method needs editor.
+
+    Someone a report is shared with, or who is in a published app's audience,
+    may also read that report and the workspace's themes.
+    """
     minimum = "viewer" if request.method in ("GET", "HEAD") else "editor"
-    _check_role(request, actor, minimum)
+    try:
+        _check_role(request, actor, minimum)
+    except ApiError:
+        if not await _granted_read(request, actor, session):
+            raise
+
+
+async def _granted_read(request: Request, actor: Actor, session: AsyncSession) -> bool:
+    import uuid
+
+    from magbi.sharing import report_granted, workspace_granted
+
+    route = request.scope.get("route")
+    # The route's own template; whether it carries the /api/v1 prefix varies by FastAPI version.
+    template = str(getattr(route, "path", "")).removeprefix("/api/v1")
+    if request.method not in ("GET", "HEAD") or template not in _GRANTED_READS:
+        return False
+    try:
+        wid = uuid.UUID(str(request.path_params["wid"]))
+        if "{rid}" in template:
+            return await report_granted(session, actor, wid, uuid.UUID(str(request.path_params["rid"])))
+        return await workspace_granted(session, actor, wid)
+    except (KeyError, ValueError):
+        return False
 
 
 async def connection_access(request: Request, actor: ActorDep) -> None:

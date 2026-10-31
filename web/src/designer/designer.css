@@ -1572,3 +1572,21 @@ label.stack select:focus {
 .map-wrap { position: relative; height: 100%; }
 .map-note { position: absolute; right: 8px; bottom: 22px; max-width: 60%; font-size: 11.5px; color: var(--text2); background: rgba(255, 255, 255, 0.9); padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .map-credit { position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: var(--text2); background: rgba(255, 255, 255, 0.85); padding: 0 4px; pointer-events: none; }
+
+/* PDF export: every page at full size, one per printed sheet. */
+.designer.viewer.export {
+  display: block;
+  height: auto;
+  overflow: visible;
+  background: #fff;
+}
+.export-page {
+  break-after: page;
+  overflow: hidden;
+}
+.export-page:last-child {
+  break-after: auto;
+}
+.export .page {
+  box-shadow: none;
+}

@@ -198,11 +198,12 @@ Every visual in the gallery now draws something, and a test keeps it that way.
 **Differences from Power BI to know**
 - Line and column uses one value axis, not two. A line on a much smaller scale (for example Orders around 20 against Total sales in thousands) lies flat along the bottom, so it belongs in its own chart. This keeps the reader from comparing two scales as if they were one.
 - The matrix takes one column field; Power BI allows several.
-- **The filled map needs a boundary file that isn't in the repo yet**: `web/public/maps/tanzania-regions.json` (GeoJSON, one feature per region, the name in `name` or `shapeName`). Until it's added, the filled map says so and the point map draws on plain axes. Open public sources: geoBoundaries TZA ADM1 (CC BY 4.0, attribution needed) and Natural Earth admin-1 (public domain). It wasn't downloaded without approval.
+- **Region boundaries** (installed 31 Oct 2026 with the owner's approval): `web/public/maps/tanzania-regions.json` holds Tanzania's 31 regions as of 2018, Songwe included. The source is Tanzania's National Bureau of Statistics, published by UN OCHA on the Humanitarian Data Exchange and packaged by geoBoundaries (gbHumanitarian). It's licensed CC BY 3.0 IGO, so every map credits it ("Boundaries: NBS Tanzania / UN OCHA, CC BY 3.0 IGO"). Coordinates are rounded to about 110 m (1.2 MB down to 580 KB). Source, licence and changes are in `web/public/maps/README.md`. The 30-region OpenStreetMap file (2015, ODbL) was rejected because it lacks Songwe.
+- Region names are the official ones (Kaskazini Unguja, Mjini Magharibi…). Data that uses English names such as "Zanzibar North" doesn't match, and the map lists those names.
 
 **Checks**
 - Frontend: 90 passed (new: chart models, matrix builder, map matching, legend placement, every gallery visual draws). Lint, types and the production build are clean.
-- In headless Chrome on the E2E data, 13 of 13 checks pass: each new chart draws; the matrix has Region rows × Product columns plus Total; the grand total equals the engine's (26,244); Expand all opens 12 Product rows; a row's arrow collapses it; North's subtotal is the engine's average; the point map places 4 sites; the filled map explains the missing boundaries.
+- In headless Chrome on the E2E data, 15 of 15 checks pass: each new chart draws; the matrix has Region rows × Product columns plus Total; the grand total equals the engine's (26,244); Expand all opens 12 Product rows; a row's arrow collapses it; North's subtotal is the engine's average; the point map places 4 sites over the region boundaries; the filled map shades real regions (Dodoma, Mwanza, Dar es Salaam Region, Songwe, Kaskazini Unguja), lists only "Zanzibar North" as unmatched, and both maps show the credit.
 - End to end: 47 of 47. QA gate: the 3 Warehouse dashboards pass.
 
 ---

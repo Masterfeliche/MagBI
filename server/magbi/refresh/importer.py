@@ -27,6 +27,7 @@ from magbi.connectors.types import (
     TypePlan,
     arrow_schema,
     cast_map,
+    coercer_for,
     plan_columns,
     warnings,
 )
@@ -105,6 +106,9 @@ def validate_target(target: str) -> None:
 
 
 def _coercer(plan: TypePlan) -> Callable[[Any], Any] | None:
+    declared = coercer_for(plan)
+    if declared is not None:
+        return declared
     # DECIMAL beyond DuckDB's 38 digits is imported as double; pyodbc yields Decimal.
     if plan.data_type is DataType.DECIMAL and plan.arrow_type == pa.float64():
         return lambda v: (
@@ -146,7 +150,7 @@ def _import_table(
     expected: int | None
     if spec.query is not None:
         label = spec.target
-        plans = plan_columns(connector.describe_query(spec.query))
+        plans = plan_columns(connector.describe_query(spec.query), connector.get_dialect())
         casts = cast_map(plans)
         if casts:
             raise ImportPipelineError(
@@ -159,7 +163,7 @@ def _import_table(
         label = source.qualified_name
         if not source.columns:
             raise ImportPipelineError(f"{label} has no readable columns")
-        plans = plan_columns(source.columns)
+        plans = plan_columns(source.columns, connector.get_dialect())
         sql = connector.build_select(source, casts=cast_map(plans))
         expected = connector.get_row_count(spec.schema, spec.name)
     schema = arrow_schema(plans)
@@ -196,7 +200,8 @@ def _import_table(
         raise ImportPipelineError(
             f"{label}: wrote {stored} rows but read {imported}"
         )
-    if expected is not None and imported != expected:
+    # A negative count means the source can't count cheaply (some web feeds).
+    if expected is not None and expected >= 0 and imported != expected:
         # The source is a live system; rows may be added or removed mid-import.
         result_warnings.append(
             f"{label}: source row count changed during import "

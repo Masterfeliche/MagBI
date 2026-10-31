@@ -17,7 +17,7 @@ from magbi.storage.credentials import generate_key
 
 
 def test_v1_is_mounted_and_old_prefixes_are_gone(client: TestClient) -> None:
-    assert client.get("/api/v1/connection-kinds").json() == {"kinds": ["sqlserver"]}
+    assert client.get("/api/v1/connection-kinds").json() == {"kinds": ["mysql", "odata", "postgresql", "sqlserver"]}
     assert client.get("/api/connection-kinds").status_code == 404
     paths = {getattr(r, "path", "") for r in client.app.routes}  # type: ignore[attr-defined]
     assert not any(

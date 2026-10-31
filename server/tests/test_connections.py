@@ -173,4 +173,27 @@ def test_connector_factory(vault: CredentialVault) -> None:
     assert svc.connector_for("sqlserver").get_dialect() == "tsql"
     with pytest.raises(ConnectorError):
         svc.connector_for("nope")
-    assert ConnectionService.supported_kinds() == ["sqlserver"]
+    assert ConnectionService.supported_kinds() == ["mysql", "odata", "postgresql", "sqlserver"]
+    assert [svc.connector_for(k).get_dialect() for k in ("postgresql", "mysql", "odata")] == ["postgres", "mysql", "odata"]
+
+
+def test_new_kinds_validate_and_keep_their_secret(vault: CredentialVault) -> None:
+    svc = ConnectionService(vault)
+    for kind, cfg in (
+        ("postgresql", {"host": "pg.example.com", "database": "erp", "username": "bi", "password": PASSWORD}),
+        ("mysql", {"host": "my.example.com", "username": "bi", "password": PASSWORD}),
+        ("odata", {"url": "https://data.example.org/odata/", "authentication": "bearer", "password": PASSWORD}),
+    ):
+        cid = uuid.uuid4()
+        public, secret = svc.prepare(kind, cfg, connection_id=cid)
+        assert "password" not in public and secret and PASSWORD not in secret
+        conn = Connection(id=cid, workspace_id=uuid.uuid4(), name=kind, kind=kind, config=public, secret_encrypted=secret)
+        assert svc.runtime_config(conn)["password"] == PASSWORD
+
+
+def test_allowed_hosts_apply_to_a_web_source_url(vault: CredentialVault) -> None:
+    svc = ConnectionService(vault, parse_allowed_hosts("data.example.org"))
+    svc.validate("odata", {"url": "https://data.example.org/odata/"})
+    with pytest.raises(ConnectorError) as exc:
+        svc.validate("odata", {"url": "http://169.254.169.254/latest/"})
+    assert exc.value.code == ErrorCode.INVALID_CONFIG and "allowed host" in exc.value.message

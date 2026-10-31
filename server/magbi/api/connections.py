@@ -168,8 +168,8 @@ async def update_connection(
 # -- browsing the source ---------------------------------------------------------
 
 
-def _table_json(table: SourceTable) -> dict[str, Any]:
-    plans = {p.column: p for p in plan_columns(table.columns)}
+def _table_json(table: SourceTable, dialect: str) -> dict[str, Any]:
+    plans = {p.column: p for p in plan_columns(table.columns, dialect)}
     return {
         "schema": table.schema,
         "name": table.name,
@@ -207,8 +207,8 @@ async def list_tables(
     session: SessionDep,
 ) -> dict[str, Any]:
     conn = await get_connection_or_404(session, wid, cid)
-    tables = await _with_connector(svc, conn, lambda c: c.list_tables(schema))
-    return {"tables": [_table_json(t) for t in tables]}
+    tables, dialect = await _with_connector(svc, conn, lambda c: (c.list_tables(schema), c.get_dialect()))
+    return {"tables": [_table_json(t, dialect) for t in tables]}
 
 
 @router.get("/workspaces/{wid}/connections/{cid}/tables/{schema}/{table}/preview")

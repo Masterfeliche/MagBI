@@ -11,19 +11,40 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ValidationError
 
 from magbi.connectors.base import Connector
 from magbi.connectors.errors import ConnectorError, ErrorCode
+from magbi.connectors.mysql import MySqlConfig, MySqlConnector
+from magbi.connectors.odata import ODataConfig, ODataConnector
+from magbi.connectors.postgresql import PostgresConfig, PostgresConnector
 from magbi.connectors.sqlserver import SqlServerConfig, SqlServerConnector
 from magbi.metadata.models import Connection
 from magbi.storage.credentials import CredentialError, CredentialVault
 
 REDACTED = "***"
 
-_CONFIG_MODELS: dict[str, type[BaseModel]] = {"sqlserver": SqlServerConfig}
-_CONNECTORS: dict[str, Callable[[], Connector]] = {"sqlserver": SqlServerConnector}
+_CONFIG_MODELS: dict[str, type[BaseModel]] = {
+    "sqlserver": SqlServerConfig,
+    "postgresql": PostgresConfig,
+    "mysql": MySqlConfig,
+    "odata": ODataConfig,
+}
+_CONNECTORS: dict[str, Callable[[], Connector]] = {
+    "sqlserver": SqlServerConnector,
+    "postgresql": PostgresConnector,
+    "mysql": MySqlConnector,
+    "odata": ODataConnector,
+}
+
+
+def host_of(config: Mapping[str, Any]) -> str:
+    """The host a connection reaches: ``host``, or the host of ``url`` for web sources."""
+    if config.get("url"):
+        return urlsplit(str(config["url"])).hostname or ""
+    return str(config.get("host", ""))
 
 
 def parse_allowed_hosts(value: str) -> list[str]:
@@ -69,7 +90,7 @@ class ConnectionService:
                 ErrorCode.UNSUPPORTED, f"unsupported connection kind {kind!r}"
             )
         try:
-            parsed = model.model_validate(dict(config))
+            model.model_validate(dict(config))
         except ValidationError as exc:
             problems = "; ".join(
                 f"{'.'.join(str(p) for p in e['loc']) or 'config'}: {e['msg']}"
@@ -78,7 +99,7 @@ class ConnectionService:
             raise ConnectorError(
                 ErrorCode.INVALID_CONFIG, f"invalid config ({problems})"
             ) from None
-        self.check_host(str(getattr(parsed, "host", "")))
+        self.check_host(host_of(config))
         return dict(config)
 
     def connector_for(self, kind: str) -> Connector:
@@ -141,7 +162,7 @@ class ConnectionService:
                     ErrorCode.INVALID_CONFIG,
                     "stored credentials cannot be decrypted; re-enter the password",
                 ) from None
-        self.check_host(str(cfg.get("host", "")))
+        self.check_host(host_of(cfg))
         return cfg
 
     # -- presentation ---------------------------------------------------------

@@ -83,3 +83,13 @@ def test_a_theme_can_extend_another() -> None:
     assert mobile["type"]["scale"] == 1.15
     assert mobile["surface"] == load_theme("enterprise-light")["surface"]
     assert theme_ids()[0] == DEFAULT_THEME
+
+
+def test_the_function_list_matches_what_the_compiler_accepts(api: ApiEnv) -> None:
+    from magbi.dax.functions import SIGNATURES, SUPPORTED
+
+    assert {name.casefold() for name in SIGNATURES} == set(SUPPORTED)
+    listed = api.client.get("/api/v1/dax/functions").json()
+    names = [item["name"] for item in listed["supported"]]
+    assert "SUMX" in names and "RANKX" in names and names == sorted(names)
+    assert any(item["name"] == "TOPN" and "Top N" in item["advice"] for item in listed["unsupported"])

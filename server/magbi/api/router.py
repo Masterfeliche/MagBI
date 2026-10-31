@@ -6,6 +6,7 @@ from magbi.api import (
     admin,
     connections,
     datasets,
+    dax,
     embed,
     identity,
     query,
@@ -32,4 +33,5 @@ api_router.include_router(query.router)
 api_router.include_router(reports.router, dependencies=workspace_role)
 api_router.include_router(transforms.router, dependencies=workspace_role)
 api_router.include_router(themes.router)
+api_router.include_router(dax.router)
 api_router.include_router(themes.workspace_router, dependencies=workspace_role)

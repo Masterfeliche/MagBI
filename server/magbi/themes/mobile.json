@@ -1,0 +1,15 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "mobile",
+  "name": "Mobile",
+  "order": 6,
+  "extends": "enterprise-light",
+  "description": "Enterprise Light with larger type and touch targets, for viewing on a phone.",
+  "type": {
+    "scale": 1.15
+  },
+  "shape": {
+    "density": "comfortable",
+    "touch": 44
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "msd-enterprise",
+  "name": "MSD Enterprise",
+  "description": "MSD's organisation brand. Not a built-in theme: Phase 3 loads it as MSD's locked organisation theme, light only.",
+  "extends": "enterprise-light",
+  "scope": "organisation",
+  "locked": true,
+  "data": { "style": "categorical", "categorical": ["#1B2A4A", "#2B5797", "#E8913A", "#3A7BD5", "#10B981", "#64748B"] }
+}

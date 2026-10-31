@@ -19,13 +19,29 @@ TONES = ("good", "watch", "action", "none", "info")
 _COLOUR = re.compile(r"#[0-9A-Fa-f]{6}\b")
 
 
+def merge(base: dict[str, Any], layer: dict[str, Any]) -> dict[str, Any]:
+    """``layer`` over ``base``, nested objects merged and lists replaced."""
+    out = dict(base)
+    for key, value in layer.items():
+        out[key] = merge(out[key], value) if isinstance(value, dict) and isinstance(out.get(key), dict) else value
+    return out
+
+
 @cache
 def _all() -> dict[str, dict[str, Any]]:
-    themes = {}
+    raw = {}
     for path in sorted(HERE.glob("*.json")):
         theme = json.loads(path.read_text(encoding="utf-8"))
-        themes[theme["id"]] = theme
-    return themes
+        raw[theme["id"]] = theme
+
+    def full(theme_id: str) -> dict[str, Any]:
+        theme = raw[theme_id]
+        parent = theme.get("extends")
+        return merge(full(parent), theme) if parent else theme
+
+    # The default theme comes first; the gallery keeps this order.
+    order = [DEFAULT_THEME, *sorted(raw.keys() - {DEFAULT_THEME}, key=lambda key: raw[key].get("order", 99))]
+    return {theme_id: full(theme_id) for theme_id in order}
 
 
 def theme_ids() -> list[str]:

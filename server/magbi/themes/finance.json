@@ -1,0 +1,101 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "finance",
+  "name": "Finance",
+  "order": 3,
+  "description": "Restrained navy and slate with tabular figures, for banks and finance teams.",
+  "mode": "light",
+  "surface": {
+    "page": "#F0F2F5",
+    "panel": "#FFFFFF",
+    "strip": "#E5E9EF",
+    "frame": "#F7F8FA",
+    "line": "#CED5DE",
+    "lineStrong": "#B4BECB",
+    "grid": "#E2E6EC",
+    "zero": "#F2F4F7",
+    "selected": "#DCE3EE",
+    "selectedLine": "#1E3A66",
+    "overlay": "rgba(255, 255, 255, 0.9)",
+    "focus": "#3B5B8C"
+  },
+  "text": {
+    "ink": "#18212F",
+    "muted": "#545F70",
+    "caption": "#505B6B",
+    "accent": "#1E3A66",
+    "onData": "#FFFFFF"
+  },
+  "data": {
+    "style": "categorical",
+    "categorical": [
+      "#1E3A66",
+      "#A3B4CC",
+      "#5B8BC9",
+      "#4A5568",
+      "#9B7BB0"
+    ],
+    "sequential": [
+      "#DCE3EE",
+      "#1E3A66"
+    ],
+    "diverging": [
+      "#B5534F",
+      "#E7EAEF",
+      "#1E3A66"
+    ]
+  },
+  "status": {
+    "good": {
+      "color": "#3F8F6B",
+      "ink": "#276248",
+      "soft": "#DAEDE3",
+      "glyph": "▲",
+      "word": "On track"
+    },
+    "watch": {
+      "color": "#C9923F",
+      "ink": "#7C561C",
+      "soft": "#F5E6CC",
+      "glyph": "◆",
+      "word": "Watch"
+    },
+    "action": {
+      "color": "#B5534F",
+      "ink": "#8E3734",
+      "soft": "#F3D9D8",
+      "glyph": "▼",
+      "word": "Action"
+    },
+    "none": {
+      "color": "#9AA3B0",
+      "ink": "#525C6A",
+      "soft": "#E7EAEF",
+      "glyph": "–",
+      "word": "No data"
+    },
+    "info": {
+      "color": "#4F7CB3",
+      "ink": "#335A8C",
+      "soft": "#DCE6F3",
+      "glyph": "●",
+      "word": "Information"
+    }
+  },
+  "type": {
+    "family": "\"Segoe UI\", \"IBM Plex Sans\", system-ui, sans-serif",
+    "scale": 1
+  },
+  "shape": {
+    "radius": 6,
+    "border": 1,
+    "density": "comfortable"
+  },
+  "chart": {
+    "gridlines": true
+  },
+  "pattern": false,
+  "accessibility": {
+    "contrast": 4.5
+  }
+}

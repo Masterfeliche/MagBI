@@ -5,12 +5,14 @@ from __future__ import annotations
 from magbi.themes import (
     DEFAULT_THEME,
     load_theme,
+    merge,
     missing_tokens,
     theme_colours,
     theme_ids,
     token_names,
     tokenise_definition,
 )
+from magbi.themes.validate import problems
 from tests.test_api.conftest import ApiEnv
 
 
@@ -55,3 +57,27 @@ def test_frame_colours_become_token_names() -> None:
     assert visuals[2]["properties"] == {"fill": "#F8FAFC"}
     assert definition["theme"]["id"] == "enterprise-light"
     assert tokenise_definition(definition, theme) == 0
+
+
+def test_every_built_in_theme_passes_the_checks() -> None:
+    assert len(theme_ids()) == 9
+    for theme_id in theme_ids():
+        assert problems(load_theme(theme_id)) == [], theme_id
+
+
+def test_checks_catch_unreadable_text_and_clashing_colours() -> None:
+    theme = merge(load_theme("enterprise-light"), {
+        "text": {"muted": "#C0C0C0"},
+        "data": {"style": "categorical", "categorical": ["#3F6FB0", "#4070B0", "#4E9E77"]},
+    })
+    found = " | ".join(problems(theme))
+    assert "text.muted on surface.page" in found
+    assert "too alike" in found
+    assert "status good #4E9E77 is reused" in found
+
+
+def test_a_theme_can_extend_another() -> None:
+    mobile = load_theme("mobile")
+    assert mobile["type"]["scale"] == 1.15
+    assert mobile["surface"] == load_theme("enterprise-light")["surface"]
+    assert theme_ids()[0] == DEFAULT_THEME

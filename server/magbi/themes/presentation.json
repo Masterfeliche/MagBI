@@ -1,0 +1,66 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "presentation",
+  "name": "Presentation",
+  "order": 7,
+  "extends": "enterprise-light",
+  "description": "Very large type, strong contrast and no fine gridlines, for projectors and meeting rooms.",
+  "surface": {
+    "page": "#FFFFFF",
+    "strip": "#E4E9F0",
+    "line": "#B9C4D2",
+    "lineStrong": "#9AA8BA"
+  },
+  "text": {
+    "ink": "#0F1A2B",
+    "muted": "#3A4659",
+    "caption": "#36425A",
+    "accent": "#1B3A66"
+  },
+  "status": {
+    "good": {
+      "color": "#3F8F68",
+      "ink": "#1A5034",
+      "soft": "#DCEFE5",
+      "glyph": "▲",
+      "word": "On track"
+    },
+    "watch": {
+      "color": "#C98A3F",
+      "ink": "#5E3A0F",
+      "soft": "#F5E3CC",
+      "glyph": "◆",
+      "word": "Watch"
+    },
+    "action": {
+      "color": "#BE5B59",
+      "ink": "#6E2624",
+      "soft": "#F4D9D8",
+      "glyph": "▼",
+      "word": "Action"
+    },
+    "none": {
+      "color": "#97A4B5",
+      "ink": "#3A4659",
+      "soft": "#E9EDF2",
+      "glyph": "–",
+      "word": "No data"
+    },
+    "info": {
+      "color": "#4F7EC0",
+      "ink": "#1F4479",
+      "soft": "#DCE8F6",
+      "glyph": "●",
+      "word": "Information"
+    }
+  },
+  "type": {
+    "scale": 1.2
+  },
+  "chart": {
+    "gridlines": false
+  },
+  "accessibility": {
+    "contrast": 7
+  }
+}

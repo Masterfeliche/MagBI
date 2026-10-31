@@ -1,6 +1,7 @@
 """MagBI QA gate: the same standard the live Power BI dashboards pass, run on MagBI reports.
 
     python -m scripts.qa_gate --workspace <id> --report <id> [--report <id> ...] --out <folder>
+        [--themes all | --themes health,presentation] [--quick]
 
 Three layers, each finding a class of defect that reached a live dashboard before:
 
@@ -12,6 +13,10 @@ Three layers, each finding a class of defect that reached a live dashboard befor
    "(Blank)" or NaN, no empty white panel, donut centre on the ring and equal to
    its slices, tables at least 90% of their panel, status as glyph + word.
    The render checks run again for every value of every dropdown.
+
+With ``--themes`` every report is checked again in each built-in theme (``all``
+for every one), so a dashboard stays readable whichever theme it is shown in.
+``--quick`` renders only the unfiltered view in each theme.
 
 Exit code 0 only when every report passes. A JSON report and screenshots are
 written to --out.
@@ -26,6 +31,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -36,15 +42,14 @@ from typing import Any
 
 import websockets
 
+from magbi.themes import load_theme, theme_colours, theme_ids, token_names
+
 PAGE_W, PAGE_H = 1760, 990
 VIEW_W, VIEW_H = 1920, 1080
 MAX_SECONDS = 2.0
 KPI_MIN_H = 122
-THEME = {
-    "#EEF2F7", "#F8FAFC", "#FFFFFF", "#E9EEF5", "#D3DCE6", "#E2E8EF", "#22324A", "#66758A", "#5A6A80",
-    "#2C4F80", "#F3F6FA", "#BCC8D6", "#3F6FB0", "#5F8BC9", "#82A6D6", "#B3C3D8", "#4E9E77", "#D49A55",
-    "#C76E6C", "#9EABBC",
-}
+TOKEN_PROPS = ("fill", "border")
+SEND_TIMEOUT = 60.0
 TONES = {"good", "watch", "action", "none", "info"}
 STATUS_TYPES = {"kpi", "meter"}
 CHROME = [
@@ -69,11 +74,26 @@ class Result:
 # ---------------------------------------------------------------- API
 
 
+TOKEN: dict[str, str] = {}
+
+
+def sign_in(api: str, credentials: Path) -> str:
+    """Sign in as the QA account, so every check runs as a real signed-in user."""
+    login = json.loads(credentials.read_text(encoding="utf-8"))
+    status, body, _secs = _call("POST", f"{api}/auth/login", {"email": login["email"], "password": login["password"]})
+    if status != 200:
+        raise SystemExit(f"QA sign-in failed ({status}): {body}")
+    TOKEN["value"] = str(body["token"])
+    return TOKEN["value"]
+
+
 def _call(method: str, url: str, body: Any = None) -> tuple[int, Any, float]:
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         request.add_header("Content-Type", "application/json")
+    if TOKEN.get("value") and not url.endswith("/auth/login"):
+        request.add_header("Authorization", f"Bearer {TOKEN['value']}")
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
@@ -92,6 +112,13 @@ def _hexes(value: Any) -> list[str]:
 
 
 def static_checks(definition: dict[str, Any], result: Result) -> None:
+    """Checks the report against its own theme: colours must be theme colours or token names."""
+    theme = load_theme(definition.get("theme", {}).get("id", "enterprise-light"))
+    allowed = theme_colours(theme)
+    tokens = token_names(theme)
+    for colour in _hexes(definition.get("theme", {})):
+        if colour not in allowed:
+            result.failures.append(f"static: the report palette uses {colour}, which is not a {theme['name']} colour")
     visuals = definition["pages"][0]["visuals"]
     solid = [v for v in visuals if v["type"] not in {"frame", "label"}]
     for v in visuals:
@@ -101,13 +128,17 @@ def static_checks(definition: dict[str, Any], result: Result) -> None:
         if v["type"] == "kpi" and h < KPI_MIN_H:
             result.failures.append(f"static: KPI card {v['id']} is {h} px tall; the minimum is {KPI_MIN_H}")
         for colour in _hexes(v.get("properties", {})):
-            if colour not in THEME:
-                result.failures.append(f"static: {v['id']} uses {colour}, which is not an ERP Native token")
+            if colour not in allowed:
+                result.failures.append(f"static: {v['id']} uses {colour}, which is not a {theme['name']} colour")
+        for key in TOKEN_PROPS:
+            value = v.get("properties", {}).get(key)
+            if isinstance(value, str) and not value.startswith("#") and value not in tokens:
+                result.failures.append(f"static: {v['id']} {key} names {value!r}, which is not a theme token")
         if v["type"] in STATUS_TYPES and not isinstance(v.get("properties", {}).get("rule"), dict):
             result.failures.append(f"static: {v['id']} shows status without a tone rule")
         colours = v.get("properties", {}).get("colours", {})
         for name, tone in colours.items():
-            if not str(tone).startswith("#") and tone not in TONES:
+            if not str(tone).startswith("#") and tone not in TONES and not re.fullmatch(r"data-\d+", str(tone)):
                 result.failures.append(f"static: {v['id']} colours {name!r} with unknown tone {tone!r}")
     for index, a in enumerate(solid):
         for b in solid[index + 1:]:
@@ -300,7 +331,10 @@ class Chrome:
         if exe is None:
             raise SystemExit("Chrome or Edge is required for the render checks")
         self.profile = tempfile.mkdtemp(prefix="magbi-qa-")
-        self.port = 9333
+        # A free port per run, so two runs never drive each other's browser.
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            self.port = probe.getsockname()[1]
         self.proc = subprocess.Popen(
             [exe, "--headless=new", f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}",
              f"--window-size={VIEW_W},{VIEW_H}", "--hide-scrollbars", "--force-device-scale-factor=1", "--no-first-run", "about:blank"],
@@ -338,7 +372,11 @@ class Tab:
         mine = self.next_id
         await self.socket.send(json.dumps({"id": mine, "method": method, "params": params or {}}))
         while True:
-            message = json.loads(await self.socket.recv())
+            try:
+                raw = await asyncio.wait_for(self.socket.recv(), timeout=SEND_TIMEOUT)
+            except TimeoutError:
+                raise RuntimeError(f"{method}: the browser did not answer in {SEND_TIMEOUT:.0f} s") from None
+            message = json.loads(raw)
             if message.get("id") == mine:
                 if "error" in message:
                     raise RuntimeError(f"{method}: {message['error']}")
@@ -367,14 +405,19 @@ class Tab:
         path.write_bytes(base64.b64decode(shot["data"]))
 
 
-async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[str, list[str]]], out: Path, result: Result) -> None:
+async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[str, list[str]]], out: Path, result: Result, theme: str | None = None) -> None:
     chrome = Chrome()
     try:
         async with websockets.connect(chrome.new_tab(), max_size=64 * 1024 * 1024) as socket:
             tab = Tab(socket)
             await tab.send("Page.enable")
             await tab.send("Emulation.setDeviceMetricsOverride", {"width": VIEW_W, "height": VIEW_H, "deviceScaleFactor": 1, "mobile": False})
-            await tab.send("Page.navigate", {"url": f"{web}/workspaces/{wid}/reports/{report_id}/view"})
+            if TOKEN.get("value"):
+                await tab.send("Page.navigate", {"url": f"{web}/login"})
+                await asyncio.sleep(1.0)
+                await tab.evaluate(f"sessionStorage.setItem('magbi.token', {json.dumps(TOKEN['value'])})")
+            query = f"?theme={theme}" if theme else ""
+            await tab.send("Page.navigate", {"url": f"{web}/workspaces/{wid}/reports/{report_id}/view{query}"})
             await tab.settle()
             shot = out / f"{result.name}.png"
             await tab.screenshot(shot)
@@ -402,18 +445,30 @@ async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[
 # ---------------------------------------------------------------- run
 
 
-def run(api: str, web: str, wid: str, report_ids: list[str], out: Path, expected: dict[str, dict[str, float]]) -> list[Result]:
+def run(
+    api: str,
+    web: str,
+    wid: str,
+    report_ids: list[str],
+    out: Path,
+    expected: dict[str, dict[str, float]],
+    theme: str | None = None,
+    quick: bool = False,
+) -> list[Result]:
+    """``theme`` renders every report in that built-in theme instead of its own, without saving it.
+    ``quick`` renders the unfiltered view only."""
     out.mkdir(parents=True, exist_ok=True)
     results = []
     for report_id in report_ids:
         _status, report, _secs = _call("GET", f"{api}/workspaces/{wid}/reports/{report_id}")
-        definition = report["definition"]
+        definition = report["definition"] | ({"theme": {"id": theme}} if theme else {})
         did = report["dataset_id"]
-        result = Result(report_id, re.sub(r"[^A-Za-z0-9]+", "-", report["name"]).strip("-"))
+        name = re.sub(r"[^A-Za-z0-9]+", "-", report["name"]).strip("-")
+        result = Result(report_id, f"{name}@{theme}" if theme else name)
         static_checks(definition, result)
         choices = live_checks(api, wid, did, definition, result)
         expected_checks(api, wid, did, expected.get(report["name"], {}), result)
-        asyncio.run(render_checks(web, wid, report_id, choices, out, result))
+        asyncio.run(render_checks(web, wid, report_id, [] if quick else choices, out, result, theme))
         results.append(result)
     (out / "qa-report.json").write_text(json.dumps([r.__dict__ | {"passed": r.passed} for r in results], indent=1), encoding="utf-8")
     return results
@@ -427,9 +482,22 @@ def main() -> None:
     parser.add_argument("--web", default="http://localhost:3000")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--expected", type=Path, help="JSON: {report name: {'Table|Measure': value}}")
+    parser.add_argument("--login", type=Path, help="JSON file with the QA account's email and password")
+    parser.add_argument("--theme", help="render in this built-in theme instead of the report's own (nothing is saved)")
+    parser.add_argument("--themes", help="check again in each of these built-in themes: 'all' or a comma list")
+    parser.add_argument("--quick", action="store_true", help="render only the unfiltered view")
     args = parser.parse_args()
+    if args.login:
+        sign_in(args.api, args.login)
     expected = json.loads(args.expected.read_text(encoding="utf-8")) if args.expected else {}
-    results = run(args.api, args.web, args.workspace, args.report, args.out, expected)
+    results = run(args.api, args.web, args.workspace, args.report, args.out, expected, args.theme, args.quick)
+    if args.themes:
+        wanted = theme_ids() if args.themes == "all" else [item.strip() for item in args.themes.split(",") if item.strip()]
+        unknown = [item for item in wanted if item not in theme_ids()]
+        if unknown:
+            raise SystemExit(f"unknown theme(s): {', '.join(unknown)}")
+        for theme_id in wanted:
+            results += run(args.api, args.web, args.workspace, args.report, args.out / theme_id, expected, theme_id, args.quick)
     for result in results:
         print(f"{'PASS' if result.passed else 'FAIL'}  {result.name}  {json.dumps(result.stats)}")
         for item in result.failures:

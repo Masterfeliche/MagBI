@@ -267,6 +267,7 @@ async def create_relationship(
     model = _current(ds)
     try:
         relationship = RelationshipDef.model_validate(body.relationship)
+        model = _with_detected_key(svc.store, ds.id, model, relationship)
         updated = add_relationship(model, relationship)
     except (ValidationError, ModelSchemaError):
         payload = model.model_dump(mode="json", by_alias=True)
@@ -294,6 +295,49 @@ async def delete_relationship(
     except ModelSchemaError as exc:
         raise ApiError(404, "RELATIONSHIP_NOT_FOUND", str(exc)) from None
     return await _store_model(session, svc, ds, model_version, updated)
+
+
+def _with_detected_key(
+    store: DuckDBStore, dataset_id: uuid.UUID, model: DatasetDefinition, relationship: RelationshipDef
+) -> DatasetDefinition:
+    """Mark the relationship's one side as a key when its data is unique, as Power BI does.
+
+    A target that repeats values is refused with how many repeat. Without imported
+    data nothing is checked, and validation asks for the key as before.
+    """
+    table, column = relationship.to.table, relationship.to.column
+    found = model.table(table)
+    target = next((c for c in found.columns if c.name == column), None) if found else None
+    if target is None or target.is_primary_key or not store.exists(str(dataset_id)):
+        return model
+    try:
+        con = store.open_live(str(dataset_id))
+    except StoreError:
+        return model
+    try:
+        col, tab = column.replace('"', '""'), table.replace('"', '""')
+        rows, distinct, blanks = con.execute(
+            f'SELECT COUNT(*), COUNT(DISTINCT "{col}"), COUNT(*) - COUNT("{col}") FROM "{tab}"'
+        ).fetchone() or (0, 0, 0)
+    except duckdb.Error:
+        return model
+    finally:
+        con.close()
+    if rows and (distinct < rows or blanks):
+        repeated = rows - blanks - distinct
+        raise ApiError(
+            422,
+            "KEY_NOT_UNIQUE",
+            f"{table}[{column}] can't be the one side of a relationship: "
+            f"{repeated} of its {rows} rows repeat a value and {blanks} are blank",
+        )
+    payload = model.model_dump(mode="json", by_alias=True)
+    for item in payload["tables"]:
+        if item["name"] == table:
+            for col in item["columns"]:
+                if col["name"] == column:
+                    col["is_primary_key"] = True
+    return DatasetDefinition.model_validate(payload)
 
 
 def _measure_payload(

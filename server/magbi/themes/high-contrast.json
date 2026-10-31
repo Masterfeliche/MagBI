@@ -1,0 +1,101 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "high-contrast",
+  "name": "High Contrast",
+  "order": 8,
+  "description": "Black on white, colour-blind-safe colours and patterns, for readers who need more contrast.",
+  "mode": "light",
+  "surface": {
+    "page": "#FFFFFF",
+    "panel": "#FFFFFF",
+    "strip": "#E8E8E8",
+    "frame": "#FFFFFF",
+    "line": "#3D3D3D",
+    "lineStrong": "#000000",
+    "grid": "#8A8A8A",
+    "zero": "#F2F2F2",
+    "selected": "#FFF1A8",
+    "selectedLine": "#000000",
+    "overlay": "rgba(255, 255, 255, 0.96)",
+    "focus": "#0046B4"
+  },
+  "text": {
+    "ink": "#000000",
+    "muted": "#2E2E2E",
+    "caption": "#2E2E2E",
+    "accent": "#00336E",
+    "onData": "#FFFFFF"
+  },
+  "data": {
+    "style": "categorical",
+    "categorical": [
+      "#0046B4",
+      "#E07000",
+      "#5C1A8C",
+      "#009E9E",
+      "#000000"
+    ],
+    "sequential": [
+      "#E8EEF9",
+      "#0046B4"
+    ],
+    "diverging": [
+      "#B00020",
+      "#F2F2F2",
+      "#0046B4"
+    ]
+  },
+  "status": {
+    "good": {
+      "color": "#00703C",
+      "ink": "#004D29",
+      "soft": "#D6F0E0",
+      "glyph": "▲",
+      "word": "On track"
+    },
+    "watch": {
+      "color": "#9A6200",
+      "ink": "#5C3B00",
+      "soft": "#FCEBC2",
+      "glyph": "◆",
+      "word": "Watch"
+    },
+    "action": {
+      "color": "#B00020",
+      "ink": "#7A0016",
+      "soft": "#FBD9DE",
+      "glyph": "▼",
+      "word": "Action"
+    },
+    "none": {
+      "color": "#6B6B6B",
+      "ink": "#2E2E2E",
+      "soft": "#EDEDED",
+      "glyph": "–",
+      "word": "No data"
+    },
+    "info": {
+      "color": "#0046B4",
+      "ink": "#00327F",
+      "soft": "#DCE6F8",
+      "glyph": "●",
+      "word": "Information"
+    }
+  },
+  "shape": {
+    "radius": 2,
+    "border": 2,
+    "density": "comfortable"
+  },
+  "pattern": true,
+  "accessibility": {
+    "contrast": 7
+  },
+  "type": {
+    "family": "\"Segoe UI\", \"IBM Plex Sans\", system-ui, sans-serif",
+    "scale": 1
+  },
+  "chart": {
+    "gridlines": true
+  }
+}

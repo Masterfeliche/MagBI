@@ -1,7 +1,7 @@
 """MagBI dashboard library: the MSD frame, the standard visuals, and the API calls.
 
 The MagBI counterpart of ``bi_lib.py``. Standing rules live here so every
-dashboard gets them: ERP Native theme, 1760 x 990 canvas, KPI cards of 124 px,
+dashboard gets them: the Enterprise Light theme, 1760 x 990 canvas, KPI cards of 124 px,
 status from tone rules, no-data members grey, "–" for blanks.
 """
 
@@ -15,9 +15,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from magbi.themes import DEFAULT_THEME, load_theme
+
 PAGE_W, PAGE_H = 1760, 990
-PAGE_BG = "#EEF2F7"
-DATA = ["#3F6FB0", "#5F8BC9", "#82A6D6", "#B3C3D8"]
+THEME = load_theme(DEFAULT_THEME)
+PAGE_BG = THEME["surface"]["page"]
+DATA = THEME["data"]["categorical"]
 KPI_H = 124
 
 # ---------------------------------------------------------------- tone rules
@@ -74,7 +77,7 @@ class Page:
             "schemaVersion": "1.0",
             "name": title,
             "datasetId": dataset_id,
-            "theme": {"colors": DATA, "background": PAGE_BG},
+            "theme": {"id": THEME["id"], "colors": DATA, "background": PAGE_BG},
             "pages": [{"name": self.name, "displayName": title, "width": PAGE_W, "height": PAGE_H, "visuals": self.visuals}],
         }
 
@@ -83,7 +86,8 @@ class Page:
     def header(self, crumb: str, title: str, question: str, units: str, source: str = "MSD ERP") -> None:
         self.add("header", 28, 14, 1704, 88, crumb=crumb, title=title, question=question, units=units, source=source)
 
-    def frame(self, x: int, y: int, w: int, h: int, fill: str = "#F8FAFC", border: str = "#D3DCE6", radius: int = 6) -> None:
+    def frame(self, x: int, y: int, w: int, h: int, fill: str = "frame", border: str = "line", radius: int = 6) -> None:
+        """``fill`` and ``border`` are theme token names, so the frame follows the report's theme."""
         self.add("frame", x, y, w, h, fill=fill, border=border, radius=radius)
 
     def label(self, x: int, y: int, w: int, text: str, h: int = 22, variant: str = "section") -> None:
@@ -106,13 +110,15 @@ class Page:
     def kpi(self, x: int, y: int, w: int, caption: str, value: dict[str, str], *, rule: dict[str, Any],
             extra: list[dict[str, str]] | None = None, fmt: str = "whole", extra_formats: list[str] | None = None,
             status: dict[str, str] | None = None, context: str = "", context_zero: str | None = None,
-            tone_from: int | None = None, h: int = KPI_H) -> None:
+            tone_from: int | None = None, no_data_if: int | None = None, h: int = KPI_H) -> None:
         props: dict[str, Any] = {"caption": caption, "rule": rule, "format": fmt, "extraFormats": extra_formats or [],
                                  "status": status or {}, "context": context}
         if context_zero is not None:
             props["contextZero"] = context_zero
         if tone_from is not None:
             props["toneFrom"] = tone_from
+        if no_data_if is not None:
+            props["noDataIf"] = no_data_if
         self.add("kpi", x, y, w, h, {"y-axis": [value], "extra": extra or []}, **props)
 
     # -- body panels ---------------------------------------------------
@@ -148,7 +154,7 @@ def layout_b(page: Page, *, crumb: str, title: str, question: str, units: str,
     page.label(40, 112, 316, "Filters")
     for index, (column, caption) in enumerate(filters):
         page.dropdown(40, 138 + 60 * index, 316, column, caption)
-    page.frame(40, 262, 316, 1, fill="#D3DCE6", border="#D3DCE6", radius=0)
+    page.frame(40, 262, 316, 1, fill="line", border="line", radius=0)
     page.label(40, 268, 316, "Key figures")
     page.frame(384, 104, 1348, 66)
     page.chain(398, 111, 1320, highlight, notes)

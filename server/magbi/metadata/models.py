@@ -268,7 +268,10 @@ class Report(Base):
         ForeignKey("datasets.id", ondelete="RESTRICT"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
+    # What viewers and embeds see. Editing writes the draft; publishing copies it here.
     definition: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+    draft_definition: Mapped[dict[str, Any] | None] = mapped_column(JsonType)
+    draft_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -276,6 +279,30 @@ class Report(Base):
     )
 
     workspace: Mapped[Workspace] = relationship(back_populates="reports")
+
+
+class Theme(Base):
+    """A saved report theme: the organisation's (no workspace) or one workspace's.
+
+    ``definition`` is a ``magbi.theme/1`` layer that extends a built-in theme.
+    """
+
+    __tablename__ = "themes"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    definition: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    updated_by: Mapped[str] = mapped_column(String(320), default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow
+    )
 
 
 class AuditLog(Base):

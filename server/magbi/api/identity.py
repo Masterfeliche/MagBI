@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from magbi.api.deps import ActorDep, ServicesDep, SessionDep
 from magbi.api.errors import ApiError
 from magbi.auth.tokens import hash_password, issue_token, user_claims, verify_password
-from magbi.metadata.models import User, WorkspaceMember
+from magbi.metadata.models import AuditLog, User, WorkspaceMember
 
 router = APIRouter(tags=["auth"])
 
@@ -45,20 +45,45 @@ def sign_user(svc: ServicesDep, claims: dict[str, object]) -> str:
 
 
 @router.get("/auth/whoami")
-async def whoami(actor: ActorDep) -> dict[str, str | None]:
-    return {"kind": actor.kind, "workspaceId": actor.workspace_id, "email": actor.email}
+async def whoami(actor: ActorDep) -> dict[str, str | bool | None]:
+    return {
+        "kind": actor.kind,
+        "workspaceId": actor.workspace_id,
+        "email": actor.email,
+        "platformAdmin": actor.kind == "dev" or actor.platform_admin,
+    }
 
 
 @router.post("/auth/login")
-async def login(body: LoginIn, session: SessionDep, svc: ServicesDep) -> dict[str, str]:
+async def login(
+    body: LoginIn, request: Request, session: SessionDep, svc: ServicesDep
+) -> dict[str, str]:
     email = body.email.strip().lower()
     user = await session.scalar(select(User).where(User.email == email))
-    if (
-        user is None
-        or not user.is_active
-        or not verify_password(body.password, user.password_hash)
-    ):
+    reason = (
+        "unknown_email" if user is None
+        else "inactive" if not user.is_active
+        else "wrong_password" if not verify_password(body.password, user.password_hash)
+        else None
+    )
+    where = {"ip": request.client.host if request.client else None}
+    if reason is not None:
+        # The caller only ever hears "wrong"; the reason is for administrators.
+        session.add(
+            AuditLog(
+                principal=email,
+                action="sign_in_failed",
+                object_type="user",
+                object_id=str(user.id) if user else None,
+                detail={"reason": reason, **where},
+            )
+        )
+        await session.commit()
         raise ApiError(401, "LOGIN_FAILED", "email or password is wrong")
+    assert user is not None
+    session.add(
+        AuditLog(principal=email, action="sign_in", object_type="user", object_id=str(user.id), detail=where)
+    )
     rows = await session.scalars(
         select(WorkspaceMember).where(WorkspaceMember.user_id == user.id)
     )
@@ -73,8 +98,10 @@ async def login(body: LoginIn, session: SessionDep, svc: ServicesDep) -> dict[st
         ttl_minutes=svc.settings.access_token_ttl_minutes,
         platform_admin=user.is_platform_admin,
     )
+    token = sign_user(svc, claims)
+    await session.commit()
     return {
-        "token": sign_user(svc, claims),
+        "token": token,
         "expiresAt": (
             datetime.now(UTC) + timedelta(minutes=svc.settings.access_token_ttl_minutes)
         ).isoformat(),

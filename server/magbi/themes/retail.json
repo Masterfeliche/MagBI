@@ -1,0 +1,102 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "retail",
+  "name": "Retail",
+  "order": 5,
+  "description": "Warm cream surfaces, lively plum and rose accents and bold numbers, for shops and distributors.",
+  "mode": "light",
+  "surface": {
+    "page": "#FAF5F0",
+    "panel": "#FFFFFF",
+    "strip": "#F3EAE1",
+    "frame": "#FCF9F6",
+    "line": "#E0D4C7",
+    "lineStrong": "#CBBBAA",
+    "grid": "#EDE4DA",
+    "zero": "#F7F1EB",
+    "selected": "#E1EEF3",
+    "selectedLine": "#22677F",
+    "overlay": "rgba(255, 255, 255, 0.9)",
+    "focus": "#22677F"
+  },
+  "text": {
+    "ink": "#2A201A",
+    "muted": "#685A50",
+    "caption": "#64564C",
+    "accent": "#22677F",
+    "onData": "#FFFFFF"
+  },
+  "data": {
+    "style": "categorical",
+    "categorical": [
+      "#22677F",
+      "#7FB7C9",
+      "#9C4F96",
+      "#D9A9B8",
+      "#5A4A8A"
+    ],
+    "sequential": [
+      "#E1EEF3",
+      "#22677F"
+    ],
+    "diverging": [
+      "#B8473F",
+      "#EFE7DF",
+      "#22677F"
+    ]
+  },
+  "status": {
+    "good": {
+      "color": "#2F8A57",
+      "ink": "#1F5E3B",
+      "soft": "#D9EEDF",
+      "glyph": "▲",
+      "word": "On track"
+    },
+    "watch": {
+      "color": "#C99A2E",
+      "ink": "#765914",
+      "soft": "#F6EBCB",
+      "glyph": "◆",
+      "word": "Watch"
+    },
+    "action": {
+      "color": "#B8473F",
+      "ink": "#93332D",
+      "soft": "#F5D7D4",
+      "glyph": "▼",
+      "word": "Action"
+    },
+    "none": {
+      "color": "#A89C92",
+      "ink": "#5F534A",
+      "soft": "#EFE7DF",
+      "glyph": "–",
+      "word": "No data"
+    },
+    "info": {
+      "color": "#22677F",
+      "ink": "#1C566B",
+      "soft": "#DCEBF1",
+      "glyph": "●",
+      "word": "Information"
+    }
+  },
+  "type": {
+    "family": "\"Segoe UI\", \"IBM Plex Sans\", system-ui, sans-serif",
+    "scale": 1,
+    "numberWeight": 800
+  },
+  "shape": {
+    "radius": 6,
+    "border": 1,
+    "density": "comfortable"
+  },
+  "chart": {
+    "gridlines": true
+  },
+  "pattern": false,
+  "accessibility": {
+    "contrast": 4.5
+  }
+}

@@ -15,7 +15,8 @@ from magbi.engine.filter_context import BoundFilter
 from magbi.engine.grouping import FactGroup, fact_groups
 from magbi.engine.joins import join_steps
 from magbi.engine.semantic import DEFAULT_LIMIT, BoundQuery, GroupField, MeasureField
-from magbi.model.schema import DatasetDefinition, RelationshipDef
+from magbi.model.relationships import join_path
+from magbi.model.schema import DatasetDefinition, ModelSchemaError, RelationshipDef
 
 
 def detail_sql(
@@ -91,10 +92,12 @@ def _scalar_fact(
             cast(exp.Expression, plan.expression.copy().as_(measure.alias, quoted=True))
         )
         needed.extend(plan.tables)
+    secured = _rls_for(model, group.fact, rls)
+    needed.extend(_tables(secured))
     query = exp.select(*selected).from_(_table(group.fact))
     for rel, nxt in join_steps(model, group.fact, tuple(needed)):
         query = query.join(_table(nxt), on=_on(rel), join_type=_join_kind(rel))
-    return _secured(query, rls)
+    return _secured(query, secured)
 
 
 def _one_fact(
@@ -139,6 +142,8 @@ def _one_fact(
                     plan.expression.copy().as_(measure.alias, quoted=True),
                 )
             )
+    secured = _rls_for(model, group.fact, rls)
+    needed.extend(_tables(secured))
     query = exp.select(*selected).from_(_table(group.fact))
     for rel, nxt in join_steps(model, group.fact, tuple(needed)):
         query = query.join(_table(nxt), on=_on(rel), join_type=_join_kind(rel))
@@ -151,7 +156,29 @@ def _one_fact(
                 for field in bound.groups
             ]
         )
-    return _secured(query, rls)
+    return _secured(query, secured)
+
+
+def _tables(constraints: tuple[Constraint, ...]) -> list[str]:
+    return [table for constraint in constraints for table, _column in constraint.columns]
+
+
+def _rls_for(model: DatasetDefinition, fact: str, rls: tuple[Constraint, ...]) -> tuple[Constraint, ...]:
+    """Role filters that reach ``fact``: on the fact itself, or on a table that filters it.
+
+    A role filter on a dimension flows to the fact through the relationship, as
+    in Power BI, so the dimension is joined in. A filter on a table the fact
+    cannot be reached from does not apply to that fact, the same as a page filter.
+    """
+    kept = []
+    for constraint in rls:
+        try:
+            for table in {table for table, _column in constraint.columns} - {fact}:
+                join_path(model, fact, table, directed=True)
+        except ModelSchemaError:
+            continue
+        kept.append(constraint)
+    return tuple(kept)
 
 
 def _secured(query: exp.Select, rls: tuple[Constraint, ...]) -> exp.Select:

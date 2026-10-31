@@ -14,7 +14,7 @@ function fmtDate(iso: string): string {
   });
 }
 
-export function ReportList({ workspaceId }: { workspaceId: string }) {
+export function ReportList({ workspaceId, canEdit = true }: { workspaceId: string; canEdit?: boolean }) {
   const navigate = useNavigate();
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,16 +68,21 @@ export function ReportList({ workspaceId }: { workspaceId: string }) {
                 onClick={() => navigate(`/workspaces/${workspaceId}/reports/${r.id}/view`)}
               >
                 View
-              </button>{" "}
-              <button
-                type="button"
-                className="ws-btn small"
-                onClick={() =>
-                  navigate(`/workspaces/${workspaceId}/datasets/${r.dataset_id}/designer?report=${r.id}`)
-                }
-              >
-                Open in designer
               </button>
+              {canEdit && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="ws-btn small"
+                    onClick={() =>
+                      navigate(`/workspaces/${workspaceId}/datasets/${r.dataset_id}/designer?report=${r.id}`)
+                    }
+                  >
+                    Open in designer
+                  </button>
+                </>
+              )}
             </td>
           </tr>
         ))}

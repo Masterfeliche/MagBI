@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
-import { colorsFromThemeJson } from "../shared/themes";
-import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
+import { BUILT_IN_THEMES, type ReaderTheme, type SavedThemes } from "../shared/theme";
+import { importThemeFile } from "../shared/themeFile";
+import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, ThemeOverrides, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
 import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
 import { blankReport, PAGE_HEIGHT, PAGE_WIDTH, placeVisual, type Box } from "./layout";
@@ -21,6 +22,9 @@ interface DesignerState {
   removeAllVisuals: () => void;
   saveStatus: "saved" | "saving" | "dirty";
   setSaveStatus: (status: "saved" | "saving" | "dirty") => void;
+  /** The open report has changes saved as a draft that viewers don't see yet. */
+  hasDraft: boolean;
+  setHasDraft: (value: boolean) => void;
   setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
   setPageFilters: (filters: FilterDefinition[]) => void;
   setReportFilters: (filters: FilterDefinition[]) => void;
@@ -28,8 +32,12 @@ interface DesignerState {
   setInteraction: (id: string, targetId: string, mode: "crossFilter" | "crossHighlight" | "none") => void;
   setFormat: (id: string, title: string, color: string) => void;
   setProperties: (id: string, props: Record<string, unknown>) => void;
-  setTheme: (colors: string[]) => void;
-  importThemeJson: (json: string) => void;
+  /** Switches to a built-in theme and drops this report's own changes. */
+  applyTheme: (id: string) => void;
+  /** Stores the report's theme as given (Customize current theme). */
+  setThemeFields: (theme: ThemeOverrides) => void;
+  /** Applies a Power BI or MagBI theme file on top of the current theme; returns its name. */
+  importThemeJson: (json: string) => string;
   drillDown: (id: string, category: string) => void;
   drillUp: (id: string) => void;
   addBookmark: (name: string) => void;
@@ -46,6 +54,18 @@ interface DesignerState {
   setViewAs: (next: { roles: string[]; user?: string } | null) => void;
   dataAsAt: string | null;
   setDataAsAt: (value: string | null) => void;
+  /** The organisation's and the workspace's saved themes. */
+  savedThemes: SavedThemes;
+  setSavedThemes: (value: SavedThemes) => void;
+  /** Set by the viewer's ?theme= preview: draw that built-in theme and ignore saved ones. */
+  themePreview: boolean;
+  setThemePreview: (value: boolean) => void;
+  /** A host app's theme pick for an embedded report; it stands in for the report's own. */
+  hostTheme: ThemeOverrides | null;
+  setHostTheme: (value: ThemeOverrides | null) => void;
+  /** The reader's own needs: High Contrast and larger text. Never saved with the report. */
+  reader: ReaderTheme;
+  setReader: (value: Partial<ReaderTheme>) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -57,11 +77,21 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   selectedVisualId: null,
   saveStatus: "saved",
   setSaveStatus: (status) => set({ saveStatus: status }),
+  hasDraft: false,
+  setHasDraft: (value) => set({ hasDraft: value }),
   clipboard: null,
   viewAs: null,
   setViewAs: (next) => set({ viewAs: next }),
   dataAsAt: null,
   setDataAsAt: (value) => set({ dataAsAt: value }),
+  savedThemes: { organisation: [], workspace: [] },
+  setSavedThemes: (value) => set({ savedThemes: value }),
+  themePreview: false,
+  setThemePreview: (value) => set({ themePreview: value }),
+  hostTheme: null,
+  setHostTheme: (value) => set({ hostTheme: value }),
+  reader: { contrast: false, larger: false },
+  setReader: (value) => set({ reader: { ...get().reader, ...value } }),
   selectVisual: (id) => set({ selectedVisualId: id }),
   replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null, activePageIndex: 0 }),
 
@@ -199,13 +229,20 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     }));
   },
 
-  setTheme: (colors) => {
-    const report = get().report;
-    commit(set, get, { ...report, theme: { ...report.theme, colors } });
+  applyTheme: (id) => {
+    commit(set, get, { ...get().report, theme: { id } });
+  },
+
+  setThemeFields: (theme) => {
+    commit(set, get, { ...get().report, theme });
   },
 
   importThemeJson: (json) => {
-    get().setTheme(colorsFromThemeJson(json));
+    const imported = importThemeFile(json);
+    const current = get().report.theme?.id;
+    const base = BUILT_IN_THEMES.some((theme) => theme.id === imported.base) ? imported.base : current;
+    get().setThemeFields({ id: base ?? "enterprise-light", overrides: imported.layer });
+    return imported.name;
   },
 
   drillDown: (id, category) => {

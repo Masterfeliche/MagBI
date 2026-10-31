@@ -1,0 +1,104 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "classic",
+  "name": "Classic",
+  "order": 1,
+  "description": "The Power BI default look, for teams moving from Power BI.",
+  "mode": "light",
+  "surface": {
+    "page": "#FFFFFF",
+    "panel": "#FFFFFF",
+    "strip": "#F3F2F1",
+    "frame": "#FAF9F8",
+    "line": "#E1DFDD",
+    "lineStrong": "#C8C6C4",
+    "grid": "#EDEBE9",
+    "zero": "#F8F7F6",
+    "selected": "#DEECF9",
+    "selectedLine": "#118DFF",
+    "overlay": "rgba(255, 255, 255, 0.9)",
+    "focus": "#118DFF"
+  },
+  "text": {
+    "ink": "#252423",
+    "muted": "#605E5C",
+    "caption": "#605E5C",
+    "accent": "#0F6CBD",
+    "onData": "#FFFFFF"
+  },
+  "data": {
+    "style": "categorical",
+    "categorical": [
+      "#118DFF",
+      "#12239E",
+      "#E66C37",
+      "#6B007B",
+      "#E044A7",
+      "#744EC2",
+      "#197278",
+      "#8C5E00"
+    ],
+    "sequential": [
+      "#DEECF9",
+      "#118DFF"
+    ],
+    "diverging": [
+      "#D64550",
+      "#F3F2F1",
+      "#118DFF"
+    ]
+  },
+  "status": {
+    "good": {
+      "color": "#1AAB40",
+      "ink": "#107C10",
+      "soft": "#DFF6DD",
+      "glyph": "▲",
+      "word": "On track"
+    },
+    "watch": {
+      "color": "#D9B300",
+      "ink": "#7A6400",
+      "soft": "#FFF4CE",
+      "glyph": "◆",
+      "word": "Watch"
+    },
+    "action": {
+      "color": "#A4262C",
+      "ink": "#7A1C21",
+      "soft": "#FDE7E9",
+      "glyph": "▼",
+      "word": "Action"
+    },
+    "none": {
+      "color": "#A19F9D",
+      "ink": "#605E5C",
+      "soft": "#F3F2F1",
+      "glyph": "–",
+      "word": "No data"
+    },
+    "info": {
+      "color": "#118DFF",
+      "ink": "#0F5BA8",
+      "soft": "#DEECF9",
+      "glyph": "●",
+      "word": "Information"
+    }
+  },
+  "type": {
+    "family": "\"Segoe UI\", wf_segoe-ui_normal, helvetica, arial, sans-serif",
+    "scale": 1
+  },
+  "shape": {
+    "radius": 4,
+    "border": 1,
+    "density": "comfortable"
+  },
+  "chart": {
+    "gridlines": true
+  },
+  "pattern": false,
+  "accessibility": {
+    "contrast": 4.5
+  }
+}

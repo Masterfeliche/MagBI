@@ -8,6 +8,7 @@ export function StatusBar({
   onZoomOut,
   onFitToPage,
   refreshMessage,
+  onDiscardDraft,
 }: {
   datasetId: string;
   zoom: number;
@@ -15,9 +16,11 @@ export function StatusBar({
   onZoomOut: () => void;
   onFitToPage: () => void;
   refreshMessage?: string;
+  onDiscardDraft?: () => void;
 }) {
   const report = useDesignerStore((s) => s.report);
   const saveStatus = useDesignerStore((s) => s.saveStatus);
+  const hasDraft = useDesignerStore((s) => s.hasDraft);
   const activePageIndex = useDesignerStore((s) => s.activePageIndex);
   const page = report.pages[activePageIndex];
   const visualCount = page?.visuals.length ?? 0;
@@ -27,7 +30,20 @@ export function StatusBar({
       <div className={`sb-dot ${saveStatus}`} />
       <span>{report.name || "Report"}</span>
       <span className="sb-sep">|</span>
-      <span>{saveStatus === "saving" ? "Saving..." : saveStatus === "dirty" ? "Unsaved changes" : "Saved"}</span>
+      <span>
+        {saveStatus === "saving"
+          ? "Saving draft..."
+          : saveStatus === "dirty"
+            ? "Unsaved changes"
+            : hasDraft
+              ? "Draft saved, not published: viewers still see the published report"
+              : "Published"}
+      </span>
+      {hasDraft && onDiscardDraft && (
+        <button type="button" className="sb-link" onClick={onDiscardDraft}>
+          Discard draft
+        </button>
+      )}
       <span className="sb-sep">|</span>
       <span>Connected to {datasetId || "—"}</span>
       {refreshMessage && <span className="sb-sep">|</span>}

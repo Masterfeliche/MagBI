@@ -1,0 +1,101 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "health",
+  "name": "Health",
+  "order": 2,
+  "description": "Calm clinical teal and blue, for hospitals, medical stores and laboratories.",
+  "mode": "light",
+  "surface": {
+    "page": "#EEF5F5",
+    "panel": "#FFFFFF",
+    "strip": "#E2EEEE",
+    "frame": "#F6FAFA",
+    "line": "#CCDFDF",
+    "lineStrong": "#B0CACA",
+    "grid": "#DFEBEB",
+    "zero": "#F1F7F7",
+    "selected": "#D5ECEB",
+    "selectedLine": "#16706F",
+    "overlay": "rgba(255, 255, 255, 0.9)",
+    "focus": "#2A8A89"
+  },
+  "text": {
+    "ink": "#173233",
+    "muted": "#4D6566",
+    "caption": "#4A6162",
+    "accent": "#145F5E",
+    "onData": "#FFFFFF"
+  },
+  "data": {
+    "style": "categorical",
+    "categorical": [
+      "#16706F",
+      "#8E6BB0",
+      "#7FB8B2",
+      "#4A6FB5",
+      "#B6CBE6"
+    ],
+    "sequential": [
+      "#D5ECEB",
+      "#16706F"
+    ],
+    "diverging": [
+      "#C0605C",
+      "#E6EEEE",
+      "#16706F"
+    ]
+  },
+  "status": {
+    "good": {
+      "color": "#3C9A5A",
+      "ink": "#236B3A",
+      "soft": "#D9EFE1",
+      "glyph": "▲",
+      "word": "On track"
+    },
+    "watch": {
+      "color": "#D3994B",
+      "ink": "#83561E",
+      "soft": "#F6E5CC",
+      "glyph": "◆",
+      "word": "Watch"
+    },
+    "action": {
+      "color": "#C45F5C",
+      "ink": "#963A38",
+      "soft": "#F5D8D7",
+      "glyph": "▼",
+      "word": "Action"
+    },
+    "none": {
+      "color": "#9DAEAF",
+      "ink": "#4F6566",
+      "soft": "#E6EEEE",
+      "glyph": "–",
+      "word": "No data"
+    },
+    "info": {
+      "color": "#3E7CB8",
+      "ink": "#2C5E91",
+      "soft": "#DCE8F5",
+      "glyph": "●",
+      "word": "Information"
+    }
+  },
+  "type": {
+    "family": "\"Segoe UI\", \"IBM Plex Sans\", system-ui, sans-serif",
+    "scale": 1
+  },
+  "shape": {
+    "radius": 6,
+    "border": 1,
+    "density": "comfortable"
+  },
+  "chart": {
+    "gridlines": true
+  },
+  "pattern": false,
+  "accessibility": {
+    "contrast": 4.5
+  }
+}

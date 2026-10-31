@@ -11,11 +11,13 @@ import { colorScale, dataBarWidth, statusColor } from "./condFormat";
 import { slicerFilters, type SlicerMode } from "./slicer";
 import type { FormatProps } from "./formatChart";
 import { useDesignerStore } from "./store";
+import { useHasTheme, useReportTheme } from "./useReportTheme";
 import { buildQuery } from "./query";
 import { renderModel } from "./render";
 import { KitVisual } from "../kit/KitVisual";
 import { isKitType } from "../kit/query";
 import { rememberVisualData } from "./visualData";
+import { MatrixVisual } from "./visuals/MatrixVisual";
 import { VisualRenderer } from "./visuals/registry";
 
 type ViewProps = {
@@ -75,13 +77,14 @@ function ClassicView({
   const queryKey = JSON.stringify(query);
   const title = typeof visual.properties?.title === "string" ? visual.properties.title : "";
   const color = typeof visual.properties?.color === "string" ? visual.properties.color : "#118DFF";
-  const palette = useDesignerStore((state) => state.report.theme?.colors);
+  const theme = useReportTheme();
+  const palette = useHasTheme() ? theme.data.categorical : undefined;
   const viewAs = useDesignerStore((state) => state.viewAs);
   const drillUp = useDesignerStore((state) => state.drillUp);
   const drillDown = useDesignerStore((state) => state.drillDown);
 
   useEffect(() => {
-    if (spec.renders === "map" || spec.renders === "none" || spec.renders === "slicer") return;
+    if (spec.renders === "none" || spec.renders === "slicer" || spec.renders === "matrix") return;
     if (query.select.length === 0 || !workspaceId || !datasetId) {
       setDsr(null);
       return;
@@ -110,6 +113,18 @@ function ClassicView({
     };
   }, [spec.renders, queryKey, workspaceId, datasetId, query, viewAs, visual.id]);
 
+  if (spec.renders === "matrix") {
+    return (
+      <MatrixVisual
+        visual={visual}
+        workspaceId={workspaceId}
+        datasetId={datasetId}
+        filters={filters}
+        onCategory={onCategory}
+        highlightCategory={highlightCategory}
+      />
+    );
+  }
   if (spec.renders === "slicer") {
     return (
       <SlicerField
@@ -126,7 +141,7 @@ function ClassicView({
 
   const hierarchy = visual.wells.hierarchy ?? [];
   const crumb = hierarchy.slice(0, drillLevel).map((item) => item.column ?? item.measure).filter(Boolean);
-  const model = renderModel(visual.type, dsr, (visual.wells.tooltips ?? []).length);
+  const model = renderModel(visual.type, dsr, (visual.wells.tooltips ?? []).length, { lineCount: (visual.wells.line ?? []).length });
   if (model.kind === "table") {
     return (
       <DataTable

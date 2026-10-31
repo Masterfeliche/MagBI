@@ -1,0 +1,9 @@
+{
+  "name": "MSD ERP Native",
+  "isDefault": true,
+  "locked": true,
+  "definition": {
+    "extends": "enterprise-light",
+    "description": "MSD's official dashboard look (ERP Native, accepted 21 Oct 2026): Enterprise Light, light only, locked so reports keep it."
+  }
+}

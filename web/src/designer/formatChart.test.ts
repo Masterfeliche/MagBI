@@ -17,3 +17,14 @@ describe("format chart", () => {
     expect(categoryAxisLabel(6, { show: true, fontSize: 10, color: "#64748B" }).rotate).toBe(0);
   });
 });
+
+describe("measure format strings", () => {
+  it("shows a card value the way its measure's format says", async () => {
+    const { formatMeasure } = await import("./formatChart");
+    expect(formatMeasure("26244.00", "#,0")).toBe("26,244");
+    expect(formatMeasure(312.456, "#,0.0")).toBe("312.5");
+    expect(formatMeasure(0.993, "0.0%")).toBe("99.3%");
+    expect(formatMeasure(0.5, "0%")).toBe("50%");
+    expect(formatMeasure(1234.5, null)).toBe("1,234.50");
+  });
+});

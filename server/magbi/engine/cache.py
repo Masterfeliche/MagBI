@@ -61,11 +61,14 @@ def cache_key(
     version: int,
     query: SemanticQuery,
     roles: tuple[str, ...] = (),
+    user: str | None = None,
 ) -> str:
+    # The user is part of the key whenever roles apply: a per-user rule gives each user other rows.
     payload = json.dumps(
         {
             "query": query.model_dump(mode="json", by_alias=True),
             "roles": list(roles),
+            "user": (user or "").lower() if roles else "",
         },
         sort_keys=True,
         default=str,
@@ -83,9 +86,10 @@ def run_cached(
     dataset_id: str,
     version: int,
     roles: tuple[str, ...] = (),
+    user: str | None = None,
 ) -> dict[str, Any]:
     """Return a cached result when one exists. Cache failures still run the query."""
-    key = cache_key(dataset_id, version, query, roles)
+    key = cache_key(dataset_id, version, query, roles, user)
     if cache is not None:
         try:
             hit = cache.get(key)
@@ -93,7 +97,7 @@ def run_cached(
             hit = None
         if hit is not None:
             return hit
-    result = run_query(model, query, con, roles=roles)
+    result = run_query(model, query, con, roles=roles, user=user)
     if cache is not None:
         try:
             cache.set(key, result)

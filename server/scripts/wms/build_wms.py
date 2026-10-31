@@ -17,7 +17,6 @@ from typing import Any
 from scripts.magbi_lib import (
     ACTION_IF_ANY,
     CHAIN_NOTES,
-    INFO,
     NONE_IF_ZERO,
     WATCH_IF_ANY,
     Api,
@@ -30,7 +29,7 @@ from scripts.magbi_lib import (
     where,
 )
 from scripts.wms.msd_extract import DIMENSIONS, extract, table_name
-from scripts.wms.queries import QUERIES
+from scripts.wms.queries import DIM_QUERIES, QUERIES
 from scripts.wms.wms_model import build_definition
 
 DATASET = "Warehouse (MSD_ERP)"
@@ -49,6 +48,19 @@ def load_dataset(api: Api, wid: str, folder: Path) -> str:
     return did
 
 
+def go_live(api: Api, wid: str, did: str, connection_id: str) -> dict[str, Any]:
+    """Point every table at a read-only query on the connection and refresh from MSD_ERP."""
+    current = api.get(f"/workspaces/{wid}/datasets/{did}/definition")
+    model = current["definition"]
+    sql = {table_name(key): text for key, text in QUERIES.items()} | DIM_QUERIES
+    for table in model["tables"]:
+        if table["name"] in sql:
+            table["source"] = {"type": "query", "sql": sql[table["name"]].strip()}
+    model["connection_id"] = connection_id
+    api.put(f"/workspaces/{wid}/datasets/{did}/definition", {"model_version": current["model_version"], "definition": model})
+    return dict(api.post(f"/workspaces/{wid}/datasets/{did}/refresh", {}))
+
+
 # ---------------------------------------------------------------- W1
 
 
@@ -65,15 +77,17 @@ def w1_stock_expiry(did: str) -> dict[str, Any]:
         notes=CHAIN_NOTES,
     )
     y = 186
-    page.kpi(xs[0], y, 328, "Batches on hand", m("Batch", "Batches"), rule=INFO,
-             extra=[m("StockLine", "Stock lines"), m("StockLine", "SKUs")], context="{1} stock lines · {2} SKUs")
+    page.kpi(xs[0], y, 328, "Batches on hand", m("Batch", "Batches"), rule=NONE_IF_ZERO,
+             extra=[m("StockLine", "Stock lines"), m("StockLine", "SKUs")], status={"none": "No batches held"},
+             context="{1} stock lines · {2} SKUs")
     page.kpi(xs[1], y, 328, "Expiring in 90 days", m("Batch", "Expiring 90"), rule=WATCH_IF_ANY,
-             extra=[m("Batch", "Expiring 90 share")], extra_formats=["pct0"],
+             extra=[m("Batch", "Expiring 90 share"), m("Batch", "Batches")], extra_formats=["pct0"], no_data_if=2,
              status={"watch": "Watch · {1} of batches", "good": "None expiring soon"}, context="Expiry within 90 days of today")
     page.kpi(xs[2], y, 328, "Expired on the shelf", m("Batch", "Expired"), rule=ACTION_IF_ANY,
-             status={"good": "None held"}, context="Checked against today's date")
+             extra=[m("Batch", "Batches")], no_data_if=1, status={"good": "None held"}, context="Checked against today's date")
     page.kpi(xs[3], y, 328, "Batches without expiry", m("Batch", "No expiry"), rule=WATCH_IF_ANY,
-             extra=[m("Batch", "Batches")], status={"watch": "No date recorded", "good": "Every batch dated"}, context="Of {1} batches")
+             extra=[m("Batch", "Batches")], no_data_if=1, status={"watch": "No date recorded", "good": "Every batch dated"},
+             context="Of {1} batches")
     page.kpi(xs[4], y, 328, "FEFO breaches", m("FEFO", "FEFO breaches"), rule=ACTION_IF_ANY,
              status={"good": "Oldest batch issued first"}, context="Issues checked against expiry order")
 
@@ -134,12 +148,12 @@ def w4_accuracy(did: str) -> dict[str, Any]:
              extra=[m("CountLine", "Exact lines"), m("CountLine", "Count lines")],
              status={"none": "No count lines yet"}, context="{1} of {2} count lines exact")
     page.kpi(x, ys[1], w, "Count variances", m("CountLine", "Variances"), rule=WATCH_IF_ANY,
-             extra=[m("CountLine", "Short lines"), m("CountLine", "Over lines")],
+             extra=[m("CountLine", "Short lines"), m("CountLine", "Over lines"), m("CountLine", "Count lines")], no_data_if=3,
              status={"good": "Every line exact", "watch": "To investigate"}, context="{1} short · {2} over")
     page.kpi(x, ys[2], w, "Count coverage", m("StockItem", "Coverage"), rule=higher_is_better(0.9, 0.0), fmt="pct1",
              extra=[m("StockItem", "Counted items"), m("StockItem", "Stocked items")],
              status={"watch": "Below 90% counted"}, context="{1} of {2} stocked items counted")
-    page.kpi(x, ys[3], w, "Stock movements", m("Movement", "Movements"), rule=INFO,
+    page.kpi(x, ys[3], w, "Stock movements", m("Movement", "Movements"), rule=NONE_IF_ZERO,
              extra=[m("Movement", "Receipt share"), m("Movement", "Movement months")], extra_formats=["pct0", "whole"],
              context="{1} receipts · {2} month(s) recorded")
     page.kpi(x, ys[4], w, "Adjustments posted", m("Adjustment", "Adjustments"), rule=NONE_IF_ZERO,
@@ -156,7 +170,7 @@ def w4_accuracy(did: str) -> dict[str, Any]:
     page.panel("donut", (1260, 452, 472, 250), "Count coverage", "stocked items counted",
                {"x-axis": [c("StockItem", "Coverage")], "y-axis": [m("StockItem", "Stocked items")], "centre": [m("StockItem", "Coverage")]},
                unit="items", centreFormat="pct1", centreWord="counted", header="Coverage", valueHeader="Items",
-               colours={"Counted": "#3F6FB0"})
+               colours={"Counted": "data-1"})
     page.panel(
         "grid", (384, 718, 1348, 248), "Count variances", "to investigate and adjust",
         {"columns": [c("CountLine", "Item"), c("CountLine", "Warehouse"), c("CountLine", "Count"), c("CountLine", "OnHand"),
@@ -195,12 +209,12 @@ def w7_outbound(did: str) -> dict[str, Any]:
     on_time = {**higher_is_better(0.95, 0.80), "blank": "none"}
     page.kpi(x, ys[0], w, "Open material requests", m("Request", "Open requests"), rule=WATCH_IF_ANY,
              extra=[m("Request", "Oldest open"), m("Request", "Requests")], extra_formats=["date", "whole"],
-             status={"good": "None open", "watch": "Watch"}, context="Oldest {1} · of {2} requests",
+             status={"good": "None open", "watch": "Watch"}, context="Oldest {1} · of {2} requests", no_data_if=2,
              context_zero="Of {2} requests")
     page.kpi(x, ys[1], w, "Stock transfers", m("Transfer", "Transfers"), rule={**WATCH_IF_ANY, "zero": "good"},
-             extra=[m("Transfer", "Late transfers"), m("Transfer", "In transit")], tone_from=1,
+             extra=[m("Transfer", "Late transfers"), m("Transfer", "In transit")], tone_from=1, no_data_if=0,
              status={"good": "None late", "watch": "{1} late"}, context="{2} in transit · {1} late")
-    page.kpi(x, ys[2], w, "Issues", m("Issue", "Issues"), rule=INFO, context="Stock issued against requests")
+    page.kpi(x, ys[2], w, "Issues", m("Issue", "Issues"), rule=NONE_IF_ZERO, context="Stock issued against requests")
     page.kpi(x, ys[3], w, "Deliveries shipped", m("Delivery", "Shipped"), rule=NONE_IF_ZERO,
              extra=[m("Delivery", "Delivery notes")], status={"none": "No delivery shipped yet"}, context="Of {1} delivery notes")
     page.kpi(x, ys[4], w, "Dispatched on time", m("Delivery", "On time share"), rule=on_time, fmt="pct1",
@@ -245,8 +259,19 @@ def main() -> None:
     parser.add_argument("--api", default="http://127.0.0.1:8000/api/v1")
     parser.add_argument("--data", type=Path, help="reuse an earlier extract folder instead of reading MSD_ERP")
     parser.add_argument("--only", choices=sorted(DASHBOARDS), action="append")
+    parser.add_argument("--live", metavar="CONNECTION_ID", help="switch the dataset to read-only queries on this connection and refresh")
+    parser.add_argument("--reports-only", action="store_true", help="rewrite the reports on the existing dataset; leave its data alone")
     args = parser.parse_args()
     api = Api(args.api)
+    if args.live:
+        did = api.dataset(args.workspace, DATASET)
+        print(json.dumps({"dataset": did, "refresh": go_live(api, args.workspace, did, args.live)}, indent=1))
+        return
+    if args.reports_only:
+        did = api.dataset(args.workspace, DATASET)
+        built = {key: api.save_report(args.workspace, did, DASHBOARDS[key](did)["name"], DASHBOARDS[key](did)) for key in args.only or sorted(DASHBOARDS)}
+        print(json.dumps({"dataset": did, "reports": built}, indent=1))
+        return
     folder = args.data or Path(tempfile.mkdtemp(prefix="wms-extract-"))
     if args.data is None:
         print(json.dumps(extract(folder), indent=1))

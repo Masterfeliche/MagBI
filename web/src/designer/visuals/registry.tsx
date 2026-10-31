@@ -10,9 +10,11 @@ import {
   axisText,
   categoryAxisLabel,
   chartColors,
+  formatMeasure,
   formatNumber,
   labelPlacement,
   legendFrom,
+  plotTop,
   markLines,
   titleFrom,
   trendValues,
@@ -30,6 +32,8 @@ import type {
   TreemapModel,
   WaterfallModel,
 } from "../render";
+import { percentOfCategory } from "../render";
+import { FilledMap, PointMap } from "./MapVisuals";
 
 const PALETTE = ["#118DFF", "#12239E", "#E66C37", "#6B007B", "#E044A7", "#744EC2", "#D9B300", "#36B37E"];
 
@@ -44,6 +48,12 @@ interface RendererProps {
   highlightCategory?: string;
 }
 
+/** The visual's own "Whole" setting wins; otherwise the measure's format string. */
+function cardText(value: unknown, format: string | null | undefined, valueFormat: unknown): string {
+  if (valueFormat === "Whole") return formatNumber(value, { whole: true });
+  return formatMeasure(value, format);
+}
+
 export function VisualRenderer({ model, title, color, properties, palette, onCategory, onDrill, highlightCategory }: RendererProps) {
   switch (model.kind) {
     case "note":
@@ -52,8 +62,8 @@ export function VisualRenderer({ model, title, color, properties, palette, onCat
       return (
         <CardVisual
           title={title}
-          value={formatNumber(model.value, { whole: properties?.valueFormat === "Whole" })}
-          color={properties?.condFormat === "cardSign" ? cardSignColor(formatNumber(model.value, { whole: properties?.valueFormat === "Whole" })) : undefined}
+          value={cardText(model.value, model.format, properties?.valueFormat)}
+          color={properties?.condFormat === "cardSign" ? cardSignColor(cardText(model.value, model.format, properties?.valueFormat)) : undefined}
         />
       );
     case "cartesian":
@@ -70,6 +80,10 @@ export function VisualRenderer({ model, title, color, properties, palette, onCat
       return <TreemapChart model={model} title={title} onCategory={onCategory} />;
     case "waterfall":
       return <WaterfallChart model={model} title={title} color={color} />;
+    case "map":
+      return <PointMap model={model} title={title} palette={palette} onCategory={onCategory} />;
+    case "filledMap":
+      return <FilledMap model={model} title={title} palette={palette} onCategory={onCategory} highlightCategory={highlightCategory} />;
     case "table":
       return null;
   }
@@ -135,6 +149,9 @@ function CartesianChart({
 }) {
   const horizontal = model.orientation === "bar";
   const props = { ...properties, title: properties.title || title, color: properties.color || color };
+  const percent = model.stack === "percent";
+  const drawn = percent ? percentOfCategory(model.series) : model.series;
+  const lineFrom = model.series.length - (model.lineCount ?? 0);
   const values = model.series[0]?.values ?? [];
   const lines = markLines(values, props);
   const format = unitsFormatter(props.yUnits);
@@ -144,7 +161,8 @@ function CartesianChart({
   const option = {
     color: chartColors(props, palette),
     title: titleFrom(props),
-    legend: legendFrom(props),
+    // One series needs no legend: the title already names it.
+    legend: drawn.length > 1 ? legendFrom(props) : { show: false },
     tooltip: {
       trigger: "axis" as const,
       extraCssText: "padding:8px 12px;border:1px solid #E0E3E8;border-radius:4px;background:#fff;",
@@ -152,8 +170,10 @@ function CartesianChart({
         const items = Array.isArray(params) ? params : [params];
         const index = Number((items[0] as { dataIndex?: number } | undefined)?.dataIndex ?? 0);
         const lines = items.map((item) => {
-          const point = item as { seriesName?: string; value?: unknown };
-          return `${point.seriesName ?? ""}: ${exact(Number(point.value))}`;
+          const point = item as { seriesName?: string; value?: unknown; seriesIndex?: number };
+          if (!percent) return `${point.seriesName ?? ""}: ${exact(Number(point.value))}`;
+          const actual = model.series[point.seriesIndex ?? 0]?.values[index] ?? 0;
+          return `${point.seriesName ?? ""}: ${exact(actual)} (${Math.round(Number(point.value))}%)`;
         });
         for (const extra of model.tooltips ?? []) {
           lines.push(`${extra.name}: ${extra.values[index] ?? ""}`);
@@ -161,9 +181,9 @@ function CartesianChart({
         return `<div>${lines.join("<br/>")}</div>`;
       },
     },
-    grid: { left: 56, right: 16, top: props.title ? 36 : 16, bottom: categories > 12 ? 64 : 32 },
+    grid: { left: 56, right: 16, top: plotTop(props, drawn.length), bottom: categories > 12 ? 64 : 32 },
     xAxis: horizontal
-      ? { type: "value" as const, show: props.yShow !== false, axisLabel: { formatter: format ?? valueLabel } }
+      ? { type: "value" as const, show: props.yShow !== false, ...(percent ? { max: 100 } : {}), axisLabel: { formatter: percent ? "{value}%" : format ?? valueLabel } }
       : {
           type: "category" as const,
           data: model.categories,
@@ -175,11 +195,15 @@ function CartesianChart({
           data: model.categories,
           axisLabel: categoryAxisLabel(categories, axisText(props.xShow, props.xFontSize, props.xColor)),
         }
-      : { type: "value" as const, show: props.yShow !== false, axisLabel: { formatter: format ?? valueLabel } },
+      : { type: "value" as const, show: props.yShow !== false, ...(percent ? { max: 100 } : {}), axisLabel: { formatter: percent ? "{value}%" : format ?? valueLabel } },
     series: [
-      ...model.series.map((s) => ({
-        type: model.orientation === "line" ? ("line" as const) : ("bar" as const),
+      ...drawn.map((s, seriesIndex) => ({
+        type: model.orientation === "line" || seriesIndex >= lineFrom ? ("line" as const) : ("bar" as const),
         name: s.name,
+        ...(model.stack && seriesIndex < lineFrom ? { stack: "total" } : {}),
+        ...(model.area ? { areaStyle: { opacity: model.stack ? 0.85 : 0.25 } } : {}),
+        // A thin white edge between stacked segments keeps them apart.
+        ...(model.stack && model.orientation !== "line" ? { itemStyle: { borderColor: "#FFFFFF", borderWidth: 1 } } : {}),
         data: s.values.map((value, index) => ({
           value,
           itemStyle: {

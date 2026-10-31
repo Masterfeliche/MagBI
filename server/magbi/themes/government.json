@@ -1,0 +1,101 @@
+{
+  "$schema": "magbi.theme/1",
+  "id": "government",
+  "name": "Government",
+  "order": 4,
+  "description": "Neutral and formal with strong contrast by default, for ministries and agencies.",
+  "mode": "light",
+  "surface": {
+    "page": "#F2F2F0",
+    "panel": "#FFFFFF",
+    "strip": "#E7E7E3",
+    "frame": "#F8F8F6",
+    "line": "#CFCFC8",
+    "lineStrong": "#B4B4AB",
+    "grid": "#E2E2DD",
+    "zero": "#F4F4F1",
+    "selected": "#DFE6EE",
+    "selectedLine": "#24476B",
+    "overlay": "rgba(255, 255, 255, 0.92)",
+    "focus": "#2F5F8F"
+  },
+  "text": {
+    "ink": "#16191D",
+    "muted": "#454B52",
+    "caption": "#41474E",
+    "accent": "#24476B",
+    "onData": "#FFFFFF"
+  },
+  "data": {
+    "style": "categorical",
+    "categorical": [
+      "#24476B",
+      "#A9C3DD",
+      "#5B92C2",
+      "#5E4B7A",
+      "#9A9A90"
+    ],
+    "sequential": [
+      "#DFE6EE",
+      "#24476B"
+    ],
+    "diverging": [
+      "#A8402F",
+      "#E7E7E3",
+      "#24476B"
+    ]
+  },
+  "status": {
+    "good": {
+      "color": "#2E7D4F",
+      "ink": "#1A5232",
+      "soft": "#D8ECDF",
+      "glyph": "▲",
+      "word": "On track"
+    },
+    "watch": {
+      "color": "#B7791F",
+      "ink": "#5E3C0B",
+      "soft": "#F4E5CB",
+      "glyph": "◆",
+      "word": "Watch"
+    },
+    "action": {
+      "color": "#B03A2E",
+      "ink": "#7A231B",
+      "soft": "#F3D7D3",
+      "glyph": "▼",
+      "word": "Action"
+    },
+    "none": {
+      "color": "#8E949A",
+      "ink": "#3A3F45",
+      "soft": "#E7E7E3",
+      "glyph": "–",
+      "word": "No data"
+    },
+    "info": {
+      "color": "#5B92C2",
+      "ink": "#234A70",
+      "soft": "#DDE8F2",
+      "glyph": "●",
+      "word": "Information"
+    }
+  },
+  "accessibility": {
+    "contrast": 7
+  },
+  "type": {
+    "family": "\"Segoe UI\", \"IBM Plex Sans\", system-ui, sans-serif",
+    "scale": 1
+  },
+  "shape": {
+    "radius": 6,
+    "border": 1,
+    "density": "comfortable"
+  },
+  "chart": {
+    "gridlines": true
+  },
+  "pattern": false
+}

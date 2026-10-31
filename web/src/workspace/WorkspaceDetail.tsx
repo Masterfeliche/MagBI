@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { apiFetch } from "../shared/api";
-import type { Workspace } from "../types/api";
+import { canEdit, type Workspace } from "../types/api";
 import { ConnectionList } from "./ConnectionList";
 import { DatasetList } from "./DatasetList";
 import { MembersPanel } from "./MembersPanel";
@@ -39,6 +39,7 @@ export function WorkspaceDetail() {
   }
   if (!workspace || !workspaceId) return null;
 
+  const editor = canEdit(workspace.my_role);
   const tabs: { key: Tab; label: string }[] = [
     { key: "datasets", label: "Datasets" },
     { key: "reports", label: "Reports" },
@@ -54,23 +55,27 @@ export function WorkspaceDetail() {
           <span className="ws-sep">/</span>
           <h1>{workspace.name}</h1>
         </div>
-        <div className="ws-actions">
-          <button
-            className="ws-btn primary"
-            onClick={() => navigate(`/workspaces/${workspaceId}/datasets/new`)}
-          >
-            + New dataset
-          </button>
-          <button
-            className="ws-btn"
-            onClick={() => navigate(`/workspaces/${workspaceId}/connections/new`)}
-          >
-            + New connection
-          </button>
-          <button className="ws-btn" onClick={() => navigate(`/workspaces/${workspaceId}/embed`)}>
-            Embed
-          </button>
-        </div>
+        {editor ? (
+          <div className="ws-actions">
+            <button
+              className="ws-btn primary"
+              onClick={() => navigate(`/workspaces/${workspaceId}/datasets/new`)}
+            >
+              + New dataset
+            </button>
+            <button
+              className="ws-btn"
+              onClick={() => navigate(`/workspaces/${workspaceId}/connections/new`)}
+            >
+              + New connection
+            </button>
+            <button className="ws-btn" onClick={() => navigate(`/workspaces/${workspaceId}/embed`)}>
+              Embed
+            </button>
+          </div>
+        ) : (
+          <span className="ws-muted">You can view reports in this workspace.</span>
+        )}
       </div>
 
       <div className="ws-tabs">
@@ -86,8 +91,8 @@ export function WorkspaceDetail() {
       </div>
 
       <div className="ws-tab-content">
-        {activeTab === "datasets" && <DatasetList workspaceId={workspaceId} />}
-        {activeTab === "reports" && <ReportList workspaceId={workspaceId} />}
+        {activeTab === "datasets" && <DatasetList workspaceId={workspaceId} canEdit={editor} />}
+        {activeTab === "reports" && <ReportList workspaceId={workspaceId} canEdit={editor} />}
         {activeTab === "connections" && <ConnectionList workspaceId={workspaceId} />}
         {activeTab === "members" && <MembersPanel workspaceId={workspaceId} />}
       </div>

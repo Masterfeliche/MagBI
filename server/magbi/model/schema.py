@@ -292,15 +292,21 @@ class RlsTableFilter(_Model):
 
 
 class RlsRoleDef(_Model):
-    """Stored only. Roles are enforced when authentication arrives (Sprint 7)."""
+    """A row-level security role. ``members`` are the viewers it applies to, by email.
+
+    Workspace editors and admins see every row, as in Power BI. Embed tokens name
+    their roles themselves.
+    """
 
     name: str = Field(min_length=1, max_length=NAME_MAX)
     description: str | None = Field(default=None, max_length=2000)
     table_filters: list[RlsTableFilter] = Field(min_length=1, max_length=100)
+    members: list[str] = Field(default_factory=list, max_length=5000)
 
     @model_validator(mode="after")
     def _clean(self) -> RlsRoleDef:
         self.name = _name(self.name, "role")
+        self.members = sorted({item.strip().lower() for item in self.members if item.strip()})
         return self
 
 

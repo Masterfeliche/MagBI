@@ -16,7 +16,7 @@ function fmtDate(iso?: string): string {
   });
 }
 
-export function DatasetList({ workspaceId }: { workspaceId: string }) {
+export function DatasetList({ workspaceId, canEdit = true }: { workspaceId: string; canEdit?: boolean }) {
   const navigate = useNavigate();
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,19 +63,25 @@ export function DatasetList({ workspaceId }: { workspaceId: string }) {
           <Fragment key={ds.id}>
             <tr>
               <td>
-                <button
-                  className="ws-link"
-                  onClick={() => navigate(`/workspaces/${workspaceId}/datasets/${ds.id}/designer`)}
-                >
-                  {ds.name}
-                </button>
+                {canEdit ? (
+                  <button
+                    className="ws-link"
+                    onClick={() => navigate(`/workspaces/${workspaceId}/datasets/${ds.id}/designer`)}
+                  >
+                    {ds.name}
+                  </button>
+                ) : (
+                  ds.name
+                )}
               </td>
               <td className="ws-muted">{ds.mode ?? "import"}</td>
               <td className="ws-muted">{fmtDate(ds.updated_at)}</td>
               <td>
-                <button type="button" className="ws-btn small" onClick={() => setRefreshId(refreshId === ds.id ? null : ds.id)}>
-                  Refresh
-                </button>
+                {canEdit && (
+                  <button type="button" className="ws-btn small" onClick={() => setRefreshId(refreshId === ds.id ? null : ds.id)}>
+                    Refresh
+                  </button>
+                )}
               </td>
             </tr>
             {refreshId === ds.id && (

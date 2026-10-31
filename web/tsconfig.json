@@ -13,8 +13,10 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
-    }
+      "@/*": ["src/*"],
+      "@themes/*": ["../server/magbi/themes/*"]
+    },
+    "resolveJsonModule": true
   },
   "include": ["src"]
 }

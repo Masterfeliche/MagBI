@@ -161,6 +161,7 @@ export function ConnectionForm() {
       )}
 
       {error && <div className="test-result failure">{error}</div>}
+      {!name.trim() && <div className="form-hint">Enter a connection name to save.</div>}
 
       <div className="form-actions">
         <button className="btn btn-outline" onClick={() => navigate(`/workspaces/${workspaceId}`)}>

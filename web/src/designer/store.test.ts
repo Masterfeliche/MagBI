@@ -38,6 +38,6 @@ describe("designer store", () => {
     useDesignerStore.getState().applyBookmark(bookmarkId);
     expect(useDesignerStore.getState().report.pages[0]?.visuals[0]?.properties?.hidden).toBe(true);
     useDesignerStore.getState().importThemeJson(JSON.stringify({ dataColors: ["#111111", "#222222"] }));
-    expect(useDesignerStore.getState().report.theme?.colors).toEqual(["#111111", "#222222"]);
+    expect(useDesignerStore.getState().report.theme?.overrides?.data?.categorical).toEqual(["#111111", "#222222"]);
   });
 });

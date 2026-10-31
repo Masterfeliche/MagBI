@@ -1,19 +1,6 @@
-/** Shared formatting for the ERP Native dashboard standard. */
+/** Shared formatting for the dashboard standard. Colours come from the default theme. */
 
-export const ERP_NATIVE = {
-  page: "#EEF2F7",
-  panel: "#FFFFFF",
-  strip: "#E9EEF5",
-  line: "#D3DCE6",
-  ink: "#22324A",
-  muted: "#66758A",
-  data: ["#3F6FB0", "#5F8BC9", "#82A6D6", "#B3C3D8"],
-  good: "#4E9E77",
-  watch: "#D49A55",
-  action: "#C76E6C",
-  none: "#9EABBC",
-  info: "#5F8BC9",
-} as const;
+import { DEFAULT_THEME, type StatusToken, type Tone } from "../shared/theme";
 
 const NO_DATA = new Set(["not recorded", "not set", "unknown", "none", ""]);
 
@@ -21,21 +8,13 @@ export function isNoDataLabel(value: string): boolean {
   return NO_DATA.has(value.trim().toLowerCase());
 }
 
-const STATUS: Record<string, { color: string; ink: string; glyph: string; word: string }> = {
-  good: { color: ERP_NATIVE.good, ink: "#2F7354", glyph: "▲", word: "On track" },
-  g: { color: ERP_NATIVE.good, ink: "#2F7354", glyph: "▲", word: "On track" },
-  watch: { color: ERP_NATIVE.watch, ink: "#8F5F27", glyph: "◆", word: "Watch" },
-  w: { color: ERP_NATIVE.watch, ink: "#8F5F27", glyph: "◆", word: "Watch" },
-  action: { color: ERP_NATIVE.action, ink: "#9A4442", glyph: "▼", word: "Action" },
-  b: { color: ERP_NATIVE.action, ink: "#9A4442", glyph: "▼", word: "Action" },
-  none: { color: ERP_NATIVE.none, ink: "#5A6A80", glyph: "–", word: "No data" },
-  n: { color: ERP_NATIVE.none, ink: "#5A6A80", glyph: "–", word: "No data" },
-  info: { color: ERP_NATIVE.info, ink: "#335C96", glyph: "●", word: "Information" },
-  f: { color: ERP_NATIVE.info, ink: "#335C96", glyph: "●", word: "Information" },
-};
+/** One-letter status codes some ERP queries return. */
+const SHORT: Record<string, Tone> = { g: "good", w: "watch", b: "action", n: "none", f: "info" };
 
-export function statusOf(key: string): { color: string; ink: string; glyph: string; word: string } {
-  return STATUS[key.trim().toLowerCase()] ?? STATUS.none;
+export function statusOf(key: string): StatusToken {
+  const name = key.trim().toLowerCase();
+  const tone = (SHORT[name] ?? name) as Tone;
+  return DEFAULT_THEME.status[tone] ?? DEFAULT_THEME.status.none;
 }
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

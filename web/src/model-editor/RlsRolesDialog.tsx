@@ -9,6 +9,8 @@ import "../workspace/workspace.css";
 interface RoleDef {
   name: string;
   table_filters: Array<{ table: string; expression: string }>;
+  /** Viewers this role applies to, by email. Editors and admins see every row. */
+  members?: string[];
 }
 
 export function RlsRolesDialog({
@@ -31,6 +33,7 @@ export function RlsRolesDialog({
   const [name, setName] = useState("DepartmentAccess");
   const [table, setTable] = useState(tables[0]?.name ?? "");
   const [expression, setExpression] = useState("");
+  const [members, setMembers] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(modelVersion);
@@ -78,6 +81,8 @@ export function RlsRolesDialog({
         {roles.map((role) => (
           <p key={role.name} className="ws-hint">
             {role.name}: {role.table_filters.map((filter) => `${filter.table} ${filter.expression}`).join("; ")}
+            {" · "}
+            {role.members?.length ? `${role.members.length} member${role.members.length === 1 ? "" : "s"}` : "no members yet"}
           </p>
         ))}
         <div className="form-row">
@@ -102,6 +107,21 @@ export function RlsRolesDialog({
             onChange={(event) => setExpression(event.target.value)}
           />
         </div>
+        <div className="form-row">
+          <label htmlFor="rls-members">Members</label>
+          <textarea
+            id="rls-members"
+            className="ws-input"
+            rows={3}
+            value={members}
+            placeholder="Viewers' emails, one per line"
+            onChange={(event) => setMembers(event.target.value)}
+          />
+        </div>
+        <p className="ws-hint">
+          Use USERPRINCIPALNAME() for the signed-in user&apos;s email, e.g. [Email] = USERPRINCIPALNAME(). Viewers in no role see
+          nothing; editors and admins see every row.
+        </p>
         <div className="form-actions">
           <button type="button" className="ws-btn" onClick={onClose}>Close</button>
           <button
@@ -111,7 +131,11 @@ export function RlsRolesDialog({
             onClick={() =>
               void save([
                 ...roles.filter((role) => role.name !== name.trim()),
-                { name: name.trim(), table_filters: [{ table, expression: expression.trim() }] },
+                {
+                  name: name.trim(),
+                  table_filters: [{ table, expression: expression.trim() }],
+                  members: members.split(/[\s,;]+/).map((item) => item.trim()).filter(Boolean),
+                },
               ])
             }
           >

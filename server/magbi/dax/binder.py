@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from magbi.connectors.types import DataType
 from magbi.dax.errors import DaxError
-from magbi.dax.functions import AGGREGATES
+from magbi.dax.functions import AGGREGATES, CONTEXT, IDENTITY, ITERATORS, KEYWORDS
 from magbi.dax.parser import (
     Binary,
     Call,
@@ -36,6 +36,11 @@ def bind(model: DatasetDefinition, source: str) -> Expr:
     return _Binder(model).expression(parse(source), (), {})
 
 
+def bind_parsed(model: DatasetDefinition, expr: Expr) -> Expr:
+    """Resolve every name in an already parsed (and possibly rewritten) expression."""
+    return _Binder(model).expression(expr, (), {})
+
+
 def bind_measure(model: DatasetDefinition, source: str) -> Expr:
     """Bind a measure and require an aggregation over columns of the right type."""
     expr = bind(model, source)
@@ -55,8 +60,12 @@ def bind_calculated_column(model: DatasetDefinition, source: str) -> Expr:
     return expr
 
 
+# Calls that read many rows and give one value: a measure must contain one.
+_AGGREGATING = AGGREGATES | ITERATORS | (CONTEXT - {"isfiltered"})
+
+
 def _aggregates(expr: Expr) -> bool:
-    if isinstance(expr, Call) and expr.name.casefold() in AGGREGATES:
+    if isinstance(expr, Call) and expr.name.casefold() in _AGGREGATING:
         return True
     children: tuple[Expr, ...] = ()
     if isinstance(expr, Call):
@@ -72,32 +81,85 @@ def _aggregates(expr: Expr) -> bool:
     return any(_aggregates(child) for child in children)
 
 
-def _check_calls(model: DatasetDefinition, expr: Expr) -> None:
+def _check_calls(model: DatasetDefinition, expr: Expr, row: str | None = None) -> None:
+    """``row`` is the table an iterator walks, while checking its row expression."""
+    if isinstance(expr, ColumnRef) and row is not None and expr.table != row:
+        raise DaxError(
+            f"{expr.table}[{expr.column}] is on another table: use RELATED({expr.table}[{expr.column}]) in a row expression",
+            expr.line,
+            expr.col,
+        )
     if isinstance(expr, Call):
+        name = expr.name.casefold()
+        if name == "related":
+            if row is None:
+                raise DaxError("RELATED works only in the row expression of SUMX, AVERAGEX, MINX, MAXX or COUNTX", expr.line, expr.col)
+            if len(expr.args) != 1 or not isinstance(expr.args[0], ColumnRef):
+                raise DaxError("RELATED expects one column", expr.line, expr.col)
+            return
         _check_call(model, expr)
+        if name in ITERATORS:
+            source = expr.args[0]
+            table = source.name if isinstance(source, TableRef) else _iterated_table(source)
+            _check_calls(model, source, None)
+            if _aggregates(expr.args[1]):
+                raise DaxError(
+                    f"{expr.name.upper()} works row by row: its expression can use columns and RELATED, "
+                    "not measures or aggregations, yet",
+                    expr.line,
+                    expr.col,
+                )
+            _check_calls(model, expr.args[1], table)
+            return
         for arg in expr.args:
-            _check_calls(model, arg)
+            _check_calls(model, arg, row)
         return
     if isinstance(expr, Unary):
-        _check_calls(model, expr.expr)
+        _check_calls(model, expr.expr, row)
     elif isinstance(expr, Binary):
-        _check_calls(model, expr.left)
-        _check_calls(model, expr.right)
+        _check_calls(model, expr.left, row)
+        _check_calls(model, expr.right, row)
     elif isinstance(expr, InExpr):
-        _check_calls(model, expr.expr)
+        _check_calls(model, expr.expr, row)
         for value in expr.values:
-            _check_calls(model, value)
+            _check_calls(model, value, row)
     elif isinstance(expr, VarBlock):
         for _name, value in expr.bindings:
-            _check_calls(model, value)
-        _check_calls(model, expr.body)
+            _check_calls(model, value, row)
+        _check_calls(model, expr.body, row)
+
+
+def _iterated_table(source: Expr) -> str:
+    """The table an iterator walks: a table, or FILTER(table, condition)."""
+    if isinstance(source, Call) and source.name.casefold() == "filter" and source.args and isinstance(source.args[0], TableRef):
+        return source.args[0].name
+    raise DaxError("an iterator walks a table, or FILTER(<table>, <condition>)", source.line, source.col)
 
 
 def _check_call(model: DatasetDefinition, expr: Call) -> None:
     name = expr.name.casefold()
+    if name in IDENTITY:
+        raise DaxError(f"{expr.name.upper()}() works only in row-level security rules", expr.line, expr.col)
     if name == "countrows":
         if len(expr.args) != 1 or not isinstance(expr.args[0], TableRef):
             raise DaxError("COUNTROWS expects a table", expr.line, expr.col)
+        return
+    if name in ITERATORS:
+        if len(expr.args) != 2:
+            raise DaxError(f"{expr.name.upper()} expects a table and a row expression", expr.line, expr.col)
+        if not isinstance(expr.args[0], TableRef):
+            _iterated_table(expr.args[0])
+        return
+    if name in CONTEXT:
+        limit = 2 if name == "selectedvalue" else 1
+        if not 1 <= len(expr.args) <= limit or not isinstance(expr.args[0], ColumnRef):
+            raise DaxError(f"{expr.name.upper()} expects a column", expr.line, expr.col)
+        return
+    if name == "rankx":
+        if len(expr.args) < 2:
+            raise DaxError("RANKX expects ALL(<table or column>) and an expression", expr.line, expr.col)
+        if not _aggregates(expr.args[1]):
+            raise DaxError("RANKX ranks by a measure or an aggregation", expr.line, expr.col)
         return
     if name not in AGGREGATES:
         return
@@ -240,6 +302,9 @@ class _Binder:
         table = self._table_or_none(expr.name, expr.line, expr.col)
         if table is not None:
             return TableRef(table.name, expr.line, expr.col)
+        if key in KEYWORDS:
+            # An argument word such as MONTH in DATEDIFF or DESC in RANKX.
+            return NameRef(expr.name.upper(), expr.line, expr.col)
         raise DaxError(f"name {expr.name!r} does not exist", expr.line, expr.col)
 
     def _measure(self, expr: MeasureRef, stack: tuple[str, ...]) -> Expr:

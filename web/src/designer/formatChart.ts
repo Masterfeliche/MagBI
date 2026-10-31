@@ -62,6 +62,26 @@ export function formatNumber(value: unknown, options: NumberFormat = {}): string
   return `${options.prefix ?? ""}${textValue}${unit}${options.suffix ?? ""}`;
 }
 
+/**
+ * A measure's format string as number options: "#,0" whole, "#,0.0" one
+ * decimal, "0%" or "0.0%" a percentage. Anything else keeps the defaults.
+ */
+export function formatFromString(format: string | null | undefined): { options: NumberFormat; percent: boolean } | null {
+  const match = /^[#,0]*0(?:\.(0+))?(%?)$/.exec((format ?? "").trim());
+  if (!match) return null;
+  const decimals = match[1]?.length ?? 0;
+  return { options: decimals === 0 ? { whole: true } : { decimals }, percent: match[2] === "%" };
+}
+
+/** A value in its measure's format string, the way a Power BI card shows it. */
+export function formatMeasure(value: unknown, format: string | null | undefined): string {
+  const parsed = formatFromString(format);
+  if (!parsed) return formatNumber(value);
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!parsed.percent || !Number.isFinite(numeric)) return formatNumber(value, parsed.options);
+  return formatNumber(numeric * 100, { ...parsed.options, suffix: "%" });
+}
+
 export function categoryAxisLabel(
   count: number,
   label: { show: boolean; fontSize: number; color: string },
@@ -111,11 +131,20 @@ export function labelPlacement(position: unknown): string {
   return "top";
 }
 
-export function legendFrom(props: FormatProps): { show: boolean; top?: string; left?: string } {
+/** The legend's place. A top legend sits on its own line under a title, never on top of it. */
+export function legendFrom(props: FormatProps): { show: boolean; top?: string | number; left?: string; type?: "scroll" } {
   if (props.legendShow === false) return { show: false };
   const pos = typeof props.legendPos === "string" ? props.legendPos.toLowerCase() : "top";
-  if (pos === "left" || pos === "right") return { show: true, left: pos };
-  return { show: true, top: pos === "bottom" ? "bottom" : "top" };
+  if (pos === "left" || pos === "right") return { show: true, left: pos, type: "scroll" };
+  if (pos === "bottom") return { show: true, top: "bottom", type: "scroll" };
+  return { show: true, top: titleFrom(props) ? 26 : "top", left: "left", type: "scroll" };
+}
+
+/** Space above the plot: the title's line, then the top legend's line when it is shown. */
+export function plotTop(props: FormatProps, seriesCount: number): number {
+  const legend = legendFrom(props);
+  const topLegend = legend.show && seriesCount > 1 && legend.top !== undefined && legend.top !== "bottom";
+  return 16 + (titleFrom(props) ? 22 : 0) + (topLegend ? 24 : 0);
 }
 
 export function markLines(values: number[], props: FormatProps): { yAxis: number; name: string }[] {

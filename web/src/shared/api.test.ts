@@ -34,3 +34,17 @@ describe("messageFromErrorBody", () => {
     ).toBe("Total: unknown column (line 1, column 5)");
   });
 });
+
+describe("embedded reports", () => {
+  it("send the embed token on every request, not a stored sign-in", async () => {
+    const { getToken, setEmbedToken } = await import("./session");
+    const stored = { getItem: () => "signed-in-user", setItem: () => undefined, removeItem: () => undefined };
+    Object.assign(globalThis, { window: { sessionStorage: stored, localStorage: stored } });
+    expect(getToken()).toBe("signed-in-user");
+    setEmbedToken("embed-token");
+    expect(getToken()).toBe("embed-token");
+    expect(buildApiHeaders(getToken()).get("Authorization")).toBe("Bearer embed-token");
+    setEmbedToken(null);
+    expect(getToken()).toBe("signed-in-user");
+  });
+});

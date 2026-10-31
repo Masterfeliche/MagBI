@@ -124,3 +124,13 @@ def test_users_see_only_their_workspaces_and_cannot_create_one(
         f"{V1}/workspaces", headers=team.tokens["admin"], json={"name": "mine"}
     )
     assert created.status_code == 403
+
+
+def test_each_member_sees_their_own_role(api: ApiEnv, team: Team) -> None:
+    for who in ROLES:
+        one = api.client.get(f"{V1}/workspaces/{team.wid}", headers=team.tokens[who])
+        assert one.json()["my_role"] == who, one.text
+        listed = api.client.get(f"{V1}/workspaces", headers=team.tokens[who]).json()
+        assert [w["my_role"] for w in listed] == [who]
+    # The dev actor, like a platform admin, is an admin everywhere.
+    assert api.client.get(f"{V1}/workspaces/{team.wid}").json()["my_role"] == "admin"

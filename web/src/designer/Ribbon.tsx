@@ -18,7 +18,9 @@ export function Ribbon({
   onCondFormat,
   onBookmarks,
   onImportTheme,
-  onTheme,
+  onThemes,
+  onCustomizeTheme,
+  onExportTheme,
   onExport,
 }: {
   onPublish: () => void;
@@ -32,7 +34,9 @@ export function Ribbon({
   onCondFormat: () => void;
   onBookmarks: () => void;
   onImportTheme: (json: string) => void;
-  onTheme: (themeId: string) => void;
+  onThemes: () => void;
+  onCustomizeTheme: () => void;
+  onExportTheme: () => void;
   onExport: () => void;
 }) {
   const [active, setActive] = useState<RibbonTab>("home");
@@ -155,10 +159,10 @@ export function Ribbon({
         </div>
         <div className="ribbon-group">
           <div className="ribbon-btns">
-            <button type="button" className="rb" onClick={() => onTheme("msd")}><span>MSD theme</span></button>
-            <button type="button" className="rb" onClick={() => onTheme("default")}><span>Default theme</span></button>
-            <label className="rb">
-              <span>Theme JSON</span>
+            <button type="button" className="rb" onClick={onThemes}><span>Themes</span></button>
+            <button type="button" className="rb" onClick={onCustomizeTheme}><span>Customize</span></button>
+            <label className="rb" title="A Power BI or MagBI theme file">
+              <span>Import theme</span>
               <input
                 type="file"
                 accept="application/json,.json"
@@ -171,6 +175,7 @@ export function Ribbon({
                 }}
               />
             </label>
+            <button type="button" className="rb" onClick={onExportTheme} title="Download as a Power BI theme file"><span>Export theme</span></button>
           </div>
           <span className="ribbon-group-label">Theme</span>
         </div>

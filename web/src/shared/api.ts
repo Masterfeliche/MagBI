@@ -1,7 +1,7 @@
 /**
  * API client — typed fetch wrapper with JWT token injection.
  */
-import { getToken } from "./session";
+import { clearToken, getToken } from "./session";
 
 const BASE = "/api/v1";
 
@@ -23,6 +23,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     ...init,
     headers: buildApiHeaders(token, init),
   });
+  if (res.status === 401 && token && !new Headers(init?.headers).has("Authorization")) {
+    // The session expired or was revoked: sign in again and come back here.
+    clearToken();
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/login?next=${next}`);
+  }
   if (!res.ok) throw new Error(await errorMessage(res));
   if (res.status === 204) return undefined as T;
   return res.json();

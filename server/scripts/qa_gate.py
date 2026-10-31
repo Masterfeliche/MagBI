@@ -69,11 +69,26 @@ class Result:
 # ---------------------------------------------------------------- API
 
 
+TOKEN: dict[str, str] = {}
+
+
+def sign_in(api: str, credentials: Path) -> str:
+    """Sign in as the QA account, so every check runs as a real signed-in user."""
+    login = json.loads(credentials.read_text(encoding="utf-8"))
+    status, body, _secs = _call("POST", f"{api}/auth/login", {"email": login["email"], "password": login["password"]})
+    if status != 200:
+        raise SystemExit(f"QA sign-in failed ({status}): {body}")
+    TOKEN["value"] = str(body["token"])
+    return TOKEN["value"]
+
+
 def _call(method: str, url: str, body: Any = None) -> tuple[int, Any, float]:
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         request.add_header("Content-Type", "application/json")
+    if TOKEN.get("value") and not url.endswith("/auth/login"):
+        request.add_header("Authorization", f"Bearer {TOKEN['value']}")
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
@@ -374,6 +389,10 @@ async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[
             tab = Tab(socket)
             await tab.send("Page.enable")
             await tab.send("Emulation.setDeviceMetricsOverride", {"width": VIEW_W, "height": VIEW_H, "deviceScaleFactor": 1, "mobile": False})
+            if TOKEN.get("value"):
+                await tab.send("Page.navigate", {"url": f"{web}/login"})
+                await asyncio.sleep(1.0)
+                await tab.evaluate(f"sessionStorage.setItem('magbi.token', {json.dumps(TOKEN['value'])})")
             await tab.send("Page.navigate", {"url": f"{web}/workspaces/{wid}/reports/{report_id}/view"})
             await tab.settle()
             shot = out / f"{result.name}.png"
@@ -427,7 +446,10 @@ def main() -> None:
     parser.add_argument("--web", default="http://localhost:3000")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--expected", type=Path, help="JSON: {report name: {'Table|Measure': value}}")
+    parser.add_argument("--login", type=Path, help="JSON file with the QA account's email and password")
     args = parser.parse_args()
+    if args.login:
+        sign_in(args.api, args.login)
     expected = json.loads(args.expected.read_text(encoding="utf-8")) if args.expected else {}
     results = run(args.api, args.web, args.workspace, args.report, args.out, expected)
     for result in results:

@@ -125,16 +125,20 @@ ActorDep = Annotated[Actor, Depends(get_actor)]
 
 _EMBED_REPORT = re.compile(r"^/api/v1/workspaces/([^/]+)/reports/([^/]+)/?$")
 _EMBED_QUERY = re.compile(r"^/api/v1/workspaces/([^/]+)/datasets/([^/]+)/query/?$")
+_EMBED_THEMES = re.compile(r"^/api/v1/workspaces/([^/]+)/themes/?$")
 
 
 def _embed_request_allowed(method: str, path: str, actor: Actor) -> bool:
-    """An embed token may read its own reports and query its own datasets, nothing else."""
+    """An embed token may read its own reports and its workspace's themes, and query its own datasets."""
     if method == "GET" and path.rstrip("/") == "/api/v1/auth/whoami":
         return True
     report = _EMBED_REPORT.match(path)
     if method == "GET" and report:
         wid, rid = report.groups()
         return wid == actor.workspace_id and rid in actor.reports
+    themes = _EMBED_THEMES.match(path)
+    if method == "GET" and themes:
+        return themes.group(1) == actor.workspace_id
     query = _EMBED_QUERY.match(path)
     if method == "POST" and query:
         wid, did = query.groups()

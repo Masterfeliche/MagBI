@@ -1,10 +1,9 @@
 {
-  "$schema": "magbi.theme/1",
-  "id": "msd-enterprise",
-  "name": "MSD Enterprise",
-  "description": "MSD's organisation brand. Not a built-in theme: Phase 3 loads it as MSD's locked organisation theme, light only.",
-  "extends": "enterprise-light",
-  "scope": "organisation",
+  "name": "MSD ERP Native",
+  "isDefault": true,
   "locked": true,
-  "data": { "style": "categorical", "categorical": ["#1B2A4A", "#2B5797", "#E8913A", "#3A7BD5", "#10B981", "#64748B"] }
+  "definition": {
+    "extends": "enterprise-light",
+    "description": "MSD's official dashboard look (ERP Native, accepted 21 Oct 2026): Enterprise Light, light only, locked so reports keep it."
+  }
 }

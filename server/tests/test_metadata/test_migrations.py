@@ -15,6 +15,7 @@ TABLES = {
     "datasets",
     "reports",
     "service_tokens",
+    "themes",
     "users",
     "workspace_members",
     "workspaces",

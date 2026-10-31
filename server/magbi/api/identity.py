@@ -45,8 +45,13 @@ def sign_user(svc: ServicesDep, claims: dict[str, object]) -> str:
 
 
 @router.get("/auth/whoami")
-async def whoami(actor: ActorDep) -> dict[str, str | None]:
-    return {"kind": actor.kind, "workspaceId": actor.workspace_id, "email": actor.email}
+async def whoami(actor: ActorDep) -> dict[str, str | bool | None]:
+    return {
+        "kind": actor.kind,
+        "workspaceId": actor.workspace_id,
+        "email": actor.email,
+        "platformAdmin": actor.kind == "dev" or actor.platform_admin,
+    }
 
 
 @router.post("/auth/login")

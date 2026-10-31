@@ -95,12 +95,12 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | SUB-6.1 | PostgreSQL connector on the `Connector` base, read-only guard included | Same connector test suite as SQL Server passes | 2d | [x] |
 | SUB-6.2 | MySQL connector | Same suite | 1.5d | [x] |
 | SUB-6.3 | OData / REST JSON connector (paged GET, flattening) | Imports a public OData feed into a table | 3d | [x] |
-| SUB-7.1 | Lockout after 5 failed sign-ins in 15 minutes, with audit | Sixth attempt refused for 15 minutes; admin can unlock | 1d | [ ] |
-| SUB-7.2 | Change password and admin-issued reset link | Old password stops working; link expires after 1 hour | 1.5d | [ ] |
-| SUB-7.3 | OpenID Connect sign-in (Entra ID, Google, Keycloak) | A test identity provider signs a user in; first sign-in creates the user | 3d | [ ] |
+| SUB-7.1 | Lockout after 5 failed sign-ins in 15 minutes, with audit | Sixth attempt refused for 15 minutes; admin can unlock | 1d | Paused |
+| SUB-7.2 | Change password and admin-issued reset link | Old password stops working; link expires after 1 hour | 1.5d | Paused |
+| SUB-7.3 | OpenID Connect sign-in (Entra ID, Google, Keycloak) | A test identity provider signs a user in; first sign-in creates the user | 3d | Paused |
 | SUB-8.1 | Phone layout per page: separate visual positions on a 360 px-wide canvas, edited in the designer | Designer has Desktop / Phone tabs; unplaced visuals listed | 3d | [ ] |
 | SUB-8.2 | Viewer uses the phone layout under 768 px, with 44 px tap targets | The 3 Warehouse dashboards readable on a 390 px phone; gate render check at 390 × 844 | 2d | [ ] |
-| SUB-9.1 | E2E suite in the repo (`server/scripts/e2e.py`) and run in CI against a seeded dev server | All review steps pass, including the 3 former gaps | 1.5d | [ ] |
+| SUB-9.1 | E2E suite in the repo (`server/scripts/e2e.py`) and run in CI against a seeded dev server | All review steps pass, including the 3 former gaps | 1.5d | [x] |
 
 **Phases and effort** (one engineer; days of work, not calendar):
 
@@ -112,7 +112,7 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | 4. Visuals | TASK-4 | 7.5d | Matrix, combo, area, stacked and maps draw and cross-filter |
 | 5. Sharing and export | TASK-5 | 11d | Reports reach non-authors by share, app, PDF, email and alert |
 | 6. Data sources | TASK-6 | 6.5d | PostgreSQL, MySQL and OData import and refresh |
-| 7. Identity | TASK-7 | 5.5d | Lockout, reset and SSO |
+| 7. Identity (**paused**) | TASK-7 | 5.5d | Lockout, reset and SSO. Paused on 31 Oct 2026 at the owner's request, to be done later |
 | 8. Phone | TASK-8 | 5d | Dashboards readable on a phone |
 | Always | SUB-9.1 | 1.5d | The review re-runs in CI |
 
@@ -125,6 +125,8 @@ About 57 days in total. Phases 1–2 (7 days) are the recommended next step; pha
 - [x] Phases 1 and 2 done 31 Oct 2026 (commits listed by `git log --grep magbi-019` and the feat/fix commits before it).
 - [x] Phases 3, 4 and 5 done 31 Oct 2026.
 - [x] Phase 6 done 31 Oct 2026; phase 8 (phone) running alongside in its own session and branch.
+- [ ] Phase 7 (identity) paused 31 Oct 2026 by the owner; it stays planned for later.
+- [x] SUB-9.1 done 31 Oct 2026: the end-to-end suite is in the repo and runs in CI on every push.
 
 ### Phases 1–2 result (31 Oct 2026)
 
@@ -268,6 +270,29 @@ The New Connection form asks for each kind's own settings: SSL mode for PostgreS
 - End to end: **49 of 49**, including a real refresh from MSD_ERP (SQL Server, read-only) through the changed importer. QA gate: the 3 Warehouse dashboards pass.
 
 **Not yet checked against a real server**: PostgreSQL and MySQL ran against fake drivers only. No server is installed here and Docker isn't running. A check against real servers needs the official `postgres` and `mysql` Docker images downloaded (about 150 MB each).
+
+### SUB-9.1 result (31 Oct 2026)
+
+The end-to-end review is now part of the repo, and it runs on every push and pull request.
+
+| Part | What it does | Where |
+|------|--------------|-------|
+| End-to-end suite | The review's steps (sign-in, data, model and DAX, figures, row-level security, report, cross-filter, slicer, themes, designer drafts and Publish, embedding, viewer rights), each with its Power BI equivalent. It needs nothing set up: it creates its workspace, an editor and a viewer on first run, keeping their logins in the gitignored `server/data`. It exits 1 if any step fails | `server/scripts/e2e.py` |
+| Its own data source | The refresh steps run against a small OData service the suite starts on 127.0.0.1 (7 records over 3 pages, with a complex type). They test the connection, browse its columns, create a dataset, refresh it, and check the totals by region. So CI needs no database and no network. `--warehouse WID:DID` also refreshes a real dataset from its source, such as MSD_ERP, when run locally | `server/scripts/e2e.py` (`odata_flow`, `refresh_flow`) |
+| CI | GitHub Actions on every push, pull request and manual run (it used to run for `main` only). Server: ruff, mypy, pytest, and the SQL Server connector against a real SQL Server container (that job was already there). Web: ESLint, vitest, the production build. Then end to end: a fresh dev server and web app, the suite in headless Chrome, and the results, screenshots and server logs kept as the `e2e-results` artifact for 14 days | `.github/workflows/ci.yml` |
+| Supporting changes | The QA gate finds Chrome on Linux and macOS too, and adds `--no-sandbox` only under CI. `dev_server.py` takes `MAGBI_DEV_DATA` and `MAGBI_DEV_PORT`, and the web dev server takes `MAGBI_WEB_PORT` and `MAGBI_API_URL`, so a throwaway pair can run beside the usual one. The defaults are unchanged | `server/scripts/qa_gate.py`, `server/dev_server.py`, `web/vite.config.ts` |
+
+Run it locally against the running dev servers:
+
+```
+cd server
+python scripts/e2e.py --out e2e-results
+```
+
+**Checks**
+- Against the usual dev servers, with `--warehouse` for the MSD_ERP refresh: **53 of 53**.
+- Against a fresh pair started from an empty database (API on 8100, web on 3100), the way CI starts: **51 of 51** (everything but the 2 opt-in warehouse steps).
+- The workflow file parses, the editable install (`pip install -e "server[dev]"`) resolves, and web lint, tests and the production build pass. **The workflow itself hasn't run on GitHub yet**: it first runs when this branch is pushed.
 
 ---
 

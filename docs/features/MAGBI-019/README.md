@@ -76,13 +76,13 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | SUB-2.1 | Detect a unique key when a relationship is added | Sales → Region works without marking Region[Region]; a non-unique target still gets a clear error naming the duplicate count | 1d | [x] |
 | SUB-2.2 | RLS rules read `[Column]` as the role's own table | `[Region] = "North"` on the Region table works; E2E step passes | 0.5d | [x] |
 | SUB-2.3 | Dynamic RLS: `USERPRINCIPALNAME()` and `USERNAME()` from the signed-in user or the embed token's user | A rule `Users[Email] = USERPRINCIPALNAME()` shows each user only their rows, in the app and embedded | 2d | [x] |
-| SUB-3.1 | Iterators: SUMX, AVERAGEX, MINX, MAXX, COUNTX over a table with a row expression | Same figures as a hand-written SQL check on the E2E and Warehouse data | 3d | [ ] |
-| SUB-3.2 | RELATED (row context across a many-to-one relationship) | `SUMX(Sales, Sales[Qty] * RELATED(Product[Price]))` matches SQL | 1.5d | [ ] |
-| SUB-3.3 | SWITCH, IFERROR, COALESCE, SELECTEDVALUE, HASONEVALUE, ISFILTERED, VALUES (in iterators) | Unit tests per function; error messages for wrong argument counts | 2d | [ ] |
-| SUB-3.4 | Text, maths and date functions (FORMAT, CONCATENATE, LEFT, RIGHT, MID, UPPER, LOWER, LEN, ROUND, ABS, INT, MOD, POWER, YEAR, MONTH, DAY, TODAY, DATE, DATEDIFF, EOMONTH, WEEKDAY) | Each maps to DuckDB SQL; tests | 2d | [ ] |
-| SUB-3.5 | TOTALQTD, TOTALMTD, DATESYTD, PREVIOUSMONTH, PREVIOUSYEAR, PARALLELPERIOD | Same results as the equivalent CALCULATE + date filters | 1.5d | [ ] |
-| SUB-3.6 | RANKX and TOPN over the visual's rows (window step after grouping) | Rank by region in a table matches a manual ordering, ties ranked the Power BI way (skip) | 2d | [ ] |
-| SUB-3.7 | Measure editor lists the supported functions with signatures | Autocomplete shows every supported function | 1d | [ ] |
+| SUB-3.1 | Iterators: SUMX, AVERAGEX, MINX, MAXX, COUNTX over a table with a row expression | Same figures as a hand-written SQL check on the E2E and Warehouse data | 3d | [x] |
+| SUB-3.2 | RELATED (row context across a many-to-one relationship) | `SUMX(Sales, Sales[Qty] * RELATED(Product[Price]))` matches SQL | 1.5d | [x] |
+| SUB-3.3 | SWITCH, IFERROR, COALESCE, SELECTEDVALUE, HASONEVALUE, ISFILTERED, VALUES (in iterators) | Unit tests per function; error messages for wrong argument counts | 2d | [x] |
+| SUB-3.4 | Text, maths and date functions (FORMAT, CONCATENATE, LEFT, RIGHT, MID, UPPER, LOWER, LEN, ROUND, ABS, INT, MOD, POWER, YEAR, MONTH, DAY, TODAY, DATE, DATEDIFF, EOMONTH, WEEKDAY) | Each maps to DuckDB SQL; tests | 2d | [x] |
+| SUB-3.5 | TOTALQTD, TOTALMTD, DATESYTD, PREVIOUSMONTH, PREVIOUSYEAR, PARALLELPERIOD | Same results as the equivalent CALCULATE + date filters | 1.5d | [x] |
+| SUB-3.6 | RANKX and TOPN over the visual's rows (window step after grouping) | Rank by region in a table matches a manual ordering, ties ranked the Power BI way (skip) | 2d | [x] |
+| SUB-3.7 | Measure editor lists the supported functions with signatures | Autocomplete shows every supported function | 1d | [x] |
 | SUB-4.1 | Matrix visual: rows, columns, values, row and column subtotals, expand and collapse | Region × Product matrix totals equal the table visual | 3d | [ ] |
 | SUB-4.2 | Combo (columns and a line on one value axis), area, stacked and 100 % stacked column and bar | Each draws from the E2E dataset and cross-filters | 2d | [ ] |
 | SUB-4.3 | Filled map from bundled Tanzania regions GeoJSON; point map from latitude and longitude | Warehouses plotted by region; no map tile service needed | 2d | [ ] |
@@ -144,6 +144,40 @@ About 57 days in total. Phases 1–2 (7 days) are the recommended next step; pha
 - QA gate: the 3 Warehouse dashboards pass.
 
 **Note**: string comparison in rules is case-sensitive (DuckDB), unlike DAX. MagBI stores emails in lower case, so a rule like `[Email] = USERPRINCIPALNAME()` needs lower-case emails in the data.
+
+### Phase 3 result (31 Oct 2026)
+
+64 DAX functions are now supported, up from 24, and each is in the measure editor with its signature.
+
+| Group | Functions | How |
+|-------|-----------|-----|
+| Iterators | SUMX, AVERAGEX, MINX, MAXX, COUNTX over a table or FILTER(table, condition) | The row expression is aggregated over the home table's rows. Columns of other tables need RELATED, as in Power BI. Measures inside a row expression (context transition) are refused with a clear message, for now |
+| RELATED | RELATED(Table[Column]) in a row expression | The table is joined along the relationship |
+| Logic | SWITCH (value form and SWITCH(TRUE(), …)), IFERROR, COALESCE | CASE, TRY and COALESCE |
+| Context | SELECTEDVALUE, HASONEVALUE, ISFILTERED | Counted over the rows in the current filter context; ISFILTERED looks at filters and slicers |
+| Text | CONCATENATE, LEFT, RIGHT, MID, UPPER, LOWER, LEN, FORMAT | FORMAT covers "0", "0.0", "#,0", "#,0.00", "0%", "0.0%" and date patterns such as "dd mmm yyyy" and "mmm yy" |
+| Maths | ROUND, ABS, INT, MOD (sign of the divisor), POWER | |
+| Dates | YEAR, MONTH, DAY, TODAY, DATE, DATEDIFF, EOMONTH, WEEKDAY (types 1–3) | |
+| Time intelligence | TOTALQTD, TOTALMTD, DATESYTD, PREVIOUSMONTH, PREVIOUSYEAR, PARALLELPERIOD | Like TOTALYTD and DATEADD, they read the date filter on the marked date table |
+| Ranking | RANKX(ALL(…), expression, , ASC/DESC, SKIP/DENSE) | A window over the visual's rows. Empty arguments now parse as blank, as in Power BI |
+
+Still refused, each with a message saying what to do instead: TOPN (use the visual's Top N filter), VALUES, SUMMARIZE and other table expressions, EARLIER, USERELATIONSHIP, KEEPFILTERS, ALLEXCEPT, MEDIAN, PERCENTILEX and CONCATENATEX.
+
+**Found and fixed**: TOTALYTD never worked inside a visual. To find a measure's home table, the engine compiled it once with no filters, and time intelligence fails without a date filter. `home_table()` now finds it without compiling.
+
+**Differences from Power BI to know**
+- IFERROR over an aggregate replaces a blank result too. Division by zero is already blank in MagBI, and DuckDB's TRY cannot wrap an aggregate.
+- RANKX ranks the rows the visual shows; its third argument (a value to rank) isn't supported.
+- SELECTEDVALUE and HASONEVALUE look at the fact rows in context, so a dimension member with no facts doesn't count.
+
+**Checks**
+- Backend: 554 passed. Frontend: 80 passed. ruff, mypy, ESLint and the type build are clean.
+- New engine tests compute each function on DuckDB against figures worked out by hand (`tests/test_dax/test_parity_functions.py`).
+- All 39 Warehouse measures give identical figures before and after, totals and per warehouse.
+- QA gate: the 3 Warehouse dashboards pass. End to end: **47 of 47 steps pass**, including RANKX ranking regions.
+- Measure editor, checked in headless Chrome: 64 functions listed, searching "row by row" finds AVERAGEX and SUMX, and a click inserts the function.
+
+**New finding for a later phase**: the code editor in the measure dialog (Monaco) is downloaded from a public CDN (cdn.jsdelivr.net) when the dialog opens. On a network without internet access, the DAX box stays on "Loading…" and measures can't be typed. Bundling Monaco with the app fixes this; it adds a few MB to the build.
 
 ---
 

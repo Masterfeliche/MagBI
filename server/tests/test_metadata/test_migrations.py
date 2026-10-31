@@ -9,12 +9,19 @@ from alembic.config import Config
 
 SERVER_DIR = Path(__file__).resolve().parents[2]
 TABLES = {
+    "alerts",
+    "app_audience",
+    "app_reports",
+    "apps",
     "audit_log",
     "connections",
     "dataset_refreshes",
     "datasets",
+    "notifications",
+    "report_shares",
     "reports",
     "service_tokens",
+    "subscriptions",
     "themes",
     "users",
     "workspace_members",

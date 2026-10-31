@@ -17,6 +17,7 @@ from magbi.engine.errors import QueryError
 from magbi.engine.semantic import parse_query
 from magbi.model.schema import DatasetDefinition
 from magbi.services import Services
+from magbi.sharing import dataset_granted
 
 router = APIRouter(tags=["query"])
 
@@ -56,7 +57,10 @@ async def run_dataset_query(
             cache=_cache(svc),
             dataset_id=str(dataset.id),
             version=dataset.current_version,
-            roles=_query_roles(actor, body.roles, str(wid), str(dataset.id), model),
+            roles=_query_roles(
+                actor, body.roles, str(wid), str(dataset.id), model,
+                granted=not permits(actor, str(wid), "viewer") and await dataset_granted(session, actor, wid, did),
+            ),
             user=actor.email,
         )
     except QueryError as exc:
@@ -66,7 +70,7 @@ async def run_dataset_query(
 
 
 def _query_roles(
-    actor: Actor, requested: list[str], workspace_id: str, dataset_id: str, model: DatasetDefinition
+    actor: Actor, requested: list[str], workspace_id: str, dataset_id: str, model: DatasetDefinition, granted: bool = False
 ) -> tuple[str, ...]:
     """The roles a query runs under.
 
@@ -84,7 +88,8 @@ def _query_roles(
         actor.kind == "user" and permits(actor, workspace_id, "editor")
     ):
         return tuple(requested)
-    if actor.kind == "user" and permits(actor, workspace_id, "viewer"):
+    # A report shared with them, or in their app, lets a person query its dataset as a viewer.
+    if actor.kind == "user" and (permits(actor, workspace_id, "viewer") or granted):
         if requested:
             raise ApiError(403, "FORBIDDEN", "only an editor can set query roles")
         if not model.roles:

@@ -55,6 +55,11 @@ STATUS_TYPES = {"kpi", "meter"}
 CHROME = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ]
 
 
@@ -337,7 +342,9 @@ class Chrome:
             self.port = probe.getsockname()[1]
         self.proc = subprocess.Popen(
             [exe, "--headless=new", f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}",
-             f"--window-size={VIEW_W},{VIEW_H}", "--hide-scrollbars", "--force-device-scale-factor=1", "--no-first-run", "about:blank"],
+             f"--window-size={VIEW_W},{VIEW_H}", "--hide-scrollbars", "--force-device-scale-factor=1", "--no-first-run",
+             # CI containers have no user namespaces for Chrome's sandbox.
+             *(["--no-sandbox"] if os.environ.get("CI") else []), "about:blank"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         for _ in range(50):

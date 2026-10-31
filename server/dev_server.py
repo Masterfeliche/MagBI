@@ -1,5 +1,10 @@
-"""Dev server: SQLite backend, auto-creates tables."""
+"""Dev server: SQLite backend, auto-creates tables.
+
+MAGBI_DEV_DATA (default ``data``) and MAGBI_DEV_PORT (default 8000) let a second,
+throwaway server run beside it, as the end-to-end suite does in CI.
+"""
 import asyncio
+import os
 from pathlib import Path
 
 from sqlalchemy import Connection, inspect, text
@@ -9,7 +14,7 @@ from magbi.config import Settings
 from magbi.metadata.models import Base
 from magbi.storage.credentials import generate_key
 
-DATA_DIR = Path("data")
+DATA_DIR = Path(os.environ.get("MAGBI_DEV_DATA", "data"))
 DB_PATH = DATA_DIR / "dev.db"
 KEY_PATH = DATA_DIR / "dev-credential.key"
 
@@ -67,4 +72,4 @@ if __name__ == "__main__":
     from magbi.main import create_app
 
     app = create_app(settings)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("MAGBI_DEV_PORT", "8000")))

@@ -33,3 +33,6 @@ Thumbs.db
 *.jar
 target/
 TEST*.xml
+
+# End-to-end run output (server/scripts/e2e.py)
+e2e-results/

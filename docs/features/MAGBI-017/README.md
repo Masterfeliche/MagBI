@@ -29,8 +29,14 @@ Placeholders to fill before launch, all in `content.ts`: company name, contact e
 - Sign out: token cleared, back to `/login`.
 - 56 frontend tests pass.
 
-## 4. Not in this feature
+## 4. Sign-in required (added 31 Oct 2026)
 
-- Requiring sign-in for the app pages (production turns off the dev bypass; the pages do not yet redirect to `/login` on a 401).
+- App pages (workspaces, designer, model view, report viewer) need a session; anyone else goes to `/login?next=…` and comes back after signing in. The landing page, `/login` and `/embed/…` stay public.
+- An expired or forged token is cleared on the first 401 and the user is sent to sign in again. Embedded reports, which carry their own token, never redirect.
+- Every sign-in and failed attempt is written to the audit log with the reason (unknown email, inactive, wrong password) and the IP address; the caller still only hears "wrong", and the password is never stored.
+- The QA gate signs in as a viewer (`--login`), so its checks see exactly what a signed-in viewer sees.
+
+## 5. Not in this feature
+
 - Lockout after repeated wrong passwords, password reset, single sign-on.
-- Writing sign-ins to the audit log.
+- A screen for administrators to read the audit log.

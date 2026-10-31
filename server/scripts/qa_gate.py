@@ -1,6 +1,7 @@
 """MagBI QA gate: the same standard the live Power BI dashboards pass, run on MagBI reports.
 
     python -m scripts.qa_gate --workspace <id> --report <id> [--report <id> ...] --out <folder>
+        [--themes all | --themes health,presentation] [--quick]
 
 Three layers, each finding a class of defect that reached a live dashboard before:
 
@@ -12,6 +13,10 @@ Three layers, each finding a class of defect that reached a live dashboard befor
    "(Blank)" or NaN, no empty white panel, donut centre on the ring and equal to
    its slices, tables at least 90% of their panel, status as glyph + word.
    The render checks run again for every value of every dropdown.
+
+With ``--themes`` every report is checked again in each built-in theme (``all``
+for every one), so a dashboard stays readable whichever theme it is shown in.
+``--quick`` renders only the unfiltered view in each theme.
 
 Exit code 0 only when every report passes. A JSON report and screenshots are
 written to --out.
@@ -37,7 +42,7 @@ from typing import Any
 
 import websockets
 
-from magbi.themes import load_theme, theme_colours, token_names
+from magbi.themes import load_theme, theme_colours, theme_ids, token_names
 
 PAGE_W, PAGE_H = 1760, 990
 VIEW_W, VIEW_H = 1920, 1080
@@ -133,7 +138,7 @@ def static_checks(definition: dict[str, Any], result: Result) -> None:
             result.failures.append(f"static: {v['id']} shows status without a tone rule")
         colours = v.get("properties", {}).get("colours", {})
         for name, tone in colours.items():
-            if not str(tone).startswith("#") and tone not in TONES:
+            if not str(tone).startswith("#") and tone not in TONES and not re.fullmatch(r"data-\d+", str(tone)):
                 result.failures.append(f"static: {v['id']} colours {name!r} with unknown tone {tone!r}")
     for index, a in enumerate(solid):
         for b in solid[index + 1:]:
@@ -441,20 +446,29 @@ async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[
 
 
 def run(
-    api: str, web: str, wid: str, report_ids: list[str], out: Path, expected: dict[str, dict[str, float]], theme: str | None = None
+    api: str,
+    web: str,
+    wid: str,
+    report_ids: list[str],
+    out: Path,
+    expected: dict[str, dict[str, float]],
+    theme: str | None = None,
+    quick: bool = False,
 ) -> list[Result]:
-    """``theme`` renders every report in that built-in theme instead of its own, without saving it."""
+    """``theme`` renders every report in that built-in theme instead of its own, without saving it.
+    ``quick`` renders the unfiltered view only."""
     out.mkdir(parents=True, exist_ok=True)
     results = []
     for report_id in report_ids:
         _status, report, _secs = _call("GET", f"{api}/workspaces/{wid}/reports/{report_id}")
         definition = report["definition"] | ({"theme": {"id": theme}} if theme else {})
         did = report["dataset_id"]
-        result = Result(report_id, re.sub(r"[^A-Za-z0-9]+", "-", report["name"]).strip("-"))
+        name = re.sub(r"[^A-Za-z0-9]+", "-", report["name"]).strip("-")
+        result = Result(report_id, f"{name}@{theme}" if theme else name)
         static_checks(definition, result)
         choices = live_checks(api, wid, did, definition, result)
         expected_checks(api, wid, did, expected.get(report["name"], {}), result)
-        asyncio.run(render_checks(web, wid, report_id, choices, out, result, theme))
+        asyncio.run(render_checks(web, wid, report_id, [] if quick else choices, out, result, theme))
         results.append(result)
     (out / "qa-report.json").write_text(json.dumps([r.__dict__ | {"passed": r.passed} for r in results], indent=1), encoding="utf-8")
     return results
@@ -470,11 +484,20 @@ def main() -> None:
     parser.add_argument("--expected", type=Path, help="JSON: {report name: {'Table|Measure': value}}")
     parser.add_argument("--login", type=Path, help="JSON file with the QA account's email and password")
     parser.add_argument("--theme", help="render in this built-in theme instead of the report's own (nothing is saved)")
+    parser.add_argument("--themes", help="check again in each of these built-in themes: 'all' or a comma list")
+    parser.add_argument("--quick", action="store_true", help="render only the unfiltered view")
     args = parser.parse_args()
     if args.login:
         sign_in(args.api, args.login)
     expected = json.loads(args.expected.read_text(encoding="utf-8")) if args.expected else {}
-    results = run(args.api, args.web, args.workspace, args.report, args.out, expected, args.theme)
+    results = run(args.api, args.web, args.workspace, args.report, args.out, expected, args.theme, args.quick)
+    if args.themes:
+        wanted = theme_ids() if args.themes == "all" else [item.strip() for item in args.themes.split(",") if item.strip()]
+        unknown = [item for item in wanted if item not in theme_ids()]
+        if unknown:
+            raise SystemExit(f"unknown theme(s): {', '.join(unknown)}")
+        for theme_id in wanted:
+            results += run(args.api, args.web, args.workspace, args.report, args.out / theme_id, expected, theme_id, args.quick)
     for result in results:
         print(f"{'PASS' if result.passed else 'FAIL'}  {result.name}  {json.dumps(result.stats)}")
         for item in result.failures:

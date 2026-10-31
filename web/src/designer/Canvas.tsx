@@ -1,4 +1,7 @@
-/** Free-form page. Positions are page pixels; pointer deltas are divided by the CSS scale. */
+/**
+ * Free-form page. Positions are page pixels; pointer deltas are divided by the CSS scale.
+ * With ``layout="phone"`` it draws the page's phone layout: the visuals it places, at their phone positions.
+ */
 
 import { useDroppable } from "@dnd-kit/core";
 import { useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
@@ -16,7 +19,8 @@ import {
   type Box,
   type ResizeHandle,
 } from "./layout";
-import { useDesignerStore } from "./store";
+import { PHONE_MAX_HEIGHT, PHONE_ROOM, PHONE_WIDTH, phoneBoxes, phoneHeight } from "./phone";
+import { useDesignerStore, type LayoutMode } from "./store";
 import { useHasTheme, useReportTheme } from "./useReportTheme";
 
 export function Canvas({
@@ -27,6 +31,7 @@ export function Canvas({
   onCross,
   readOnly = false,
   pageIndex,
+  layout = "desktop",
 }: {
   scale: number;
   workspaceId: string;
@@ -36,6 +41,7 @@ export function Canvas({
   readOnly?: boolean;
   /** A page other than the active one, as the PDF export draws every page. */
   pageIndex?: number;
+  layout?: LayoutMode;
 }) {
   const report = useDesignerStore((state) => state.report);
   const theme = useReportTheme();
@@ -44,9 +50,20 @@ export function Canvas({
   const selectVisual = useDesignerStore((state) => state.selectVisual);
   const moveVisual = useDesignerStore((state) => state.moveVisual);
   const resizeVisual = useDesignerStore((state) => state.resizeVisual);
+  const setPhoneBox = useDesignerStore((state) => state.setPhoneBox);
   const setPageFilters = useDesignerStore((state) => state.setPageFilters);
   const activePageIndex = useDesignerStore((state) => state.activePageIndex);
   const page = report.pages[pageIndex ?? activePageIndex];
+  const phone = layout === "phone";
+  const phoneAt = phone ? phoneBoxes(page) : null;
+  const pageWidth = phone ? PHONE_WIDTH : PAGE_WIDTH;
+  const pageHeight = phone ? phoneHeight(page?.phone, readOnly ? 0 : PHONE_ROOM) : PAGE_HEIGHT;
+  // How far a visual may go: the page, or on a phone, down to the designer's limit.
+  const bounds = { width: pageWidth, height: phone ? PHONE_MAX_HEIGHT : PAGE_HEIGHT };
+  const shown = (page?.visuals ?? [])
+    .filter((visual) => !visual.properties?.hidden && (!phoneAt || phoneAt.has(visual.id)))
+    .map((visual) => ({ ...visual, ...phoneAt?.get(visual.id) }));
+  const place = (id: string, box: Box) => (phone ? setPhoneBox(id, box) : resizeVisual(id, box));
   const frame = useRef<HTMLDivElement>(null);
   const offset = useRef({ dx: 0, dy: 0 });
   const dragRef = useRef<({ id: string } & Box) | null>(null);
@@ -63,13 +80,13 @@ export function Canvas({
   return (
     <div
       ref={frame}
-      className="page"
-      style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale, background: themed ? theme.surface.page : report.theme?.background }}
+      className={phone ? "page phone" : "page"}
+      style={{ width: pageWidth * scale, height: pageHeight * scale, background: themed ? theme.surface.page : report.theme?.background }}
       onPointerDown={() => {
         if (!readOnly) selectVisual(null);
       }}
     >
-    <div className="page-inner" style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT, transform: `scale(${scale})` }}>
+    <div className="page-inner" style={{ width: pageWidth, height: pageHeight, transform: `scale(${scale})` }}>
       {guides.map((guide) => (
         <div
           key={`${guide.axis}:${guide.at}`}
@@ -77,7 +94,7 @@ export function Canvas({
           style={guide.axis === "x" ? { left: guide.at } : { top: guide.at }}
         />
       ))}
-      {page?.visuals.filter((visual) => !visual.properties?.hidden).map((visual) => (
+      {shown.map((visual) => (
         <VisualFrame
           key={visual.id}
           id={visual.id}
@@ -121,7 +138,7 @@ export function Canvas({
               const rect = frame.current?.getBoundingClientRect();
               if (!rect) return;
               const point = pageOffset(event.clientX, event.clientY, rect.left, rect.top, scale);
-              const others = (page?.visuals ?? [])
+              const others = shown
                 .filter((item) => item.id !== visual.id)
                 .map((item) => ({ x: item.x, y: item.y, width: item.width, height: item.height }));
               const aligned = moveWithGuides(
@@ -132,13 +149,15 @@ export function Canvas({
                   height: visual.height,
                 },
                 others,
+                bounds,
               );
               placeDrag({ id: visual.id, ...aligned.box }, aligned.guides);
             }}
             onPointerUp={() => {
               const current = dragRef.current;
-              if (current && current.id === visual.id) {
-                moveVisual(visual.id, current.x, current.y);
+              if (current && current.id === visual.id && (current.x !== visual.x || current.y !== visual.y)) {
+                if (phone) setPhoneBox(visual.id, current);
+                else moveVisual(visual.id, current.x, current.y);
               }
               placeDrag(null);
             }}
@@ -173,24 +192,24 @@ export function Canvas({
                   const rect = frame.current?.getBoundingClientRect();
                   if (!rect) return;
                   const point = pageOffset(event.clientX, event.clientY, rect.left, rect.top, scale);
-                  const others = (page?.visuals ?? [])
+                  const others = shown
                     .filter((item) => item.id !== visual.id)
                     .map((item) => ({ x: item.x, y: item.y, width: item.width, height: item.height }));
                   const lines: Guide[] = [];
                   const box = resizeBox(session.start, session.handle, point.x, point.y, (value, axis) => {
                     const snapped = snapAxis(
                       value,
-                      axisTargets(others, axis, axis === "x" ? PAGE_WIDTH : PAGE_HEIGHT),
+                      axisTargets(others, axis, axis === "x" ? pageWidth : pageHeight),
                     );
                     if (snapped.guide !== null) lines.push({ axis, at: snapped.guide });
                     return snapped.value;
-                  });
+                  }, bounds);
                   placeDrag({ id: visual.id, ...box }, lines);
                 }}
                 onPointerUp={() => {
                   const current = dragRef.current;
                   if (current && resizeRef.current?.id === visual.id) {
-                    resizeVisual(visual.id, current);
+                    place(visual.id, current);
                   }
                   resizeRef.current = null;
                   placeDrag(null);

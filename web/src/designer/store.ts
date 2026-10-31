@@ -2,10 +2,23 @@ import { create } from "zustand";
 
 import { BUILT_IN_THEMES, type ReaderTheme, type SavedThemes } from "../shared/theme";
 import { importThemeFile } from "../shared/themeFile";
-import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, ThemeOverrides, VisualDefinition } from "../types/report";
+import type {
+  BookmarkDefinition,
+  FieldBinding,
+  FilterDefinition,
+  PageDefinition,
+  PhoneLayout,
+  ReportDefinition,
+  ThemeOverrides,
+  VisualDefinition,
+} from "../types/report";
 import { patchFormat } from "./filters";
 import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
 import { blankReport, PAGE_HEIGHT, PAGE_WIDTH, placeVisual, type Box } from "./layout";
+import { autoPhoneLayout, placeOnPhone, removeFromPhone as dropPhonePosition, setPhoneBox as placePhoneBox } from "./phone";
+
+/** Which arrangement the designer edits: the desktop page or the page's phone layout. */
+export type LayoutMode = "desktop" | "phone";
 
 interface DesignerState {
   report: ReportDefinition;
@@ -20,6 +33,18 @@ interface DesignerState {
   resizeVisual: (id: string, box: Box) => void;
   removeVisual: (id: string) => void;
   removeAllVisuals: () => void;
+  layoutMode: LayoutMode;
+  setLayoutMode: (mode: LayoutMode) => void;
+  /** Puts a visual on the active page's phone layout, under what is there. */
+  addToPhone: (id: string) => void;
+  /** Takes a visual off the phone layout; it stays on the desktop page. */
+  removeFromPhone: (id: string) => void;
+  /** Moves or resizes a visual on the phone layout. */
+  setPhoneBox: (id: string, box: Box) => void;
+  /** Replaces the active page's phone layout with one built from its desktop page. */
+  autoArrangePhone: () => void;
+  /** Drops the active page's phone layout: phones show the desktop page again. */
+  clearPhoneLayout: () => void;
   saveStatus: "saved" | "saving" | "dirty";
   setSaveStatus: (status: "saved" | "saving" | "dirty") => void;
   /** The open report has changes saved as a draft that viewers don't see yet. */
@@ -94,6 +119,30 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   setReader: (value) => set({ reader: { ...get().reader, ...value } }),
   selectVisual: (id) => set({ selectedVisualId: id }),
   replaceReport: (report) => set({ report, history: EMPTY_HISTORY, selectedVisualId: null, activePageIndex: 0 }),
+  layoutMode: "desktop",
+  setLayoutMode: (mode) => set({ layoutMode: mode }),
+
+  addToPhone: (id) => {
+    updatePage(set, get, (page) => {
+      const visual = page.visuals.find((item) => item.id === id);
+      return visual ? { ...page, phone: placeOnPhone(page.phone, visual) } : page;
+    });
+    set({ selectedVisualId: id });
+  },
+  removeFromPhone: (id) => {
+    updatePage(set, get, (page) => withPhone(page, dropPhonePosition(page.phone, id)));
+    if (get().selectedVisualId === id) set({ selectedVisualId: null });
+  },
+  setPhoneBox: (id, box) => {
+    updatePage(set, get, (page) => ({ ...page, phone: placePhoneBox(page.phone, id, box) }));
+  },
+  autoArrangePhone: () => {
+    updatePage(set, get, (page) => ({ ...page, phone: autoPhoneLayout(page) }));
+  },
+  clearPhoneLayout: () => {
+    updatePage(set, get, (page) => withPhone(page, undefined));
+    set({ selectedVisualId: null });
+  },
 
   switchPage: (index) => {
     const pages = get().report.pages;
@@ -171,7 +220,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     commit(set, get, {
       ...report,
       pages: report.pages.map((p, i) =>
-        i === pageIndex ? { ...p, visuals: p.visuals.filter((v) => v.id !== id) } : p,
+        i === pageIndex ? withPhone({ ...p, visuals: p.visuals.filter((v) => v.id !== id) }, dropPhonePosition(p.phone, id)) : p,
       ),
     });
     if (get().selectedVisualId === id) set({ selectedVisualId: null });
@@ -183,7 +232,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     if (!page || page.visuals.length === 0) return;
     commit(set, get, {
       ...report,
-      pages: report.pages.map((item, index) => (index === pageIndex ? { ...item, visuals: [] } : item)),
+      pages: report.pages.map((item, index) => (index === pageIndex ? withPhone({ ...item, visuals: [] }, undefined) : item)),
     });
     set({ selectedVisualId: null });
   },
@@ -413,6 +462,23 @@ function commit(
   next: ReportDefinition,
 ) {
   set({ report: next, history: record(get().report, next, get().history) });
+}
+
+function updatePage(
+  set: (partial: Partial<DesignerState>) => void,
+  get: () => DesignerState,
+  map: (page: PageDefinition) => PageDefinition,
+) {
+  const report = get().report;
+  const pageIndex = get().activePageIndex;
+  if (!report.pages[pageIndex]) return;
+  commit(set, get, { ...report, pages: report.pages.map((page, i) => (i === pageIndex ? map(page) : page)) });
+}
+
+/** The page with this phone layout; an empty or missing one leaves no ``phone`` key behind. */
+function withPhone(page: PageDefinition, phone: PhoneLayout | undefined): PageDefinition {
+  const { phone: _old, ...rest } = page;
+  return phone && phone.visuals.length > 0 ? { ...rest, phone } : rest;
 }
 
 function updateVisual(

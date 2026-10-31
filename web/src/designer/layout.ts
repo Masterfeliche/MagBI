@@ -43,13 +43,14 @@ export function pagePoint(
   return { x: snap(point.x), y: snap(point.y) };
 }
 
-/** Move one or two edges. The opposite edge stays put. The box stays on the page. */
+/** Move one or two edges. The opposite edge stays put. The box stays on the page (desktop unless given). */
 export function resizeBox(
   start: Box,
   handle: ResizeHandle,
   pointerX: number,
   pointerY: number,
   resolve: (value: number, axis: "x" | "y") => number = (value) => snap(value),
+  page: { width: number; height: number } = { width: PAGE_WIDTH, height: PAGE_HEIGHT },
 ): Box {
   let left = start.x;
   let right = start.x + start.width;
@@ -69,15 +70,15 @@ export function resizeBox(
   }
   if (left < 0) left = 0;
   if (top < 0) top = 0;
-  if (right > PAGE_WIDTH) right = PAGE_WIDTH;
-  if (bottom > PAGE_HEIGHT) bottom = PAGE_HEIGHT;
+  if (right > page.width) right = page.width;
+  if (bottom > page.height) bottom = page.height;
   if (right - left < MIN_WIDTH) {
     if (handle.includes("w")) left = Math.max(0, right - MIN_WIDTH);
-    else right = Math.min(PAGE_WIDTH, left + MIN_WIDTH);
+    else right = Math.min(page.width, left + MIN_WIDTH);
   }
   if (bottom - top < MIN_HEIGHT) {
     if (handle.includes("n")) top = Math.max(0, bottom - MIN_HEIGHT);
-    else bottom = Math.min(PAGE_HEIGHT, top + MIN_HEIGHT);
+    else bottom = Math.min(page.height, top + MIN_HEIGHT);
   }
   return { x: left, y: top, width: right - left, height: bottom - top };
 }

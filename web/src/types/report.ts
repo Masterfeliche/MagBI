@@ -29,6 +29,21 @@ export interface PageDefinition {
   filters?: FilterDefinition[];
   pageType?: "regular" | "drillthrough";
   drillthroughFilters?: FilterDefinition[];
+  /** Where each visual sits on a phone (360 px wide). Visuals it leaves out aren't shown on a phone. */
+  phone?: PhoneLayout;
+}
+
+export interface PhoneLayout {
+  visuals: PhonePosition[];
+}
+
+export interface PhonePosition {
+  /** The visual's id on this page. */
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface VisualDefinition {

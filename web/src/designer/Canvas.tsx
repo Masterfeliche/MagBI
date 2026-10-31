@@ -26,6 +26,7 @@ export function Canvas({
   cross,
   onCross,
   readOnly = false,
+  pageIndex,
 }: {
   scale: number;
   workspaceId: string;
@@ -33,6 +34,8 @@ export function Canvas({
   cross: CrossFilter | null;
   onCross: (next: CrossFilter | null) => void;
   readOnly?: boolean;
+  /** A page other than the active one, as the PDF export draws every page. */
+  pageIndex?: number;
 }) {
   const report = useDesignerStore((state) => state.report);
   const theme = useReportTheme();
@@ -43,7 +46,7 @@ export function Canvas({
   const resizeVisual = useDesignerStore((state) => state.resizeVisual);
   const setPageFilters = useDesignerStore((state) => state.setPageFilters);
   const activePageIndex = useDesignerStore((state) => state.activePageIndex);
-  const page = report.pages[activePageIndex];
+  const page = report.pages[pageIndex ?? activePageIndex];
   const frame = useRef<HTMLDivElement>(null);
   const offset = useRef({ dx: 0, dy: 0 });
   const dragRef = useRef<({ id: string } & Box) | null>(null);

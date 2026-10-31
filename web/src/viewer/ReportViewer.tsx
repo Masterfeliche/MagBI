@@ -41,6 +41,8 @@ export function ReportViewer({
   const [error, setError] = useState("");
   const [cross, setCross] = useState<CrossFilter | null>(null);
   const token = searchParams.get("token");
+  // ?export=1 draws every page at full size, one per printed page, for the server's PDF export.
+  const exporting = searchParams.get("export") === "1";
   // ?theme=<id> previews a built-in theme without saving anything (QA and theme checks).
   const previewTheme = searchParams.get("theme");
   const setThemePreview = useDesignerStore((state) => state.setThemePreview);
@@ -112,6 +114,21 @@ export function ReportViewer({
 
   if (error) return <p className="ws-error">{error}</p>;
   if (!workspaceId || !datasetId) return <p className="ws-loading">Loading report...</p>;
+
+  if (exporting) {
+    return (
+      <div className="designer viewer export">
+        <style>{`@page { size: ${PAGE_WIDTH}px ${PAGE_HEIGHT}px; margin: 0; }`}</style>
+        <DndContext>
+          {report.pages.map((page, index) => (
+            <div className="export-page" key={page.name ?? index} style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }}>
+              <Canvas scale={1} workspaceId={workspaceId} datasetId={datasetId} cross={null} onCross={() => undefined} readOnly pageIndex={index} />
+            </div>
+          ))}
+        </DndContext>
+      </div>
+    );
+  }
 
   return (
     <div className={`designer viewer${chrome ? "" : " embed"}`}>

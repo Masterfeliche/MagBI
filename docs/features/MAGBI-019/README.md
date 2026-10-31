@@ -83,10 +83,10 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | SUB-3.5 | TOTALQTD, TOTALMTD, DATESYTD, PREVIOUSMONTH, PREVIOUSYEAR, PARALLELPERIOD | Same results as the equivalent CALCULATE + date filters | 1.5d | [x] |
 | SUB-3.6 | RANKX and TOPN over the visual's rows (window step after grouping) | Rank by region in a table matches a manual ordering, ties ranked the Power BI way (skip) | 2d | [x] |
 | SUB-3.7 | Measure editor lists the supported functions with signatures | Autocomplete shows every supported function | 1d | [x] |
-| SUB-4.1 | Matrix visual: rows, columns, values, row and column subtotals, expand and collapse | Region × Product matrix totals equal the table visual | 3d | [ ] |
-| SUB-4.2 | Combo (columns and a line on one value axis), area, stacked and 100 % stacked column and bar | Each draws from the E2E dataset and cross-filters | 2d | [ ] |
-| SUB-4.3 | Filled map from bundled Tanzania regions GeoJSON; point map from latitude and longitude | Warehouses plotted by region; no map tile service needed | 2d | [ ] |
-| SUB-4.4 | Remove "draws nothing" types from the gallery until they draw | Every gallery visual draws something with data | 0.5d | [ ] |
+| SUB-4.1 | Matrix visual: rows, columns, values, row and column subtotals, expand and collapse | Region × Product matrix totals equal the table visual | 3d | [x] |
+| SUB-4.2 | Combo (columns and a line on one value axis), area, stacked and 100 % stacked column and bar | Each draws from the E2E dataset and cross-filters | 2d | [x] |
+| SUB-4.3 | Filled map from bundled Tanzania regions GeoJSON; point map from latitude and longitude | Warehouses plotted by region; no map tile service needed | 2d | [x] |
+| SUB-4.4 | Remove "draws nothing" types from the gallery until they draw | Every gallery visual draws something with data | 0.5d | [x] |
 | SUB-5.1 | Share a report with people (viewer access to that report only) and revoke | Shared user sees only that report; audit log rows | 2d | [ ] |
 | SUB-5.2 | Apps: publish a named set of reports to an audience with its own navigation | An app user sees the app, not the workspace | 3d | [ ] |
 | SUB-5.3 | Export a page to PDF on the server (headless Chrome, the QA gate's renderer) | PDF of each Warehouse dashboard matches its screenshot; filters applied | 2d | [ ] |
@@ -178,6 +178,32 @@ Still refused, each with a message saying what to do instead: TOPN (use the visu
 - Measure editor, checked in headless Chrome: 64 functions listed, searching "row by row" finds AVERAGEX and SUMX, and a click inserts the function.
 
 **New finding for a later phase**: the code editor in the measure dialog (Monaco) is downloaded from a public CDN (cdn.jsdelivr.net) when the dialog opens. On a network without internet access, the DAX box stays on "Loading…" and measures can't be typed. Bundling Monaco with the app fixes this; it adds a few MB to the build.
+
+### Phase 4 result (31 Oct 2026)
+
+| Visual | What it does | Where |
+|--------|--------------|-------|
+| Matrix | Up to 3 row fields and 1 column field, several values, a Total column and row, and a subtotal on every row level, with each row's arrow plus Expand all and Collapse all. Every subtotal and total is its own query at that level, so averages, ratios and distinct counts are right (North's average order subtotal is 162.4, not the sum of its products) | `designer/matrix.ts`, `visuals/MatrixVisual.tsx` |
+| Stacked column, stacked bar | Series stacked per category, with a thin white edge between segments | `catalog.ts`, `visuals/registry.tsx` |
+| 100% stacked column and bar | Each category as shares of 100; the tooltip shows the value and its share | `render.ts` (`percentOfCategory`) |
+| Area, stacked area | A line with the area under it filled | |
+| Line and column | Column values and line values on one value axis | New `line` well |
+| Point map | Points from latitude and longitude (plain columns, never summed), sized by an optional measure; drawn over the region boundaries when installed, otherwise on plain longitude and latitude axes | `visuals/MapVisuals.tsx`, `maps.ts` |
+| Filled map | Regions shaded light to dark by value; names matched ignoring case, spaces, hyphens and "Region"; names without a boundary are listed on the map | |
+
+Every visual in the gallery now draws something, and a test keeps it that way.
+
+**Fixed along the way**: on every chart, a top legend sat on top of the title. It now has its own line under the title, and the plot makes room. A chart with one series shows no legend, because the title names it.
+
+**Differences from Power BI to know**
+- Line and column uses one value axis, not two. A line on a much smaller scale (for example Orders around 20 against Total sales in thousands) lies flat along the bottom, so it belongs in its own chart. This keeps the reader from comparing two scales as if they were one.
+- The matrix takes one column field; Power BI allows several.
+- **The filled map needs a boundary file that isn't in the repo yet**: `web/public/maps/tanzania-regions.json` (GeoJSON, one feature per region, the name in `name` or `shapeName`). Until it's added, the filled map says so and the point map draws on plain axes. Open public sources: geoBoundaries TZA ADM1 (CC BY 4.0, attribution needed) and Natural Earth admin-1 (public domain). It wasn't downloaded without approval.
+
+**Checks**
+- Frontend: 90 passed (new: chart models, matrix builder, map matching, legend placement, every gallery visual draws). Lint, types and the production build are clean.
+- In headless Chrome on the E2E data, 13 of 13 checks pass: each new chart draws; the matrix has Region rows × Product columns plus Total; the grand total equals the engine's (26,244); Expand all opens 12 Product rows; a row's arrow collapses it; North's subtotal is the engine's average; the point map places 4 sites; the filled map explains the missing boundaries.
+- End to end: 47 of 47. QA gate: the 3 Warehouse dashboards pass.
 
 ---
 

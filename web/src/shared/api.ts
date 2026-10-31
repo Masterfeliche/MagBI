@@ -1,8 +1,9 @@
 /**
  * API client — typed fetch wrapper with JWT token injection.
  */
+import { getToken } from "./session";
+
 const BASE = "/api/v1";
-const TOKEN_KEY = "magbi.token";
 
 export function buildApiHeaders(token: string | null, init?: RequestInit): Headers {
   const headers = new Headers(init?.headers);
@@ -17,7 +18,7 @@ export function buildApiHeaders(token: string | null, init?: RequestInit): Heade
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = window.localStorage.getItem(TOKEN_KEY);
+  const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: buildApiHeaders(token, init),

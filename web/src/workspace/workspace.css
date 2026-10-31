@@ -782,3 +782,15 @@
   color: #66758a;
   margin: 8px 0 0;
 }
+
+.app-topbar-signout {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: inherit;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}

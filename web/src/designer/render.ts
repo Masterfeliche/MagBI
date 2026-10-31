@@ -19,6 +19,8 @@ export interface PieModel {
 
 export interface CardModel {
   kind: "card";
+  /** The measure's format string, e.g. "#,0" or "0.0%". */
+  format?: string | null;
   value: string;
 }
 
@@ -79,7 +81,7 @@ export function renderModel(type: string, dsr: DSR | null, extraTooltipCount = 0
   if (dsr.rows.length === 0) {
     return { kind: "note", message: "Nothing recorded for this view yet" };
   }
-  if (spec.renders === "card") return { kind: "card", value: text(firstMeasure(dsr)) };
+  if (spec.renders === "card") return { kind: "card", value: text(firstMeasure(dsr)), format: firstFormat(dsr) };
   if (spec.renders === "table") {
     return {
       kind: "table",
@@ -237,6 +239,10 @@ function seriesFrom(dsr: DSR, measures: number[]): { name: string; values: numbe
     name: dsr.columns[index]?.name ?? "Value",
     values: dsr.rows.map((row) => number(row[index])),
   }));
+}
+
+function firstFormat(dsr: DSR): string | null {
+  return dsr.columns.find((column) => column.isMeasure)?.format ?? null;
 }
 
 function firstMeasure(dsr: DSR): unknown {

@@ -30,7 +30,7 @@ describe("visual render models", () => {
     if (pie.kind === "pie") expect(pie.slices[0]).toEqual({ name: "Jan", value: 10 });
 
     const card = renderModel("card", trips);
-    expect(card).toEqual({ kind: "card", value: "10" });
+    expect(card).toEqual({ kind: "card", value: "10", format: null });
 
     const table = renderModel("table", trips);
     expect(table.kind).toBe("table");

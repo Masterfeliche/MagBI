@@ -10,6 +10,7 @@ import {
   axisText,
   categoryAxisLabel,
   chartColors,
+  formatMeasure,
   formatNumber,
   labelPlacement,
   legendFrom,
@@ -44,6 +45,12 @@ interface RendererProps {
   highlightCategory?: string;
 }
 
+/** The visual's own "Whole" setting wins; otherwise the measure's format string. */
+function cardText(value: unknown, format: string | null | undefined, valueFormat: unknown): string {
+  if (valueFormat === "Whole") return formatNumber(value, { whole: true });
+  return formatMeasure(value, format);
+}
+
 export function VisualRenderer({ model, title, color, properties, palette, onCategory, onDrill, highlightCategory }: RendererProps) {
   switch (model.kind) {
     case "note":
@@ -52,8 +59,8 @@ export function VisualRenderer({ model, title, color, properties, palette, onCat
       return (
         <CardVisual
           title={title}
-          value={formatNumber(model.value, { whole: properties?.valueFormat === "Whole" })}
-          color={properties?.condFormat === "cardSign" ? cardSignColor(formatNumber(model.value, { whole: properties?.valueFormat === "Whole" })) : undefined}
+          value={cardText(model.value, model.format, properties?.valueFormat)}
+          color={properties?.condFormat === "cardSign" ? cardSignColor(cardText(model.value, model.format, properties?.valueFormat)) : undefined}
         />
       );
     case "cartesian":

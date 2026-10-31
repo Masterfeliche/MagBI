@@ -62,6 +62,26 @@ export function formatNumber(value: unknown, options: NumberFormat = {}): string
   return `${options.prefix ?? ""}${textValue}${unit}${options.suffix ?? ""}`;
 }
 
+/**
+ * A measure's format string as number options: "#,0" whole, "#,0.0" one
+ * decimal, "0%" or "0.0%" a percentage. Anything else keeps the defaults.
+ */
+export function formatFromString(format: string | null | undefined): { options: NumberFormat; percent: boolean } | null {
+  const match = /^[#,0]*0(?:\.(0+))?(%?)$/.exec((format ?? "").trim());
+  if (!match) return null;
+  const decimals = match[1]?.length ?? 0;
+  return { options: decimals === 0 ? { whole: true } : { decimals }, percent: match[2] === "%" };
+}
+
+/** A value in its measure's format string, the way a Power BI card shows it. */
+export function formatMeasure(value: unknown, format: string | null | undefined): string {
+  const parsed = formatFromString(format);
+  if (!parsed) return formatNumber(value);
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!parsed.percent || !Number.isFinite(numeric)) return formatNumber(value, parsed.options);
+  return formatNumber(numeric * 100, { ...parsed.options, suffix: "%" });
+}
+
 export function categoryAxisLabel(
   count: number,
   label: { show: boolean; fontSize: number; color: string },

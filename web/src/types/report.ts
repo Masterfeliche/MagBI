@@ -1,3 +1,5 @@
+import type { ThemeLayer } from "../shared/theme";
+
 /** Report definition JSON contract. */
 
 export interface ReportDefinition {
@@ -61,8 +63,12 @@ export interface InteractionConfig {
   targets: Record<string, "crossFilter" | "crossHighlight" | "none">;
 }
 
+/** A built-in theme by id, plus this report's own changes to it. */
 export interface ThemeOverrides {
+  id?: string;
   colors?: string[];
   font?: string;
   background?: string;
+  /** Anything else changed with "Customize current theme" or an imported theme file. */
+  overrides?: ThemeLayer;
 }

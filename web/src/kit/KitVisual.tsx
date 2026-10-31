@@ -6,7 +6,8 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { whereClauses } from "../designer/query";
 import { useDesignerStore } from "../designer/store";
 import { apiFetch } from "../shared/api";
-import { buildEChartsTheme, cssVars, themeForReport, tokenColour, withAlpha, type MagbiTheme } from "../shared/theme";
+import { buildEChartsTheme, cssVars, tokenColour, withAlpha, type MagbiTheme } from "../shared/theme";
+import { useReportTheme } from "../designer/useReportTheme";
 import type { DSR } from "../types/query";
 import type { FilterDefinition, VisualDefinition } from "../types/report";
 import { kitQuery, memberQuery, mergeMembers } from "./query";
@@ -41,11 +42,7 @@ function str(props: Props, key: string, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-/** The report's resolved theme. */
-export function useKitTheme(): MagbiTheme {
-  const fields = useDesignerStore((state) => state.report.theme);
-  return useMemo(() => themeForReport(fields), [fields]);
-}
+const useKitTheme = useReportTheme;
 
 function themeStyle(theme: MagbiTheme, extra: CSSProperties = {}): CSSProperties {
   return { ...(cssVars(theme) as CSSProperties), ...extra };
@@ -375,7 +372,7 @@ function Calendar({ props, rows, onPick, highlight }: { props: Props; rows: unkn
   const flagTone = (isTone(props.flagTone) ? props.flagTone : "watch") as Tone;
   const template = str(props, "tooltip", "{0} in {1}");
   const every = typeof props.labelEvery === "number" ? props.labelEvery : 1;
-  const { theme, base, axisLabel, axisLine, splitLine } = useChartTheme();
+  const { theme, base, size, axisLabel, axisLine, splitLine } = useChartTheme();
   return (
     <ReactECharts
       style={{ height: "100%", width: "100%" }}
@@ -417,7 +414,7 @@ function Calendar({ props, rows, onPick, highlight }: { props: Props; rows: unkn
                 },
               };
             }),
-            label: { show: true, position: "top", fontSize: 10.5, color: theme.text.ink, formatter: (item: { value: number }) => (item.value ? formatValue(item.value) : "") },
+            label: { show: true, position: "top", fontSize: size(10.5), color: theme.text.ink, formatter: (item: { value: number }) => (item.value ? formatValue(item.value) : "") },
           },
         ],
       }}
@@ -503,7 +500,7 @@ function Pareto({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPi
     return total ? Math.round((100 * running) / total) : 0;
   });
   const series = str(props, "seriesName", "Count");
-  const { theme, base, axisLabel, axisLine, splitLine, legendText } = useChartTheme();
+  const { theme, base, size, axisLabel, axisLine, splitLine, legendText } = useChartTheme();
   if (pairs.length === 0) return <div className="kit-state">{EMPTY_TEXT}</div>;
   return (
     <ReactECharts
@@ -520,7 +517,7 @@ function Pareto({ props, rows, onPick }: { props: Props; rows: unknown[][]; onPi
           { type: "value", min: 0, max: 100, axisLabel: { ...axisLabel, formatter: "{value}%" }, splitLine: { show: false } },
         ],
         series: [
-          { name: series, type: "bar", barMaxWidth: 40, data: pairs.map((pair) => pair.value), itemStyle: { color: theme.data.categorical[0], borderRadius: [2, 2, 0, 0] }, label: { show: true, position: "top", fontSize: 10.5, color: theme.text.ink } },
+          { name: series, type: "bar", barMaxWidth: 40, data: pairs.map((pair) => pair.value), itemStyle: { color: theme.data.categorical[0], borderRadius: [2, 2, 0, 0] }, label: { show: true, position: "top", fontSize: size(10.5), color: theme.text.ink } },
           {
             name: "Cumulative %",
             type: "line",
@@ -711,7 +708,7 @@ function Bars({ props, rows, visual, onPick }: { props: Props; rows: unknown[][]
     ? rows.map((row) => ({ name: String(row[0] ?? ""), value: toNumber(row[1]) ?? 0 }))
     : (visual.wells["y-axis"] ?? []).map((binding, index) => ({ name: labels[index] ?? binding.measure ?? binding.column ?? "", value: toNumber(rows[0]?.[index]) ?? 0 }));
   const sorted = props.sort === false ? pairs : [...pairs].sort((a, b) => b.value - a.value);
-  const { theme, base, axisLabel, axisLine } = useChartTheme();
+  const { theme, base, size, axisLabel, axisLine } = useChartTheme();
   return (
     <ReactECharts
       style={{ height: "100%", width: "100%" }}
@@ -721,13 +718,13 @@ function Bars({ props, rows, visual, onPick }: { props: Props; rows: unknown[][]
         grid: { left: 8, right: 48, top: 8, bottom: 8, containLabel: true },
         tooltip: { trigger: "item", formatter: (item: { name: string; value: number }) => `${item.name}: ${formatValue(item.value)} ${str(props, "unit")}`.trim() },
         xAxis: { type: "value", show: false, minInterval: 1 },
-        yAxis: { type: "category", inverse: true, data: sorted.map((pair) => pair.name), axisLabel: { ...axisLabel, fontSize: 12, color: theme.text.ink }, axisTick: { show: false }, axisLine },
+        yAxis: { type: "category", inverse: true, data: sorted.map((pair) => pair.name), axisLabel: { ...axisLabel, fontSize: size(12), color: theme.text.ink }, axisTick: { show: false }, axisLine },
         series: [
           {
             type: "bar",
             barMaxWidth: 22,
             data: sorted.map((pair) => ({ value: pair.value, itemStyle: { color: theme.data.categorical[0], borderRadius: [0, 2, 2, 0] } })),
-            label: { show: true, position: "right", fontSize: 11, color: theme.text.ink, formatter: (item: { value: number }) => formatValue(item.value) },
+            label: { show: true, position: "right", fontSize: size(11), color: theme.text.ink, formatter: (item: { value: number }) => formatValue(item.value) },
           },
         ],
       }}
@@ -750,7 +747,7 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
   const value = (category: string, part: string) => toNumber(rows.find((row) => String(row[0]) === category && String(row[1]) === part)?.[2]) ?? 0;
   const totals = new Map(categories.map((category) => [category, parts.reduce((sum, part) => sum + value(category, part), 0)]));
   const shown = categories.filter((category) => (totals.get(category) ?? 0) > 0).sort((a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0));
-  const { theme, base, axisLabel, legendText } = useChartTheme();
+  const { theme, base, size, axisLabel, legendText } = useChartTheme();
   if (shown.length === 0) return <div className="kit-state">{EMPTY_TEXT}</div>;
   return (
     <ReactECharts
@@ -766,7 +763,7 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
             `${item.name} · ${item.seriesName}: ${formatValue(item.data.count)} (${sharePercent(item.data.value)})`,
         },
         xAxis: { type: "value", max: 100, show: false },
-        yAxis: { type: "category", inverse: true, data: shown, axisLabel: { ...axisLabel, fontSize: 12, color: theme.text.ink }, axisTick: { show: false }, axisLine: { show: false } },
+        yAxis: { type: "category", inverse: true, data: shown, axisLabel: { ...axisLabel, fontSize: size(12), color: theme.text.ink }, axisTick: { show: false }, axisLine: { show: false } },
         series: parts.map((part, rank) => ({
           name: part,
           type: "bar",
@@ -776,7 +773,7 @@ function Stack100({ props, rows, onPick }: { props: Props; rows: unknown[][]; on
           label: {
             show: true,
             color: theme.text.onData,
-            fontSize: 11,
+            fontSize: size(11),
             formatter: (item: { data: { count: number; value: number } }) => (item.data.value >= 12 ? `${formatValue(item.data.count)} · ${sharePercent(item.data.value)}` : ""),
           },
           data: shown.map((category) => {

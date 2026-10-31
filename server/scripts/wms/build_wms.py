@@ -170,7 +170,7 @@ def w4_accuracy(did: str) -> dict[str, Any]:
     page.panel("donut", (1260, 452, 472, 250), "Count coverage", "stocked items counted",
                {"x-axis": [c("StockItem", "Coverage")], "y-axis": [m("StockItem", "Stocked items")], "centre": [m("StockItem", "Coverage")]},
                unit="items", centreFormat="pct1", centreWord="counted", header="Coverage", valueHeader="Items",
-               colours={"Counted": "#3F6FB0"})
+               colours={"Counted": "data-1"})
     page.panel(
         "grid", (384, 718, 1348, 248), "Count variances", "to investigate and adjust",
         {"columns": [c("CountLine", "Item"), c("CountLine", "Warehouse"), c("CountLine", "Count"), c("CountLine", "OnHand"),

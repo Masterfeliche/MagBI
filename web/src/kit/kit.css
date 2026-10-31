@@ -124,7 +124,8 @@
   border: var(--mb-border) solid var(--mb-line);
   border-left: 3px solid var(--mb-info);
   border-radius: var(--mb-radius);
-  padding: 4px 14px;
+  /* 124 px = 4 rows (114) + padding + borders, so a thicker theme border takes it out of the padding. */
+  padding: calc(5px - var(--mb-border)) 14px;
   display: grid;
   grid-template-rows: 22px 44px 24px 24px;
   overflow: hidden;
@@ -205,10 +206,11 @@
 .kit-heat { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: calc(13px * var(--mb-scale)); table-layout: fixed; }
 .kit-heat th { font-size: calc(11px * var(--mb-scale)); font-weight: 600; padding: 4px; text-align: center; background: var(--mb-strip); word-break: keep-all; overflow-wrap: normal; hyphens: none; }
 .kit-heat th:first-child { text-align: left; background: transparent; width: 34%; }
-.kit-heat td { text-align: center; padding: 9px 4px; border-radius: 2px; }
+/* Larger text keeps the row height: the padding shrinks as the type grows (9 px at 100%). */
+.kit-heat td { text-align: center; padding: calc(16.8px - 7.8px * var(--mb-scale)) 4px; border-radius: 2px; }
 .kit-heat-zero { background: var(--mb-zero); color: var(--mb-none); }
 .kit-heat-row { text-align: left !important; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kit-heat-row button { all: unset; cursor: pointer; min-height: var(--mb-touch); }
+.kit-heat-row button { all: unset; cursor: pointer; }
 .kit-heat-row button:focus-visible { outline: 2px solid var(--mb-focus); }
 .kit-heat-key { display: flex; gap: 14px; font-size: calc(12px * var(--mb-scale)); color: var(--mb-muted); margin-top: 6px; }
 .kit-heat-key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }

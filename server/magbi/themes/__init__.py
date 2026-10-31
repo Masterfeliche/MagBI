@@ -74,7 +74,9 @@ def missing_tokens(theme: dict[str, Any]) -> list[str]:
 
 
 def tokenise_definition(definition: dict[str, Any], theme: dict[str, Any]) -> int:
-    """Swap frame colours that equal a surface token for the token's name, in place.
+    """Swap literal colours for theme names, in place: frame colours that equal a
+    surface token become its name, pinned category colours that equal a chart
+    colour become ``data-N``.
 
     Returns how many colours changed. A colour no token matches stays a literal override.
     """
@@ -82,17 +84,24 @@ def tokenise_definition(definition: dict[str, Any], theme: dict[str, Any]) -> in
     for name, value in theme["surface"].items():
         if isinstance(value, str) and _COLOUR.fullmatch(value):
             by_colour.setdefault(value.upper(), name)
+    by_position = {value.upper(): f"data-{index + 1}" for index, value in enumerate(theme["data"]["categorical"])}
     changed = 0
     for page in definition.get("pages", []):
         for visual in page.get("visuals", []):
-            if visual.get("type") != "frame":
-                continue
             props = visual.setdefault("properties", {})
-            for key in ("fill", "border"):
-                value = props.get(key)
-                if isinstance(value, str) and value.upper() in by_colour:
-                    props[key] = by_colour[value.upper()]
-                    changed += 1
+            if visual.get("type") == "frame":
+                for key in ("fill", "border"):
+                    value = props.get(key)
+                    if isinstance(value, str) and value.upper() in by_colour:
+                        props[key] = by_colour[value.upper()]
+                        changed += 1
+            # Pinned category colours that equal a chart colour follow the theme by position.
+            pinned = props.get("colours")
+            if isinstance(pinned, dict):
+                for name, value in pinned.items():
+                    if isinstance(value, str) and value.upper() in by_position:
+                        pinned[name] = by_position[value.upper()]
+                        changed += 1
     theme_field = definition.setdefault("theme", {})
     if "id" not in theme_field:
         theme_field["id"] = theme["id"]

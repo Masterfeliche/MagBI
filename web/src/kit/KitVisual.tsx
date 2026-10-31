@@ -358,9 +358,12 @@ function useChartTheme() {
   return useMemo(() => ({ theme, ...buildEChartsTheme(theme) }), [theme]);
 }
 
-function colourFor(theme: MagbiTheme, name: string, rank: number, colours: Record<string, string>): string {
+/** A pinned colour is a status ("watch"), a chart colour by position ("data-1"), or a literal colour. */
+export function colourFor(theme: MagbiTheme, name: string, rank: number, colours: Record<string, string>): string {
   const set = colours[name];
   const data = theme.data.categorical;
+  const position = /^data-(\d+)$/.exec(set ?? "");
+  if (position) return data[Math.min(Number(position[1]), data.length) - 1] ?? data[0];
   if (set) return isTone(set) ? theme.status[set].color : set;
   if (isNoData(name)) return theme.status.none.color;
   return data[Math.min(rank, data.length - 1)] ?? data[0];

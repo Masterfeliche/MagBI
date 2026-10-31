@@ -47,14 +47,16 @@ def test_frame_colours_become_token_names() -> None:
             {"type": "frame", "properties": {"fill": "#f8fafc", "border": "#D3DCE6"}},
             {"type": "frame", "properties": {"fill": "#123456", "border": "line"}},
             {"type": "kpi", "properties": {"fill": "#F8FAFC"}},
+            {"type": "donut", "properties": {"colours": {"Counted": "#3f6fb0", "Late": "watch"}}},
         ]}],
     }
     theme = load_theme("enterprise-light")
-    assert tokenise_definition(definition, theme) == 3
+    assert tokenise_definition(definition, theme) == 4
     visuals = definition["pages"][0]["visuals"]
     assert visuals[0]["properties"] == {"fill": "frame", "border": "line"}
     assert visuals[1]["properties"] == {"fill": "#123456", "border": "line"}
     assert visuals[2]["properties"] == {"fill": "#F8FAFC"}
+    assert visuals[3]["properties"]["colours"] == {"Counted": "data-1", "Late": "watch"}
     assert definition["theme"]["id"] == "enterprise-light"
     assert tokenise_definition(definition, theme) == 0
 

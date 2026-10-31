@@ -137,18 +137,18 @@ The QA gate checks a report against its resolved theme, not a fixed hex list.
 | SUB-1.2 | Move Enterprise Light to `server/magbi/themes/enterprise-light.json` and serve `GET /themes` | `magbi_lib`, web and gate all read it; the 4 copies are deleted | 1d | [x] |
 | SUB-1.3 | Theme context, CSS variables and the ECharts theme; the kit reads tokens | `kit.css` has no literal hex; `buildEChartsTheme` is implemented | 2d | [x] |
 | SUB-1.4 | Frames and labels store token names, plus a migration for saved reports | The 3 Warehouse dashboards show a 0 px diff before and after | 1d | [x] |
-| SUB-2.1 | Write the Classic, Health, Finance, Government and Retail themes | Each passes the validator; statuses unchanged in meaning | 2d | [ ] |
-| SUB-2.1b | Write the Mobile, Presentation and High Contrast themes (type scale, spacing, touch sizes, gridlines, patterns) | Mobile touch targets at least 44 px; Presentation body text at least 16 px; High Contrast text 7:1 and series told apart by pattern too | 1.5d | [ ] |
-| SUB-2.2 | Ribbon theme gallery with live previews, and "Customize current theme" | Picking a theme restyles every visual, kit included | 2d | [ ] |
-| SUB-2.3 | Full Power BI theme JSON import and export | A Power BI theme file round-trips its colours, status, text classes and backgrounds | 1d | [ ] |
-| SUB-2.4 | Move MSD Enterprise out of the built-ins | It's absent from the product list and available as MSD's organisation theme | 0.5d | [ ] |
-| SUB-3.1 | Theme table and CRUD API scoped to organisation and workspace, with versions | Permission tests: admins edit organisation themes, editors edit workspace themes | 2d | [ ] |
-| SUB-3.2 | Default theme per organisation and workspace, with lock | New reports inherit it; a locked brand can't be overridden | 1d | [ ] |
-| SUB-4.1 | Viewer uses Mobile on phone-width screens, with a manual toggle | Works on every visual type; a locked organisation theme wins | 1d | [ ] |
-| SUB-4.1b | Viewer High Contrast switch, saved per user, overriding a locked brand | Works on every visual type, kit included | 1d | [ ] |
-| SUB-4.2 | Embed SDK `theme` option (id, overrides, mode) | The host app can pass a theme id or overrides; locked tokens are ignored | 1d | [ ] |
-| SUB-5.1 | Theme validator for contrast, colour-blind separation, distinct statuses and completeness | Runs on save and in CI | 1d | [ ] |
-| SUB-5.2 | QA gate checks against the resolved theme and renders each built-in theme | All 3 Warehouse dashboards pass under all 9 built-in themes | 1d | [ ] |
+| SUB-2.1 | Write the Classic, Health, Finance, Government and Retail themes | Each passes the validator; statuses unchanged in meaning | 2d | [x] |
+| SUB-2.1b | Write the Mobile, Presentation and High Contrast themes (type scale, spacing, touch sizes, gridlines, patterns) | Mobile touch targets at least 44 px; Presentation body text at least 16 px; High Contrast text 7:1 and series told apart by pattern too | 1.5d | [x] |
+| SUB-2.2 | Ribbon theme gallery with live previews, and "Customize current theme" | Picking a theme restyles every visual, kit included | 2d | [x] |
+| SUB-2.3 | Full Power BI theme JSON import and export | A Power BI theme file round-trips its colours, status, text classes and backgrounds | 1d | [x] |
+| SUB-2.4 | Move MSD Enterprise out of the built-ins | It's absent from the product list and available as MSD's organisation theme | 0.5d | [x] |
+| SUB-3.1 | Theme table and CRUD API scoped to organisation and workspace, with versions | Permission tests: admins edit organisation themes, editors edit workspace themes | 2d | [x] |
+| SUB-3.2 | Default theme per organisation and workspace, with lock | New reports inherit it; a locked brand can't be overridden | 1d | [x] |
+| SUB-4.1 | Viewer uses Mobile on phone-width screens, with a manual toggle | Works on every visual type; a locked organisation theme wins | 1d | [x] |
+| SUB-4.1b | Viewer High Contrast switch, saved per user, overriding a locked brand | Works on every visual type, kit included | 1d | [x] |
+| SUB-4.2 | Embed SDK `theme` option (id, overrides, mode) | The host app can pass a theme id or overrides; locked tokens are ignored | 1d | [x] |
+| SUB-5.1 | Theme validator for contrast, colour-blind separation, distinct statuses and completeness | Runs on save and in CI | 1d | [x] |
+| SUB-5.2 | QA gate checks against the resolved theme and renders each built-in theme | All 3 Warehouse dashboards pass under all 9 built-in themes | 1d | [x] |
 
 ---
 
@@ -182,6 +182,57 @@ The QA gate checks a report against its resolved theme, not a fixed hex list.
 - The web Dockerfile builds with `web/` as its context, so it can't see `server/magbi/themes`. It already can't see `deploy/nginx.conf` either, so the web image build needs the repository root as its context.
 
 ---
+
+### Phase 2 result (31 Oct 2026)
+
+| Part | Where |
+|------|-------|
+| 8 new theme files: Classic, Health, Finance, Government, Retail, Mobile, Presentation, High Contrast. Mobile and Presentation extend Enterprise Light and change only what differs | `server/magbi/themes/*.json` |
+| Theme checks: text contrast on every surface (4.5:1, or 7:1 where a theme promises it), neighbouring chart colours told apart with normal vision and three kinds of colour blindness, statuses distinct and never reused as chart colours | `server/magbi/themes/validate.py`, the same rules in `web/src/shared/themeCheck.ts` |
+| Gallery: every built-in theme drawn in its own colours; picking one restyles the whole report, kit and classic visuals alike | `web/src/designer/ThemeGallery.tsx`, ribbon Format > Themes |
+| Customize: page, panels, text, font, text size, chart colours, statuses, corners, gridlines, patterns, with a live preview and every failed check listed; Save stays off until it passes | `web/src/designer/ThemeDialog.tsx`, ribbon Format > Customize |
+| Import a Power BI or MagBI theme file; export a Power BI theme that also carries the full MagBI theme, so it opens in Power BI and round-trips here | `web/src/shared/themeFile.ts`, ribbon Import theme / Export theme |
+| Kit follows `type.scale`, `type.numberWeight`, `shape.border`, `shape.touch`, `chart.gridlines` and `pattern` (ECharts decals) | `kit/kit.css`, `kit/KitVisual.tsx`, `shared/theme.ts` |
+| Classic visuals and the page background take the resolved theme once a report has one; older reports without a theme keep their look | `designer/useReportTheme.ts`, `Charts.tsx`, `Canvas.tsx` |
+| MSD Enterprise removed from the product; kept as MSD's organisation theme for Phase 3 | `server/scripts/msd/msd-enterprise.theme.json` |
+| `?theme=<id>` previews a built-in theme in the viewer without saving; the QA gate's `--theme` uses it | `viewer/ReportViewer.tsx`, `scripts/qa_gate.py` |
+
+**Changes to Enterprise Light found by the checks**
+- Muted text #66758A was 4.02 to 4.48:1 on the page, frames and panel headers, under WCAG AA. It is now #5F6D80 (4.52:1 or better, OKLab distance 2.8, barely visible).
+- The Watch label #8F5F27 on its pill was 4.37:1. It is now #8B5C26 (4.58:1).
+- The four chart blues are a deliberate light-to-dark ramp. They are now marked `data.style: "ramp"`, which the checks hold to a lower floor for normal vision (8 instead of 15), because kit charts always carry labels.
+
+**Checks**
+- All 9 themes pass the Python and the TypeScript checks. An export and re-import of every theme gives back the identical theme.
+- Backend: 527 passed, 17 skipped. Frontend: 69 passed. ruff, mypy and ESLint are clean, and the production build works.
+- Gallery and Customize driven in headless Chrome: 9 tiles, Enterprise Light marked current, Health turns the page #EEF5F5, and a #D0D0D0 muted text lists 4 contrast failures and keeps Save off.
+- QA gate under every theme: see the Phase 3–5 result below.
+
+**Not done in Phase 2**
+- SUB-5.1 is partly done: the checks run in Customize and in the test suites, but not yet on the server when a theme is saved (that comes with stored themes in Phase 3).
+- Mobile changes type and touch size only. It does not reflow the page, as the analysis says.
+- Font scaling keeps the layout fixed, so larger type can shorten text with an ellipsis in tight panels. The theme gate below shows where.
+
+### Phases 3–5 result (31 Oct 2026)
+
+| Part | Where |
+|------|-------|
+| Saved themes: `themes` table (migration 0006), organisation themes (platform admins) and workspace themes (editors), versions and audit log rows, checked on save (`THEME_FAILS_CHECKS` lists every failed rule) | `server/magbi/api/themes.py`, `metadata/models.py` |
+| Resolution: a report's own pick, else the workspace default, else the organisation default, else Enterprise Light; a locked organisation theme always wins, chart colours aside | `web/src/shared/theme.ts` (`themeForReport`) |
+| Gallery sections (organisation, workspace, built-in) and a lock notice; Customize saves for the report, the workspace or the organisation | `ThemeGallery.tsx`, `ThemeDialog.tsx` |
+| Reader switches in the viewer: High Contrast (kept per browser, wins over a lock) and Larger text (on by default under 768 px) | `viewer/ReportViewer.tsx`, `viewer/readerTheme.ts` |
+| Embedding: `?themeId=` and `contrast=1` in the embed link, `setTheme` in the SDK; embed tokens may read their workspace's themes | `embed/sdk.ts`, `api/deps.py` |
+| MSD's organisation theme: "MSD ERP Native" (extends Enterprise Light, locked), set by `python -m scripts.msd.set_organisation_theme`; not switched on yet | `server/scripts/msd/` |
+| Gate: `--themes all` and `--quick`; CI runs the frontend tests, which check every built-in theme | `scripts/qa_gate.py`, `.github/workflows/ci.yml` |
+
+**Changes from the plan**
+- MSD's brand is ERP Native (Enterprise Light), not the old "MSD Enterprise" palette, which is superseded. Locking the old palette would have recoloured every MSD dashboard.
+- High Contrast is remembered per browser, not per account.
+- Mobile is larger text only. The 44 px touch minimum made the Stock & Expiry heat matrix scroll and is meaningless on a page a phone shrinks to a few hundred pixels; it waits for a phone layout (MAGBI-019 phase 8).
+
+**Fixed during testing** (see the MagBI Test Review artifact): High Contrast KPI cards 2 px too tall; the Mobile heat matrix; a donut pinning a fixed colour (pinned colours can now be `data-1`…); the gate hanging on a shared browser port. Also found end to end and fixed: RLS on a dimension table crashed (500), embedded reports skipped the embed token, cards ignored the measure format.
+
+**Checks**: backend 533 passed, frontend 78 passed; every dashboard passes the gate in all 9 themes (`--themes all --quick`, 30 of 30); one warning remains (a subtitle cut short in Presentation).
 
 ## 4. Definition of Done (DoD)
 - [ ] Code is written and passes all local tests and lints

@@ -69,13 +69,13 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 ## 2. Implementation Plan
 | Subtask Key | Summary | Acceptance Criteria | Est. | Status |
 |-------------|---------|---------------------|------|--------|
-| SUB-1.1 | Return the caller's role on `GET /workspaces/{wid}` (`myRole`) | Viewer, editor, admin and platform admin each see their own role; tests | 0.5d | [ ] |
-| SUB-1.2 | Viewers get no Edit: the designer route opens read-only or sends them to the viewer | A viewer opening `/designer` lands on the report view; no "Unsaved changes" | 0.5d | [ ] |
-| SUB-1.3 | Report drafts: `draft_definition` column, autosave writes the draft only, **Publish** copies draft to published | Editing a published report never changes what viewers and embeds see until Publish; migration keeps every existing report published | 2d | [ ] |
-| SUB-1.4 | Designer shows "Draft — not published" and offers Discard draft | Discard restores the published definition | 0.5d | [ ] |
-| SUB-2.1 | Detect a unique key when a relationship is added | Sales → Region works without marking Region[Region]; a non-unique target still gets a clear error naming the duplicate count | 1d | [ ] |
-| SUB-2.2 | RLS rules read `[Column]` as the role's own table | `[Region] = "North"` on the Region table works; E2E step passes | 0.5d | [ ] |
-| SUB-2.3 | Dynamic RLS: `USERPRINCIPALNAME()` and `USERNAME()` from the signed-in user or the embed token's user | A rule `Users[Email] = USERPRINCIPALNAME()` shows each user only their rows, in the app and embedded | 2d | [ ] |
+| SUB-1.1 | Return the caller's role on `GET /workspaces/{wid}` (`myRole`) | Viewer, editor, admin and platform admin each see their own role; tests | 0.5d | [x] |
+| SUB-1.2 | Viewers get no Edit: the designer route opens read-only or sends them to the viewer | A viewer opening `/designer` lands on the report view; no "Unsaved changes" | 0.5d | [x] |
+| SUB-1.3 | Report drafts: `draft_definition` column, autosave writes the draft only, **Publish** copies draft to published | Editing a published report never changes what viewers and embeds see until Publish; migration keeps every existing report published | 2d | [x] |
+| SUB-1.4 | Designer shows "Draft — not published" and offers Discard draft | Discard restores the published definition | 0.5d | [x] |
+| SUB-2.1 | Detect a unique key when a relationship is added | Sales → Region works without marking Region[Region]; a non-unique target still gets a clear error naming the duplicate count | 1d | [x] |
+| SUB-2.2 | RLS rules read `[Column]` as the role's own table | `[Region] = "North"` on the Region table works; E2E step passes | 0.5d | [x] |
+| SUB-2.3 | Dynamic RLS: `USERPRINCIPALNAME()` and `USERNAME()` from the signed-in user or the embed token's user | A rule `Users[Email] = USERPRINCIPALNAME()` shows each user only their rows, in the app and embedded | 2d | [x] |
 | SUB-3.1 | Iterators: SUMX, AVERAGEX, MINX, MAXX, COUNTX over a table with a row expression | Same figures as a hand-written SQL check on the E2E and Warehouse data | 3d | [ ] |
 | SUB-3.2 | RELATED (row context across a many-to-one relationship) | `SUMX(Sales, Sales[Qty] * RELATED(Product[Price]))` matches SQL | 1.5d | [ ] |
 | SUB-3.3 | SWITCH, IFERROR, COALESCE, SELECTEDVALUE, HASONEVALUE, ISFILTERED, VALUES (in iterators) | Unit tests per function; error messages for wrong argument counts | 2d | [ ] |
@@ -121,7 +121,29 @@ About 57 days in total. Phases 1–2 (7 days) are the recommended next step; pha
 ---
 
 ## 3. Execution Log
-- [ ] Waiting for approval of the Analysis and Plan
+- [x] Analysis and Plan approved 31 Oct 2026; phases 1 and 2 started.
+- [x] Phases 1 and 2 done 31 Oct 2026 (commits listed by `git log --grep magbi-019` and the feat/fix commits before it).
+
+### Phases 1–2 result (31 Oct 2026)
+
+| Part | Where |
+|------|-------|
+| `my_role` on every workspace (viewer, editor, admin; the dev actor and platform admins are admin) | `api/workspaces.py`, `auth/roles.py` (`role_of`) |
+| Viewers see no New dataset, New connection, Embed, Refresh or Open in designer; a viewer who opens the designer is sent to the report view before anything can save | `workspace/*.tsx`, `designer/DesignerPage.tsx` |
+| Drafts: `reports.draft_definition` (migration 0007). Autosave sends `draft`, which leaves the published definition and its updated time alone; Publish sends `definition`, which replaces it and clears the draft; `discard_draft` restores the published version. Only editors and admins are sent the draft | `api/reports.py`, `designer/DesignerPage.tsx`, `StatusBar.tsx` |
+| The dev server adds new nullable columns to its SQLite database (production runs the migrations) | `server/dev_server.py` |
+| A relationship's one side is marked as the key when its data is unique; a repeating column is refused with the count | `api/datasets.py` (`_with_detected_key`) |
+| RLS rules read `[Column]` as the role's own table; `USERPRINCIPALNAME()` and `USERNAME()` are the signed-in user's email or the embed token's user (only in rules; a measure gets a clear message) | `engine/rls.py`, `dax/binder.py`, `dax/functions.py` |
+| Role members: viewers get the roles they belong to; a viewer in none of a dataset's roles is refused (`RLS_NO_ROLE`); editors and admins see every row; the query cache keys on the user | `model/schema.py`, `api/query.py`, `engine/cache.py`, `model-editor/RlsRolesDialog.tsx` |
+
+**Found while building phase 2**: until now, signed-in viewers got no row-level security at all. Roles applied only to embed tokens and an editor's "view as". Role members close that, and match Power BI's Manage security. Today only the scratch "E2E check" datasets define roles, so no MSD dashboard changes.
+
+**Checks**
+- Backend: 541 passed, 17 skipped. Frontend: 78 passed. ruff, mypy, ESLint and the type build are clean.
+- End to end: 45 of 46 steps pass. The one failure is RANKX (phase 3). New steps cover a viewer with no edit actions, the designer redirect, draft then Publish, key detection, a refused repeating key, the short RLS form, and a viewer in a role seeing only North.
+- QA gate: the 3 Warehouse dashboards pass.
+
+**Note**: string comparison in rules is case-sensitive (DuckDB), unlike DAX. MagBI stores emails in lower case, so a rule like `[Email] = USERPRINCIPALNAME()` needs lower-case emails in the data.
 
 ---
 

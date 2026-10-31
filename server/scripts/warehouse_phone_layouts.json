@@ -1,0 +1,363 @@
+{
+ "workspace": "4461296c-f228-4607-943c-5997846333d5",
+ "reports": {
+  "14c9f08c-6e2c-4fd8-8d68-5aa32b546fb4": {
+   "name": "Stock & Expiry",
+   "pages": [
+    {
+     "name": "w1",
+     "phone": {
+      "visuals": [
+       {
+        "id": "w1-01-header",
+        "x": 10,
+        "y": 10,
+        "width": 340,
+        "height": 200
+       },
+       {
+        "id": "w1-03-slicer",
+        "x": 10,
+        "y": 220,
+        "width": 165,
+        "height": 60
+       },
+       {
+        "id": "w1-04-slicer",
+        "x": 185,
+        "y": 220,
+        "width": 165,
+        "height": 60
+       },
+       {
+        "id": "w1-05-chain",
+        "x": 10,
+        "y": 290,
+        "width": 340,
+        "height": 60
+       },
+       {
+        "id": "w1-06-kpi",
+        "x": 10,
+        "y": 360,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w1-07-kpi",
+        "x": 10,
+        "y": 494,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w1-08-kpi",
+        "x": 10,
+        "y": 628,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w1-09-kpi",
+        "x": 10,
+        "y": 762,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w1-10-kpi",
+        "x": 10,
+        "y": 896,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w1-11-calendar",
+        "x": 10,
+        "y": 1030,
+        "width": 340,
+        "height": 300
+       },
+       {
+        "id": "w1-12-donut",
+        "x": 10,
+        "y": 1340,
+        "width": 340,
+        "height": 440
+       },
+       {
+        "id": "w1-13-pareto",
+        "x": 10,
+        "y": 1790,
+        "width": 340,
+        "height": 320
+       },
+       {
+        "id": "w1-14-heatmap",
+        "x": 10,
+        "y": 2120,
+        "width": 340,
+        "height": 500
+       },
+       {
+        "id": "w1-15-grid",
+        "x": 10,
+        "y": 2630,
+        "width": 340,
+        "height": 400
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "40ee6afb-81bf-423b-aa51-f937f9cab8b9": {
+   "name": "Stock Accuracy & Control",
+   "pages": [
+    {
+     "name": "w4",
+     "phone": {
+      "visuals": [
+       {
+        "id": "w4-01-header",
+        "x": 10,
+        "y": 10,
+        "width": 340,
+        "height": 200
+       },
+       {
+        "id": "w4-03-label",
+        "x": 10,
+        "y": 220,
+        "width": 340,
+        "height": 22
+       },
+       {
+        "id": "w4-04-slicer",
+        "x": 10,
+        "y": 252,
+        "width": 165,
+        "height": 60
+       },
+       {
+        "id": "w4-05-slicer",
+        "x": 185,
+        "y": 252,
+        "width": 165,
+        "height": 60
+       },
+       {
+        "id": "w4-09-chain",
+        "x": 10,
+        "y": 322,
+        "width": 340,
+        "height": 60
+       },
+       {
+        "id": "w4-07-label",
+        "x": 10,
+        "y": 392,
+        "width": 340,
+        "height": 22
+       },
+       {
+        "id": "w4-10-kpi",
+        "x": 10,
+        "y": 424,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w4-11-kpi",
+        "x": 10,
+        "y": 558,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w4-12-kpi",
+        "x": 10,
+        "y": 692,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w4-13-kpi",
+        "x": 10,
+        "y": 826,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w4-14-kpi",
+        "x": 10,
+        "y": 960,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w4-15-meter",
+        "x": 10,
+        "y": 1094,
+        "width": 340,
+        "height": 250
+       },
+       {
+        "id": "w4-16-stack100",
+        "x": 10,
+        "y": 1354,
+        "width": 340,
+        "height": 250
+       },
+       {
+        "id": "w4-17-bars",
+        "x": 10,
+        "y": 1614,
+        "width": 340,
+        "height": 250
+       },
+       {
+        "id": "w4-18-donut",
+        "x": 10,
+        "y": 1874,
+        "width": 340,
+        "height": 440
+       },
+       {
+        "id": "w4-19-grid",
+        "x": 10,
+        "y": 2324,
+        "width": 340,
+        "height": 400
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "70490228-38c3-4b3d-8f1a-6688e1d3e042": {
+   "name": "Outbound & Transfers",
+   "pages": [
+    {
+     "name": "w7",
+     "phone": {
+      "visuals": [
+       {
+        "id": "w7-01-header",
+        "x": 10,
+        "y": 10,
+        "width": 340,
+        "height": 200
+       },
+       {
+        "id": "w7-03-label",
+        "x": 10,
+        "y": 220,
+        "width": 340,
+        "height": 22
+       },
+       {
+        "id": "w7-04-slicer",
+        "x": 10,
+        "y": 252,
+        "width": 165,
+        "height": 60
+       },
+       {
+        "id": "w7-05-slicer",
+        "x": 185,
+        "y": 252,
+        "width": 165,
+        "height": 60
+       },
+       {
+        "id": "w7-09-chain",
+        "x": 10,
+        "y": 322,
+        "width": 340,
+        "height": 60
+       },
+       {
+        "id": "w7-07-label",
+        "x": 10,
+        "y": 392,
+        "width": 340,
+        "height": 22
+       },
+       {
+        "id": "w7-10-kpi",
+        "x": 10,
+        "y": 424,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w7-11-kpi",
+        "x": 10,
+        "y": 558,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w7-12-kpi",
+        "x": 10,
+        "y": 692,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w7-13-kpi",
+        "x": 10,
+        "y": 826,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w7-14-kpi",
+        "x": 10,
+        "y": 960,
+        "width": 340,
+        "height": 124
+       },
+       {
+        "id": "w7-15-flow",
+        "x": 10,
+        "y": 1094,
+        "width": 340,
+        "height": 400
+       },
+       {
+        "id": "w7-16-donut",
+        "x": 10,
+        "y": 1504,
+        "width": 340,
+        "height": 440
+       },
+       {
+        "id": "w7-17-meter",
+        "x": 10,
+        "y": 1954,
+        "width": 340,
+        "height": 250
+       },
+       {
+        "id": "w7-18-bars",
+        "x": 10,
+        "y": 2214,
+        "width": 340,
+        "height": 250
+       },
+       {
+        "id": "w7-19-grid",
+        "x": 10,
+        "y": 2474,
+        "width": 340,
+        "height": 400
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

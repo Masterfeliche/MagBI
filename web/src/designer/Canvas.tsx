@@ -17,6 +17,7 @@ import {
   type ResizeHandle,
 } from "./layout";
 import { useDesignerStore } from "./store";
+import { useReportTheme } from "./useReportTheme";
 
 export function Canvas({
   scale,
@@ -34,6 +35,7 @@ export function Canvas({
   readOnly?: boolean;
 }) {
   const report = useDesignerStore((state) => state.report);
+  const theme = useReportTheme();
   const selectedId = useDesignerStore((state) => state.selectedVisualId);
   const selectVisual = useDesignerStore((state) => state.selectVisual);
   const moveVisual = useDesignerStore((state) => state.moveVisual);
@@ -58,7 +60,7 @@ export function Canvas({
     <div
       ref={frame}
       className="page"
-      style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale, background: report.theme?.background }}
+      style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale, background: report.theme?.id ? theme.surface.page : report.theme?.background }}
       onPointerDown={() => {
         if (!readOnly) selectVisual(null);
       }}

@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
-import { colorsFromThemeJson } from "../shared/themes";
-import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, VisualDefinition } from "../types/report";
+import { BUILT_IN_THEMES } from "../shared/theme";
+import { importThemeFile } from "../shared/themeFile";
+import type { BookmarkDefinition, FieldBinding, FilterDefinition, ReportDefinition, ThemeOverrides, VisualDefinition } from "../types/report";
 import { patchFormat } from "./filters";
 import { EMPTY_HISTORY, record, redo, undo, type History } from "./history";
 import { blankReport, PAGE_HEIGHT, PAGE_WIDTH, placeVisual, type Box } from "./layout";
@@ -28,8 +29,12 @@ interface DesignerState {
   setInteraction: (id: string, targetId: string, mode: "crossFilter" | "crossHighlight" | "none") => void;
   setFormat: (id: string, title: string, color: string) => void;
   setProperties: (id: string, props: Record<string, unknown>) => void;
-  setTheme: (colors: string[]) => void;
-  importThemeJson: (json: string) => void;
+  /** Switches to a built-in theme and drops this report's own changes. */
+  applyTheme: (id: string) => void;
+  /** Stores the report's theme as given (Customize current theme). */
+  setThemeFields: (theme: ThemeOverrides) => void;
+  /** Applies a Power BI or MagBI theme file on top of the current theme; returns its name. */
+  importThemeJson: (json: string) => string;
   drillDown: (id: string, category: string) => void;
   drillUp: (id: string) => void;
   addBookmark: (name: string) => void;
@@ -199,13 +204,20 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     }));
   },
 
-  setTheme: (colors) => {
-    const report = get().report;
-    commit(set, get, { ...report, theme: { ...report.theme, colors } });
+  applyTheme: (id) => {
+    commit(set, get, { ...get().report, theme: { id } });
+  },
+
+  setThemeFields: (theme) => {
+    commit(set, get, { ...get().report, theme });
   },
 
   importThemeJson: (json) => {
-    get().setTheme(colorsFromThemeJson(json));
+    const imported = importThemeFile(json);
+    const current = get().report.theme?.id;
+    const base = BUILT_IN_THEMES.some((theme) => theme.id === imported.base) ? imported.base : current;
+    get().setThemeFields({ id: base ?? "enterprise-light", overrides: imported.layer });
+    return imported.name;
   },
 
   drillDown: (id, category) => {

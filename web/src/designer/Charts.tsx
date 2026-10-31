@@ -11,6 +11,7 @@ import { colorScale, dataBarWidth, statusColor } from "./condFormat";
 import { slicerFilters, type SlicerMode } from "./slicer";
 import type { FormatProps } from "./formatChart";
 import { useDesignerStore } from "./store";
+import { useHasTheme, useReportTheme } from "./useReportTheme";
 import { buildQuery } from "./query";
 import { renderModel } from "./render";
 import { KitVisual } from "../kit/KitVisual";
@@ -75,7 +76,8 @@ function ClassicView({
   const queryKey = JSON.stringify(query);
   const title = typeof visual.properties?.title === "string" ? visual.properties.title : "";
   const color = typeof visual.properties?.color === "string" ? visual.properties.color : "#118DFF";
-  const palette = useDesignerStore((state) => state.report.theme?.colors);
+  const theme = useReportTheme();
+  const palette = useHasTheme() ? theme.data.categorical : undefined;
   const viewAs = useDesignerStore((state) => state.viewAs);
   const drillUp = useDesignerStore((state) => state.drillUp);
   const drillDown = useDesignerStore((state) => state.drillDown);

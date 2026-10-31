@@ -27,7 +27,10 @@ import { StatusBar } from "./StatusBar";
 import { SelectionPane } from "./SelectionPane";
 import { TooltipPreview } from "./TooltipPreview";
 import { useDesignerStore } from "./store";
-import { themeById } from "../shared/themes";
+import { themeForReport } from "../shared/theme";
+import { exportThemeFile } from "../shared/themeFile";
+import { ThemeDialog } from "./ThemeDialog";
+import { ThemeGallery } from "./ThemeGallery";
 import { exportReport, exportVisualData } from "./exportReport";
 import { visualDataOf } from "./visualData";
 import { TitleBar } from "./TitleBar";
@@ -77,6 +80,8 @@ export function DesignerPage() {
   const [showRoles, setShowRoles] = useState(false);
   const [showViewAs, setShowViewAs] = useState(false);
   const [showCondFmt, setShowCondFmt] = useState(false);
+  const [showThemes, setShowThemes] = useState(false);
+  const [showCustomize, setShowCustomize] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showRefresh, setShowRefresh] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
@@ -304,8 +309,23 @@ export function DesignerPage() {
         }}
         onCondFormat={() => setShowCondFmt(true)}
         onBookmarks={() => setShowBookmarks(true)}
-        onImportTheme={(json) => useDesignerStore.getState().importThemeJson(json)}
-        onTheme={(themeId) => useDesignerStore.getState().setTheme(themeById(themeId).colors)}
+        onImportTheme={(json) => {
+          try {
+            setRefreshMessage(`Theme "${useDesignerStore.getState().importThemeJson(json)}" applied`);
+          } catch (reason) {
+            setRefreshMessage(`Couldn't import the theme: ${reason instanceof Error ? reason.message : "unknown file"}`);
+          }
+        }}
+        onThemes={() => setShowThemes(true)}
+        onCustomizeTheme={() => setShowCustomize(true)}
+        onExportTheme={() => {
+          const theme = themeForReport(report.theme);
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(new Blob([exportThemeFile(theme)], { type: "application/json" }));
+          link.download = `${theme.name.replace(/[^\w -]+/g, "").trim() || "theme"}.json`;
+          link.click();
+          URL.revokeObjectURL(link.href);
+        }}
         onExport={() => {
           if (stage.current) exportReport(stage.current, report.name || "report");
         }}
@@ -348,6 +368,24 @@ export function DesignerPage() {
         />
       )}
       {showCondFmt && <ConditionalFormatDialog onClose={() => setShowCondFmt(false)} />}
+      {showThemes && (
+        <ThemeGallery
+          current={report.theme?.id ?? "enterprise-light"}
+          onPick={(id) => {
+            useDesignerStore.getState().applyTheme(id);
+            setShowThemes(false);
+          }}
+          onClose={() => setShowThemes(false)}
+        />
+      )}
+      {showCustomize && (
+        <ThemeDialog
+          current={report.theme?.id ?? "enterprise-light"}
+          resolved={themeForReport(report.theme)}
+          onSave={(theme) => useDesignerStore.getState().setThemeFields(theme)}
+          onClose={() => setShowCustomize(false)}
+        />
+      )}
       {showBookmarks && <BookmarkPanel onClose={() => setShowBookmarks(false)} />}
       {showMeasure && workspaceId && datasetId && (
         <MeasureEditor

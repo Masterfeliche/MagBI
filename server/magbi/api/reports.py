@@ -1,4 +1,9 @@
-"""Store a report definition and its published flag."""
+"""Store a report: the published definition viewers see, and an editor's draft.
+
+Editing saves a draft (``draft``). Publishing sends ``definition``, which
+replaces what viewers and embeds see and clears the draft. Only editors and
+admins are ever sent the draft.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +21,7 @@ from magbi.api.datasets import get_dataset_or_404
 from magbi.api.deps import ActorDep, ServicesDep, SessionDep
 from magbi.api.errors import ApiError
 from magbi.api.workspaces import get_workspace_or_404
+from magbi.auth.roles import Actor, role_of
 from magbi.metadata.models import DatasetRefresh, RefreshStatus, Report, utcnow
 from magbi.services import Services
 
@@ -35,6 +41,8 @@ class ReportUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     definition: dict[str, Any] | None = None
     is_published: bool | None = None
+    draft: dict[str, Any] | None = None
+    discard_draft: bool = False
 
 
 class ReportOut(BaseModel):
@@ -49,9 +57,12 @@ class ReportOut(BaseModel):
     created_at: dt.datetime
     updated_at: dt.datetime
     last_refreshed_at: dt.datetime | None = None
+    has_draft: bool = False
+    draft: dict[str, Any] | None = None
+    draft_updated_at: dt.datetime | None = None
 
 
-def _out(report: Report, last_refreshed_at: dt.datetime | None = None) -> ReportOut:
+def _out(report: Report, last_refreshed_at: dt.datetime | None = None, *, editor: bool = False) -> ReportOut:
     return ReportOut(
         id=report.id,
         workspace_id=report.workspace_id,
@@ -62,7 +73,14 @@ def _out(report: Report, last_refreshed_at: dt.datetime | None = None) -> Report
         created_at=report.created_at,
         updated_at=report.updated_at,
         last_refreshed_at=last_refreshed_at,
+        has_draft=report.draft_definition is not None,
+        draft=report.draft_definition if editor else None,
+        draft_updated_at=report.draft_updated_at if editor else None,
     )
+
+
+def _editor(actor: Actor, wid: uuid.UUID) -> bool:
+    return role_of(actor, str(wid)) in ("editor", "admin")
 
 
 async def _commit(session: AsyncSession) -> None:
@@ -81,10 +99,11 @@ async def _get(session: AsyncSession, wid: uuid.UUID, rid: uuid.UUID) -> Report:
 
 
 @router.get("/workspaces/{wid}/reports", response_model=list[ReportOut])
-async def list_reports(wid: uuid.UUID, session: SessionDep) -> list[ReportOut]:
+async def list_reports(wid: uuid.UUID, session: SessionDep, actor: ActorDep) -> list[ReportOut]:
     await get_workspace_or_404(session, wid)
     rows = await session.execute(select(Report).where(Report.workspace_id == wid))
-    return [_out(report) for report in rows.scalars()]
+    editor = _editor(actor, wid)
+    return [_out(report, editor=editor) for report in rows.scalars()]
 
 
 @router.post("/workspaces/{wid}/reports", status_code=201, response_model=ReportOut)
@@ -119,7 +138,7 @@ async def get_report(
                 403, "FORBIDDEN", "unpublished reports cannot be embedded"
             )
     last = await _last_refreshed(session, report.dataset_id)
-    return _out(report, last or _data_changed(svc, report.dataset_id))
+    return _out(report, last or _data_changed(svc, report.dataset_id), editor=_editor(actor, wid))
 
 
 def _data_changed(svc: Services, dataset_id: uuid.UUID) -> dt.datetime | None:
@@ -147,16 +166,33 @@ async def _last_refreshed(
 
 @router.put("/workspaces/{wid}/reports/{rid}", response_model=ReportOut)
 async def update_report(
-    wid: uuid.UUID, rid: uuid.UUID, body: ReportUpdate, session: SessionDep
+    wid: uuid.UUID, rid: uuid.UUID, body: ReportUpdate, session: SessionDep, actor: ActorDep
 ) -> ReportOut:
+    if body.definition is not None and body.draft is not None:
+        raise ApiError(422, "DRAFT_AND_DEFINITION", "send a draft to save, or a definition to publish, not both")
     report = await _get(session, wid, rid)
     if body.name is not None:
         report.name = body.name.strip()
+    if body.draft is not None:
+        # A draft leaves what viewers see, and the report's updated time, alone.
+        await session.execute(
+            update(Report)
+            .where(Report.id == report.id)
+            .values(draft_definition=body.draft, draft_updated_at=utcnow(), updated_at=Report.updated_at)
+        )
+        await _commit(session)
+        await session.refresh(report)
+        return _out(report, editor=True)
     if body.definition is not None:
         report.definition = body.definition
+        report.draft_definition = None
+        report.draft_updated_at = None
+    if body.discard_draft:
+        report.draft_definition = None
+        report.draft_updated_at = None
     if body.is_published is not None:
         report.is_published = body.is_published
     report.updated_at = utcnow()
     await _commit(session)
     await session.refresh(report)
-    return _out(report)
+    return _out(report, editor=_editor(actor, wid))

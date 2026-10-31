@@ -268,7 +268,10 @@ class Report(Base):
         ForeignKey("datasets.id", ondelete="RESTRICT"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
+    # What viewers and embeds see. Editing writes the draft; publishing copies it here.
     definition: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
+    draft_definition: Mapped[dict[str, Any] | None] = mapped_column(JsonType)
+    draft_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(

@@ -2,6 +2,7 @@
 import asyncio
 from pathlib import Path
 
+from sqlalchemy import Connection, inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from magbi.config import Settings
@@ -33,11 +34,28 @@ settings = Settings(
 )
 
 
+def _add_new_columns(conn: Connection) -> None:
+    """create_all never alters a table: add any new nullable column the models gained.
+
+    Production runs the Alembic migrations instead; this keeps the dev database usable.
+    """
+    existing = inspect(conn)
+    for table in Base.metadata.sorted_tables:
+        if not existing.has_table(table.name):
+            continue
+        have = {column["name"] for column in existing.get_columns(table.name)}
+        for column in table.columns:
+            if column.name not in have and column.nullable:
+                kind = column.type.compile(dialect=conn.dialect)
+                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}'))
+
+
 async def create_tables() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     engine = create_async_engine(settings.database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_new_columns)
     await engine.dispose()
 
 

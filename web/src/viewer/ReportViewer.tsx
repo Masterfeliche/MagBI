@@ -8,6 +8,7 @@ import { Canvas } from "../designer/Canvas";
 import { type CrossFilter } from "../designer/filters";
 import { PAGE_HEIGHT, PAGE_WIDTH } from "../designer/layout";
 import { PageTabs } from "../designer/PageTabs";
+import { hasPhoneLayout, PHONE_WIDTH, phoneHeight } from "../designer/phone";
 import { useDesignerStore } from "../designer/store";
 import { BUILT_IN_THEMES } from "../shared/theme";
 import { useSavedThemesLoader } from "../designer/useReportTheme";
@@ -18,7 +19,8 @@ import { canEdit, type Workspace } from "../types/api";
 import type { ReportDefinition } from "../types/report";
 import "../designer/designer.css";
 import "../workspace/workspace.css";
-import { fitScale, type FitMode } from "./fitScale";
+import { fitScale, phoneScale, type FitMode } from "./fitScale";
+import { useNarrowWindow } from "./useNarrowWindow";
 import { AlertDialog, SubscribeDialog } from "./NotifyDialogs";
 import { ShareDialog } from "./ShareDialog";
 
@@ -38,6 +40,7 @@ export function ReportViewer({
   const replaceReport = useDesignerStore((state) => state.replaceReport);
   const setDataAsAt = useDesignerStore((state) => state.setDataAsAt);
   const report = useDesignerStore((state) => state.report);
+  const activePageIndex = useDesignerStore((state) => state.activePageIndex);
   const stage = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState<FitMode>("page");
   const [scale, setScale] = useState(1);
@@ -58,6 +61,12 @@ export function ReportViewer({
   const reader = useDesignerStore((state) => state.reader);
   const setReader = useDesignerStore((state) => state.setReader);
   useSavedThemesLoader(workspaceId, token);
+  // Under 768 px a page with a phone layout is drawn from it; other pages shrink to fit as before.
+  const narrow = useNarrowWindow();
+  const activePage = report.pages[activePageIndex];
+  const phone = narrow && !exporting && hasPhoneLayout(activePage);
+  const pageWidth = phone ? PHONE_WIDTH : PAGE_WIDTH;
+  const pageHeight = phone ? phoneHeight(activePage?.phone) : PAGE_HEIGHT;
 
   // The reader's own needs: High Contrast is remembered on this device; larger text is on for phone-width screens.
   useEffect(() => {
@@ -133,14 +142,14 @@ export function ReportViewer({
     const node = stage.current;
     if (!node) return;
     const measure = () => {
-      setScale(fitScale(fit, node.clientWidth - 32, node.clientHeight - 32));
+      setScale(phone ? phoneScale(node.clientWidth) : fitScale(fit, node.clientWidth - 32, node.clientHeight - 32));
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
     // The stage appears only once the report has loaded, so measure again then.
-  }, [fit, datasetId]);
+  }, [fit, datasetId, phone]);
 
   if (error) return <p className="ws-error">{error}</p>;
   if (!workspaceId || !datasetId) return <p className="ws-loading">Loading report...</p>;
@@ -161,7 +170,7 @@ export function ReportViewer({
   }
 
   return (
-    <div className={`designer viewer${chrome ? "" : " embed"}`}>
+    <div className={`designer viewer${chrome ? "" : " embed"}${narrow ? " narrow" : ""}${phone ? " phone" : ""}`}>
       {chrome && (
         <div className="viewer-bar">
           <strong>{report.name}</strong>
@@ -170,29 +179,35 @@ export function ReportViewer({
               type="button"
               className={reader.contrast ? "ws-btn small primary" : "ws-btn small"}
               aria-pressed={reader.contrast}
+              aria-label="High contrast"
               title="Black on white with patterns, for you only; the report is not changed"
               onClick={() => {
                 saveContrast(!reader.contrast);
                 setReader({ contrast: !reader.contrast });
               }}
             >
-              ◐ High contrast
+              ◐<span className="viewer-btn-word"> High contrast</span>
             </button>
             <button
               type="button"
               className={reader.larger ? "ws-btn small primary" : "ws-btn small"}
               aria-pressed={reader.larger}
+              aria-label="Larger text"
               title="Larger text, for you only; the report is not changed"
               onClick={() => setReader({ larger: !reader.larger })}
             >
-              A+ Larger text
+              A+<span className="viewer-btn-word"> Larger text</span>
             </button>
-            <button type="button" className={fit === "page" ? "ws-btn small primary" : "ws-btn small"} onClick={() => setFit("page")}>
-              Fit to page
-            </button>
-            <button type="button" className={fit === "width" ? "ws-btn small primary" : "ws-btn small"} onClick={() => setFit("width")}>
-              Fit to width
-            </button>
+            {!phone && (
+              <>
+                <button type="button" className={fit === "page" ? "ws-btn small primary" : "ws-btn small"} onClick={() => setFit("page")}>
+                  Fit to page
+                </button>
+                <button type="button" className={fit === "width" ? "ws-btn small primary" : "ws-btn small"} onClick={() => setFit("width")}>
+                  Fit to width
+                </button>
+              </>
+            )}
           </div>
           {!token && reportId && (
             <div className="viewer-fits viewer-share">
@@ -220,7 +235,7 @@ export function ReportViewer({
       <DndContext>
         <div className="desk">
           <div className="stage" ref={stage} style={{ flex: 1 }}>
-            <div className="stage-canvas" style={{ width: PAGE_WIDTH * scale, height: PAGE_HEIGHT * scale }}>
+            <div className="stage-canvas" style={{ width: pageWidth * scale, height: pageHeight * scale }}>
               <Canvas
                 scale={scale}
                 workspaceId={workspaceId}
@@ -228,6 +243,7 @@ export function ReportViewer({
                 cross={cross}
                 onCross={setCross}
                 readOnly
+                layout={phone ? "phone" : "desktop"}
               />
             </div>
           </div>

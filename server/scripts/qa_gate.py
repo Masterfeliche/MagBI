@@ -13,6 +13,10 @@ Three layers, each finding a class of defect that reached a live dashboard befor
    "(Blank)" or NaN, no empty white panel, donut centre on the ring and equal to
    its slices, tables at least 90% of their panel, status as glyph + word.
    The render checks run again for every value of every dropdown.
+4. Phone (390 x 844): the same render checks on a phone. A page with a phone
+   layout must draw from it, inside the window's width, and every button, page
+   tab and dropdown is a tap target of at least 44 px. A page without one is
+   shrunk to fit, with a warning.
 
 With ``--themes`` every report is checked again in each built-in theme (``all``
 for every one), so a dashboard stays readable whichever theme it is shown in.
@@ -46,6 +50,8 @@ from magbi.themes import load_theme, theme_colours, theme_ids, token_names
 
 PAGE_W, PAGE_H = 1760, 990
 VIEW_W, VIEW_H = 1920, 1080
+PHONE_W, PHONE_H = 390, 844
+TAP_MIN = 44
 MAX_SECONDS = 2.0
 KPI_MIN_H = 122
 TOKEN_PROPS = ("fill", "border")
@@ -316,6 +322,31 @@ DOM_CHECKS = r"""
 })()
 """
 
+PHONE_CHECKS = r"""
+((tap) => {
+  const out = { failures: [], warnings: [], phone: !!document.querySelector('.viewer.phone') };
+  if (document.documentElement.scrollWidth > innerWidth + 1) out.failures.push(`page scrolls sideways: ${document.documentElement.scrollWidth} px in ${innerWidth}`);
+  if (!out.phone) out.warnings.push('no phone layout: the desktop page is shrunk to the phone');
+  for (const visual of document.querySelectorAll('.page.phone .visual')) {
+    const box = visual.getBoundingClientRect();
+    if (box.left < -1 || box.right > innerWidth + 1) out.failures.push(`visual outside the phone's width: ${visual.querySelector('[data-visual-id]')?.dataset.visualId || visual.innerText.slice(0, 40)}`);
+  }
+  const label = (el) => (el.getAttribute('aria-label') || el.innerText || el.className).trim().slice(0, 40);
+  // Buttons and tabs are tapped anywhere on them; dropdowns and buttons inside visuals need the height.
+  for (const el of document.querySelectorAll('.viewer-bar button, .page-tab')) {
+    const box = el.getBoundingClientRect();
+    if (el.offsetParent && (box.height < tap || box.width < tap)) out.failures.push(`tap target ${Math.round(box.width)}x${Math.round(box.height)} px: "${label(el)}"`);
+  }
+  if (out.phone) {
+    for (const el of document.querySelectorAll('.visual select, .visual button')) {
+      const box = el.getBoundingClientRect();
+      if (el.offsetParent && box.height < tap) out.failures.push(`tap target ${Math.round(box.height)} px high: "${label(el)}"`);
+    }
+  }
+  return out;
+})
+"""
+
 SELECT_FILTER = r"""
 (([index, value]) => {
   const select = document.querySelectorAll('.kit-slicer select')[index];
@@ -445,8 +476,38 @@ async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[
                 await tab.evaluate(f"({SELECT_FILTER})({json.dumps([index, ''])})")
                 await tab.settle()
             result.stats["renders"] = renders
+            await phone_checks(tab, web, wid, report_id, query, out, result)
     finally:
         chrome.close()
+
+
+async def phone_checks(tab: Tab, web: str, wid: str, report_id: str, query: str, out: Path, result: Result) -> None:
+    """The report on a 390 x 844 phone: its phone layout, inside the width, with 44 px tap targets."""
+    await tab.send("Emulation.setDeviceMetricsOverride", {"width": PHONE_W, "height": PHONE_H, "deviceScaleFactor": 1, "mobile": True})
+    try:
+        await tab.send("Page.navigate", {"url": f"{web}/workspaces/{wid}/reports/{report_id}/view{query}"})
+        await tab.settle()
+        found = await tab.evaluate(DOM_CHECKS)
+        result.failures += [f"phone: {item}" for item in found["failures"]]
+        result.warnings += [f"phone: {item}" for item in found["warnings"]]
+        phone = await tab.evaluate(f"({PHONE_CHECKS})({TAP_MIN})")
+        result.failures += [f"phone: {item}" for item in phone["failures"]]
+        result.warnings += [f"phone: {item}" for item in phone["warnings"]]
+        result.stats["phone_layout"] = phone["phone"]
+        # One screenshot per screenful, down the page.
+        size = await tab.evaluate("(() => { const s = document.querySelector('.stage'); return s ? [s.scrollHeight, s.clientHeight] : [0, 0]; })()")
+        top, shots = 0, 0
+        while shots < 10:
+            await tab.evaluate(f"document.querySelector('.stage') && (document.querySelector('.stage').scrollTop = {top})")
+            await asyncio.sleep(0.4)
+            await tab.screenshot(out / f"{result.name}--phone-{shots + 1}.png")
+            shots += 1
+            if size[1] <= 0 or top + size[1] >= size[0]:
+                break
+            top += size[1] - 40
+        result.stats["phone_screens"] = shots
+    finally:
+        await tab.send("Emulation.setDeviceMetricsOverride", {"width": VIEW_W, "height": VIEW_H, "deviceScaleFactor": 1, "mobile": False})
 
 
 # ---------------------------------------------------------------- run

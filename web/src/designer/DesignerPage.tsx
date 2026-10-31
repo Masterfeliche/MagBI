@@ -21,6 +21,8 @@ import { PAGE_WIDTH, blankReport } from "./layout";
 import { LeftPanel } from "./LeftPanel";
 import { adaptDataset, type DesignerField, type DesignerTable } from "./model";
 import { PageTabs } from "./PageTabs";
+import { PHONE_WIDTH } from "./phone";
+import { LayoutTabs, PhoneLayoutPanel } from "./PhoneLayoutPanel";
 import { Ribbon } from "./Ribbon";
 import { RightPanel } from "./RightPanel";
 import { StatusBar } from "./StatusBar";
@@ -72,8 +74,11 @@ export function DesignerPage() {
   const stage = useRef<HTMLDivElement>(null);
   const selectAll = useRef(false);
   const skipSave = useRef(true);
-  const [autoScale, setAutoScale] = useState(1);
+  const [stageWidth, setStageWidth] = useState(0);
   const [manualZoom, setManualZoom] = useState<number | null>(null);
+  const layoutMode = useDesignerStore((s) => s.layoutMode);
+  // The desktop page fits the stage; the phone canvas is drawn at its real size when there is room.
+  const autoScale = stageWidth > 0 ? (layoutMode === "phone" ? Math.min(1, stageWidth / PHONE_WIDTH) : stageWidth / PAGE_WIDTH) : 1;
   const scale = manualZoom ?? autoScale;
   const [tables, setTables] = useState<DesignerTable[]>([]);
   const [modelVersion, setModelVersion] = useState(1);
@@ -189,8 +194,7 @@ export function DesignerPage() {
     const node = stage.current;
     if (!node) return;
     const measure = () => {
-      const width = node.clientWidth - 32;
-      setAutoScale(width > 0 ? width / PAGE_WIDTH : 1);
+      setStageWidth(node.clientWidth - 32);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -210,7 +214,12 @@ export function DesignerPage() {
       }
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
-        if (selectAll.current) removeAllVisuals();
+        // On the phone layout, Delete takes visuals off the phone only; the desktop page keeps them.
+        const store = useDesignerStore.getState();
+        if (store.layoutMode === "phone") {
+          if (selectAll.current) store.clearPhoneLayout();
+          else if (selectedId) store.removeFromPhone(selectedId);
+        } else if (selectAll.current) removeAllVisuals();
         else if (selectedId) removeVisual(selectedId);
         selectAll.current = false;
         return;
@@ -473,8 +482,10 @@ export function DesignerPage() {
             onFiltersChange={setPageFilters}
           />
           <div className="stage">
+            <LayoutTabs />
+            <div className="stage-row">
             <div
-              className="stage-canvas"
+              className={layoutMode === "phone" ? "stage-canvas phone" : "stage-canvas"}
               ref={stage}
               onMouseMove={(e) => {
                 const target = (e.target as HTMLElement).closest(".visual");
@@ -500,6 +511,7 @@ export function DesignerPage() {
                 datasetId={datasetId ?? ""}
                 cross={cross}
                 onCross={setCross}
+                layout={layoutMode}
               />
               {showSelection && <SelectionPane onClose={() => setShowSelection(false)} />}
               {tooltip && (() => {
@@ -514,6 +526,8 @@ export function DesignerPage() {
                   onClose={() => setCtxMenu(null)}
                 />
               )}
+            </div>
+            {layoutMode === "phone" && <PhoneLayoutPanel />}
             </div>
             <PageTabs />
           </div>

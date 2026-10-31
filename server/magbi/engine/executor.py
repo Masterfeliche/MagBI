@@ -24,11 +24,12 @@ def run_query(
     con: Any,
     *,
     roles: tuple[str, ...] = (),
+    user: str | None = None,
 ) -> dict[str, object]:
-    """Bind, generate, execute, and shape one query. ``con`` is DuckDB."""
+    """Bind, generate, execute, and shape one query. ``con`` is DuckDB; ``user`` feeds USERPRINCIPALNAME()."""
     bound = bind_query(model, query)
     filters = bind_filters(model, query)
-    secured = role_filters(model, roles)
+    secured = role_filters(model, roles, user)
     rows = execute(con, detail_sql(model, bound, filters, probe=True, rls=secured))
     totals = _totals(model, bound, filters, secured, con)
     result = shape(bound, rows, totals)

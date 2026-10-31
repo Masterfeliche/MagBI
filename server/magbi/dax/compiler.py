@@ -17,7 +17,7 @@ from sqlglot import exp
 
 from magbi.dax.binder import bind_measure
 from magbi.dax.errors import DaxError
-from magbi.dax.functions import AGGREGATES
+from magbi.dax.functions import AGGREGATES, IDENTITY
 from magbi.dax.parser import (
     Binary,
     BoolLit,
@@ -282,6 +282,8 @@ def _call(
         return exp.If(this=args[0], true=args[1], false=otherwise)
     if name == "divide":
         return _divide(expr, scope, filters, model)
+    if name in IDENTITY:
+        raise DaxError(f"{expr.name.upper()}() works only in row-level security rules", expr.line, expr.col)
     raise DaxError(f"{expr.name} cannot be compiled yet", expr.line, expr.col)
 
 

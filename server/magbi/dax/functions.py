@@ -41,6 +41,9 @@ SUPPORTED = AGGREGATES | frozenset(
     }
 )
 
+# Who is asking: allowed in row-level security rules, where the engine puts in the user's email.
+IDENTITY = frozenset({"userprincipalname", "username"})
+
 # Real DAX that this sprint rejects with a specific message, not "unknown".
 UNSUPPORTED = frozenset(
     {
@@ -108,7 +111,7 @@ UNSUPPORTED = frozenset(
 def function_error(name: str) -> str | None:
     """A message when ``name`` cannot be called, or None when it is supported."""
     key = name.casefold()
-    if key in SUPPORTED:
+    if key in SUPPORTED or key in IDENTITY:
         return None
     if key in UNSUPPORTED:
         return (

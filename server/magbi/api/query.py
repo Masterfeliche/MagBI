@@ -56,7 +56,8 @@ async def run_dataset_query(
             cache=_cache(svc),
             dataset_id=str(dataset.id),
             version=dataset.current_version,
-            roles=_query_roles(actor, body.roles, str(wid), str(dataset.id)),
+            roles=_query_roles(actor, body.roles, str(wid), str(dataset.id), model),
+            user=actor.email,
         )
     except QueryError as exc:
         raise ApiError(422, exc.code, exc.message) from None
@@ -65,8 +66,14 @@ async def run_dataset_query(
 
 
 def _query_roles(
-    actor: Actor, requested: list[str], workspace_id: str, dataset_id: str
+    actor: Actor, requested: list[str], workspace_id: str, dataset_id: str, model: DatasetDefinition
 ) -> tuple[str, ...]:
+    """The roles a query runs under.
+
+    Embed tokens carry theirs. Editors see every row, or "view as" the roles they
+    name. A viewer gets the roles they are a member of; when the dataset has roles
+    and they are in none, they are refused, as in Power BI.
+    """
     if actor.kind == "embed":
         if actor.workspace_id != workspace_id or dataset_id not in actor.datasets:
             raise ApiError(
@@ -80,7 +87,17 @@ def _query_roles(
     if actor.kind == "user" and permits(actor, workspace_id, "viewer"):
         if requested:
             raise ApiError(403, "FORBIDDEN", "only an editor can set query roles")
-        return ()
+        if not model.roles:
+            return ()
+        email = actor.email.strip().lower()
+        mine = tuple(role.name for role in model.roles if email in role.members)
+        if not mine:
+            raise ApiError(
+                403,
+                "RLS_NO_ROLE",
+                "this dataset limits rows by role and you are in none of its roles; ask its owner to add you",
+            )
+        return mine
     raise ApiError(403, "FORBIDDEN", "this token cannot query")
 
 

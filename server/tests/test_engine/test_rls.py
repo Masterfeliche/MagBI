@@ -114,3 +114,26 @@ def test_a_role_on_a_dimension_filters_its_facts() -> None:
     assert run_query(model, by_region, con, roles=("North",))["rows"] == [["North", 6]]  # type: ignore[arg-type]
     # A table the role's filter cannot reach is not filtered, as in Power BI.
     assert run_query(model, notes, con, roles=("North",))["rows"] == [[2]]  # type: ignore[arg-type]
+
+
+def test_a_rule_may_name_its_own_table_columns_without_the_table() -> None:
+    """As in Power BI: a rule on Region may say [Region] = "North"; a measure keeps its meaning."""
+    from magbi.dax.parser import ColumnRef as Col
+    from magbi.engine.rls import bind_rule
+
+    model = definition(
+        table("Region", col("Region", DataType.STRING), measures=[MeasureDef(name="Regions", expression="COUNTROWS(Region)")]),
+        table("Sales", col("Amount", DataType.INTEGER), measures=[MeasureDef(name="Total", expression="SUM(Sales[Amount])")]),
+        roles=[RlsRoleDef(name="Short", table_filters=[RlsTableFilter(table="Region", expression='[region] = "North"')])],
+    )
+    bound = bind_rule(model, "Region", '[region] = "North"')
+    assert isinstance(bound.left, Col) and (bound.left.table, bound.left.column) == ("Region", "Region")  # type: ignore[attr-defined]
+    # [Total] is a measure, not a Region column, so it is left for the binder (which expands it).
+    assert not isinstance(bind_rule(model, "Region", "[Total] > 1").left, Col)  # type: ignore[attr-defined]
+
+    con = duckdb.connect()
+    con.execute('CREATE TABLE "Region" ("Region" VARCHAR)')
+    con.execute("INSERT INTO \"Region\" VALUES ('North'), ('South')")
+    con.execute('CREATE TABLE "Sales" ("Amount" INTEGER)')
+    query = parse_query({"select": [{"measure": {"table": "Region", "measure": "Regions"}}]})
+    assert run_query(model, query, con, roles=("Short",))["rows"] == [[1]]  # type: ignore[arg-type]

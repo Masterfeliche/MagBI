@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from magbi.connectors.types import DataType
 from magbi.dax.errors import DaxError
-from magbi.dax.functions import AGGREGATES
+from magbi.dax.functions import AGGREGATES, IDENTITY
 from magbi.dax.parser import (
     Binary,
     Call,
@@ -34,6 +34,11 @@ _ORDERABLE = _NUMERIC | frozenset({DataType.STRING, DataType.DATE, DataType.DATE
 def bind(model: DatasetDefinition, source: str) -> Expr:
     """Parse ``source`` and resolve every name. The model is not modified."""
     return _Binder(model).expression(parse(source), (), {})
+
+
+def bind_parsed(model: DatasetDefinition, expr: Expr) -> Expr:
+    """Resolve every name in an already parsed (and possibly rewritten) expression."""
+    return _Binder(model).expression(expr, (), {})
 
 
 def bind_measure(model: DatasetDefinition, source: str) -> Expr:
@@ -95,6 +100,8 @@ def _check_calls(model: DatasetDefinition, expr: Expr) -> None:
 
 def _check_call(model: DatasetDefinition, expr: Call) -> None:
     name = expr.name.casefold()
+    if name in IDENTITY:
+        raise DaxError(f"{expr.name.upper()}() works only in row-level security rules", expr.line, expr.col)
     if name == "countrows":
         if len(expr.args) != 1 or not isinstance(expr.args[0], TableRef):
             raise DaxError("COUNTROWS expects a table", expr.line, expr.col)

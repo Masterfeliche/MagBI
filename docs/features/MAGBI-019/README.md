@@ -99,7 +99,7 @@ Source: the MagBI Test Review of 31 Oct 2026 (https://claude.ai/artifact/A8F9YtQ
 | SUB-7.2 | Change password and admin-issued reset link | Old password stops working; link expires after 1 hour | 1.5d | [ ] |
 | SUB-7.3 | OpenID Connect sign-in (Entra ID, Google, Keycloak) | A test identity provider signs a user in; first sign-in creates the user | 3d | [ ] |
 | SUB-8.1 | Phone layout per page: separate visual positions on a 360 px-wide canvas, edited in the designer | Designer has Desktop / Phone tabs; unplaced visuals listed | 3d | [x] |
-| SUB-8.2 | Viewer uses the phone layout under 768 px, with 44 px tap targets | The 3 Warehouse dashboards readable on a 390 px phone; gate render check at 390 × 844 | 2d | [ ] |
+| SUB-8.2 | Viewer uses the phone layout under 768 px, with 44 px tap targets | The 3 Warehouse dashboards readable on a 390 px phone; gate render check at 390 × 844 | 2d | [x] |
 | SUB-9.1 | E2E suite in the repo (`server/scripts/e2e.py`) and run in CI against a seeded dev server | All review steps pass, including the 3 former gaps | 1.5d | [ ] |
 
 **Phases and effort** (one engineer; days of work, not calendar):
@@ -266,7 +266,11 @@ Each report page can have its own phone layout. Phones and windows under 768 px 
 - Designer, in headless Chrome on a scratch E2E report: Phone tab, Add, Auto arrange, dragging a visual 300 px down, resizing it narrower, and Ctrl+Z twice restoring it. The draft holds the phone layout, while the published definition and every desktop position stay unchanged. After Publish, the viewer at 390 × 844 draws the phone layout.
 - The 3 Warehouse dashboards at 390 × 844, with auto-arranged phone layouts put into the report response in headless Chrome (nothing stored): phone layout used, no sideways scroll, every tap target at least 44 px, and the gate's render checks find no failures. The only warnings are panel subtitles cut short, which the gate allows. Screenshots were looked at, screen by screen.
 
-**Open**: the phone layouts aren't stored on the 3 Warehouse reports yet, so SUB-8.2 stays open. The QA account is a viewer in that workspace and can't save them. Outbound & Transfers also has an unpublished draft that a publish would clear, so it has to be saved again with the same layout. Until they are stored, the gate passes these reports at 390 × 844 with a "no phone layout" warning. They are left unchanged until the owner decides. The layouts that were checked are in `server/scripts/warehouse_phone_layouts.json`. `python -m scripts.apply_phone_layouts --login <editor login> --write` applies them. It adds only `pages[].phone`, saves any draft again with the same layout, and writes nothing when it can't read a draft. Without `--write` it only reports what it would do.
+**Warehouse dashboards (31 Oct 2026, approved by the owner)**: the 3 Warehouse reports now have their phone layouts. They were saved with the owner account through `python -m scripts.apply_phone_layouts --write`, from `server/scripts/warehouse_phone_layouts.json`.
+- Every report's definition, and the Outbound & Transfers draft, was backed up first.
+- A diff before and after shows that only `pages[].phone` changed, in each published definition and in the draft. Names and publish state are the same.
+- Outbound & Transfers still has its unpublished draft (an editor's slicer and position changes), now with the same phone layout.
+- QA gate, with every filter value as well as the unfiltered view: **3 of 3 pass**. Each uses its phone layout at 390 × 844, in 5 screens. The only warnings are panel subtitles cut short on the phone, which the gate allows, and the tables that already scroll on the desktop. The phone screenshots were looked at screen by screen: header, filters, step chain, key figures, charts, heat matrix and tables are readable, with no sideways scroll.
 
 ---
 

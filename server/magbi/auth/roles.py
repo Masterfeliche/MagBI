@@ -39,6 +39,17 @@ def permits(actor: Actor, workspace_id: str, minimum: str) -> bool:
     return _RANK.get(role, 0) >= _RANK[minimum]
 
 
+def role_of(actor: Actor, workspace_id: str) -> str | None:
+    """The caller's role in a workspace, as the app should treat it; None when it has none."""
+    if actor.kind == "dev" or actor.platform_admin:
+        return "admin"
+    if actor.kind == "embed":
+        return "viewer" if actor.workspace_id == workspace_id else None
+    if actor.kind != "user":
+        return None
+    return next((item for wid, item in actor.memberships if wid == workspace_id), None)
+
+
 def permits_service(actor: Actor, workspace_id: str) -> bool:
     """A service token may mint embed tokens and refresh its own workspace."""
     if actor.kind == "dev":

@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from magbi.api.deps import ActorDep, SessionDep
 from magbi.api.errors import ApiError
 from magbi.api.schemas import WorkspaceIn, WorkspaceOut
-from magbi.auth.roles import permits
+from magbi.auth.roles import Actor, permits, role_of
 from magbi.metadata.models import Role, User, Workspace, WorkspaceMember
 
 router = APIRouter(tags=["workspaces"])
@@ -44,15 +44,21 @@ async def create_workspace(
     return ws
 
 
+def _out(ws: Workspace, actor: Actor) -> WorkspaceOut:
+    out = WorkspaceOut.model_validate(ws)
+    out.my_role = role_of(actor, str(ws.id))
+    return out
+
+
 @router.get("/workspaces", response_model=list[WorkspaceOut])
-async def list_workspaces(session: SessionDep, actor: ActorDep) -> list[Workspace]:
+async def list_workspaces(session: SessionDep, actor: ActorDep) -> list[WorkspaceOut]:
     rows = await session.execute(select(Workspace).order_by(Workspace.name))
-    return [ws for ws in rows.scalars() if permits(actor, str(ws.id), "viewer")]
+    return [_out(ws, actor) for ws in rows.scalars() if permits(actor, str(ws.id), "viewer")]
 
 
 @router.get("/workspaces/{wid}", response_model=WorkspaceOut)
-async def get_workspace(wid: uuid.UUID, session: SessionDep) -> Workspace:
-    return await get_workspace_or_404(session, wid)
+async def get_workspace(wid: uuid.UUID, session: SessionDep, actor: ActorDep) -> WorkspaceOut:
+    return _out(await get_workspace_or_404(session, wid), actor)
 
 
 class MemberIn(BaseModel):

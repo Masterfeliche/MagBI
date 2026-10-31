@@ -27,6 +27,8 @@ class WorkspaceOut(BaseModel):
     name: str
     description: str | None
     created_at: dt.datetime
+    # The caller's role here (viewer, editor, admin), so the app can hide what they can't do.
+    my_role: str | None = None
 
 
 class ImportTable(BaseModel):

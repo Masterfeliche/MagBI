@@ -2,7 +2,7 @@ import * as echarts from "echarts";
 import ReactECharts from "echarts-for-react";
 import { useEffect, useState } from "react";
 
-import { loadRegions, MAP_NAME, matchRegions, REGIONS_URL, type Regions } from "../maps";
+import { BOUNDARY_CREDIT, loadRegions, MAP_NAME, matchRegions, REGIONS_URL, type Regions } from "../maps";
 import type { FilledMapModel, MapModel } from "../render";
 import { formatNumber } from "../formatChart";
 
@@ -88,6 +88,7 @@ export function FilledMap({
     <div className="map-wrap">
       <ReactECharts option={option} style={{ height: "100%", width: "100%" }} onEvents={{ click: (p: { name?: string }) => p.name && onCategory?.(p.name) }} />
       {unmatched.length > 0 && <div className="map-note" title={unmatched.join(", ")}>No boundary for {unmatched.length} name{unmatched.length === 1 ? "" : "s"}: {unmatched.slice(0, 3).join(", ")}</div>}
+      <div className="map-credit">{BOUNDARY_CREDIT}</div>
     </div>
   );
 }
@@ -135,5 +136,10 @@ export function PointMap({
         }),
     series: [series],
   };
-  return <ReactECharts option={option} style={{ height: "100%", width: "100%" }} onEvents={{ click: (p: { name?: string }) => p.name && onCategory?.(p.name) }} />;
+  return (
+    <div className="map-wrap">
+      <ReactECharts option={option} style={{ height: "100%", width: "100%" }} onEvents={{ click: (p: { name?: string }) => p.name && onCategory?.(p.name) }} />
+      {regions && <div className="map-credit">{BOUNDARY_CREDIT}</div>}
+    </div>
+  );
 }

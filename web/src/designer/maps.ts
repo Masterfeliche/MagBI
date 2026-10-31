@@ -7,6 +7,8 @@
 
 export const REGIONS_URL = "/maps/tanzania-regions.json";
 export const MAP_NAME = "tanzania-regions";
+/** Required by the boundaries' licence (CC BY 3.0 IGO); see public/maps/README.md. */
+export const BOUNDARY_CREDIT = "Boundaries: NBS Tanzania / UN OCHA, CC BY 3.0 IGO";
 
 interface Feature {
   properties?: Record<string, unknown>;

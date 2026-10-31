@@ -1547,3 +1547,5 @@ label.stack select:focus {
 .theme-fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
 .theme-fieldset:disabled { opacity: 0.55; }
 .theme-field input[type="text"] { grid-column: 2 / 4; font: inherit; padding: 3px 6px; }
+.sb-link { all: unset; cursor: pointer; margin-left: 8px; text-decoration: underline; color: inherit; font-weight: 600; }
+.sb-link:focus-visible { outline: 2px solid var(--blue-light); outline-offset: 2px; }

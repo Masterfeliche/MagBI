@@ -22,6 +22,9 @@ interface DesignerState {
   removeAllVisuals: () => void;
   saveStatus: "saved" | "saving" | "dirty";
   setSaveStatus: (status: "saved" | "saving" | "dirty") => void;
+  /** The open report has changes saved as a draft that viewers don't see yet. */
+  hasDraft: boolean;
+  setHasDraft: (value: boolean) => void;
   setWells: (id: string, wells: Record<string, FieldBinding[]>) => void;
   setPageFilters: (filters: FilterDefinition[]) => void;
   setReportFilters: (filters: FilterDefinition[]) => void;
@@ -74,6 +77,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   selectedVisualId: null,
   saveStatus: "saved",
   setSaveStatus: (status) => set({ saveStatus: status }),
+  hasDraft: false,
+  setHasDraft: (value) => set({ hasDraft: value }),
   clipboard: null,
   viewAs: null,
   setViewAs: (next) => set({ viewAs: next }),

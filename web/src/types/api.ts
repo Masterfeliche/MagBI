@@ -11,6 +11,13 @@ export interface Workspace {
   name: string;
   description: string | null;
   created_at: string;
+  /** The signed-in user's role here; viewers only read. */
+  my_role?: "viewer" | "editor" | "admin" | null;
+}
+
+/** Whether a workspace role may author: open the designer, add data, refresh. */
+export function canEdit(role: Workspace["my_role"]): boolean {
+  return role === "editor" || role === "admin";
 }
 
 export interface DatasetSummary {

@@ -38,6 +38,7 @@ import { TitleBar } from "./TitleBar";
 import { dropField, removeBinding, wellForDrop } from "./wells";
 import { pickReport } from "./pickReport";
 import { layoutIssues } from "./standard";
+import { canEdit, type Workspace } from "../types/api";
 import "./designer.css";
 
 export function DesignerPage() {
@@ -53,6 +54,7 @@ export function DesignerPage() {
   const removeVisual = useDesignerStore((s) => s.removeVisual);
   const removeAllVisuals = useDesignerStore((s) => s.removeAllVisuals);
   const setSaveStatus = useDesignerStore((s) => s.setSaveStatus);
+  const setHasDraft = useDesignerStore((s) => s.setHasDraft);
   const copyVisual = useDesignerStore((s) => s.copyVisual);
   const pasteVisual = useDesignerStore((s) => s.pasteVisual);
   const setProperties = useDesignerStore((s) => s.setProperties);
@@ -83,6 +85,29 @@ export function DesignerPage() {
   const [showCondFmt, setShowCondFmt] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
   useSavedThemesLoader(workspaceId);
+  // Nothing is saved until the caller's role is known, and never for a viewer.
+  const canSave = useRef(false);
+  useEffect(() => {
+    if (!workspaceId) return;
+    let cancelled = false;
+    apiFetch<Workspace>(`/workspaces/${workspaceId}`)
+      .then((workspace) => {
+        if (cancelled) return;
+        const viewer = !canEdit(workspace.my_role);
+        canSave.current = !viewer;
+        if (viewer) {
+          const report = searchParams.get("report");
+          navigate(report ? `/workspaces/${workspaceId}/reports/${report}/view` : `/workspaces/${workspaceId}`, { replace: true });
+        }
+      })
+      .catch(() => {
+        // Unknown role: leave saving to the server, which refuses viewers.
+        if (!cancelled) canSave.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, searchParams, navigate]);
   const resolvedTheme = useReportTheme();
   const savedThemes = useDesignerStore((state) => state.savedThemes);
   const [showCustomize, setShowCustomize] = useState(false);
@@ -104,7 +129,7 @@ export function DesignerPage() {
       apiFetch<{ name: string; definition: unknown; model_version: number }>(
         `/workspaces/${workspaceId}/datasets/${datasetId}`,
       ),
-      apiFetch<Array<{ id: string; dataset_id: string; definition: ReportDefinition }>>(
+      apiFetch<Array<{ id: string; dataset_id: string; definition: ReportDefinition; draft?: ReportDefinition | null; has_draft?: boolean }>>(
         `/workspaces/${workspaceId}/reports`,
       ).catch(() => []),
     ])
@@ -115,7 +140,9 @@ export function DesignerPage() {
         setLoadError("");
         const saved = pickReport(reports, datasetId, searchParams.get("report"));
         if (saved) {
-          replaceReport(saved.definition);
+          // Editors carry on from their draft; the published version stays what viewers see.
+          replaceReport(saved.draft ?? saved.definition);
+          setHasDraft(Boolean(saved.draft));
           setReportId(saved.id);
           apiFetch<{ last_refreshed_at?: string | null }>(`/workspaces/${workspaceId}/reports/${saved.id}`)
             .then((one) => {
@@ -125,6 +152,7 @@ export function DesignerPage() {
           return;
         }
         replaceReport(blankReport(dataset.name, datasetId));
+        setHasDraft(false);
       })
       .catch((error: unknown) => {
         if (!cancelled) setLoadError(error instanceof Error ? error.message : "Dataset failed to load");
@@ -140,12 +168,17 @@ export function DesignerPage() {
     }
     setSaveStatus("dirty");
     const timer = window.setTimeout(() => {
+      if (!canSave.current) return;
       setSaveStatus("saving");
+      // Autosave writes a draft. Viewers and embeds keep the published report until Publish.
       apiFetch(`/workspaces/${workspaceId}/reports/${reportId}`, {
         method: "PUT",
-        body: JSON.stringify({ definition: report }),
+        body: JSON.stringify({ draft: report }),
       })
-        .then(() => setSaveStatus("saved"))
+        .then(() => {
+          setSaveStatus("saved");
+          setHasDraft(true);
+        })
         .catch(() => setSaveStatus("dirty"));
     }, 2000);
     return () => window.clearTimeout(timer);
@@ -266,6 +299,22 @@ export function DesignerPage() {
     setModelVersion(dataset.model_version);
   }
 
+  async function discardDraft() {
+    if (!workspaceId || !reportId) return;
+    try {
+      const published = await apiFetch<{ definition: ReportDefinition }>(`/workspaces/${workspaceId}/reports/${reportId}`, {
+        method: "PUT",
+        body: JSON.stringify({ discard_draft: true }),
+      });
+      skipSave.current = true;
+      replaceReport(published.definition);
+      setHasDraft(false);
+      setSaveStatus("saved");
+    } catch (error: unknown) {
+      setPublishError(error instanceof Error ? error.message : "The draft was not discarded");
+    }
+  }
+
   async function publish() {
     if (!workspaceId || !datasetId) return;
     const issues = report.pages.flatMap((page) => layoutIssues(page.visuals));
@@ -280,6 +329,8 @@ export function DesignerPage() {
           method: "PUT",
           body: JSON.stringify({ definition: report, is_published: true }),
         });
+        setHasDraft(false);
+        setSaveStatus("saved");
         return;
       }
       const created = await apiFetch<{ id: string }>(`/workspaces/${workspaceId}/reports`, {
@@ -484,6 +535,7 @@ export function DesignerPage() {
         onZoomOut={() => setManualZoom(Math.max(0.25, (manualZoom ?? autoScale) - 0.1))}
         onFitToPage={() => setManualZoom(null)}
         refreshMessage={refreshMessage}
+        onDiscardDraft={() => void discardDraft()}
       />
     </div>
   );

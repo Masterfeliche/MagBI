@@ -794,3 +794,11 @@
   font-size: 13px;
   cursor: pointer;
 }
+
+/* Measure editor: the supported DAX functions, click to insert. */
+.dax-functions { display: grid; gap: 6px; min-width: 0; }
+.dax-functions ul { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow-y: auto; border: 1px solid var(--border, #E0E3E8); border-radius: 4px; }
+.dax-functions li button { all: unset; display: grid; gap: 2px; width: 100%; box-sizing: border-box; padding: 6px 8px; cursor: pointer; border-bottom: 1px solid var(--border-light, #EDEFF2); }
+.dax-functions li button:hover, .dax-functions li button:focus-visible { background: var(--selection, rgba(59, 130, 246, 0.08)); }
+.dax-functions code { font-size: 12px; }
+.dax-functions span { font-size: 12px; color: var(--text2, #64748B); }

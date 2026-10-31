@@ -1,10 +1,40 @@
-/** DAX-lite measure editor — name, home table, and expression. */
+/** Measure editor: name, home table, and the DAX expression, with the supported functions to hand. */
 
-import Editor from "@monaco-editor/react";
-import { useState } from "react";
+import Editor, { type OnMount } from "@monaco-editor/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { adaptDataset, type DesignerTable } from "../designer/model";
 import { apiFetch } from "../shared/api";
+import { insertText, loadDaxFunctions, searchFunctions, type DaxFunction } from "./daxFunctions";
+
+type MonacoEditor = Parameters<OnMount>[0];
+type Monaco = Parameters<OnMount>[1];
+type MonacoModel = ReturnType<MonacoEditor["getModel"]> & object;
+type MonacoPosition = NonNullable<ReturnType<MonacoEditor["getPosition"]>>;
+let completionsRegistered = false;
+
+/** Autocomplete for every supported function, registered once for the "dax" language. */
+function registerCompletions(monaco: Monaco, functions: () => DaxFunction[]) {
+  if (completionsRegistered) return;
+  completionsRegistered = true;
+  monaco.languages.register({ id: "dax" });
+  monaco.languages.registerCompletionItemProvider("dax", {
+    provideCompletionItems: (model: MonacoModel, position: MonacoPosition) => {
+      const word = model.getWordUntilPosition(position);
+      const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn };
+      return {
+        suggestions: functions().map((item) => ({
+          label: item.name,
+          kind: monaco.languages.CompletionItemKind.Function,
+          detail: item.signature,
+          documentation: item.description,
+          insertText: insertText(item),
+          range,
+        })),
+      };
+    },
+  });
+}
 import "../workspace/workspace.css";
 
 export function MeasureEditor({
@@ -27,6 +57,29 @@ export function MeasureEditor({
   const [expression, setExpression] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [functions, setFunctions] = useState<DaxFunction[]>([]);
+  const [search, setSearch] = useState("");
+  const editor = useRef<MonacoEditor | null>(null);
+  const known = useRef<DaxFunction[]>([]);
+  const shown = useMemo(() => searchFunctions(functions, search), [functions, search]);
+
+  useEffect(() => {
+    void loadDaxFunctions().then((list) => {
+      known.current = list;
+      setFunctions(list);
+    });
+  }, []);
+
+  function insert(item: DaxFunction) {
+    const current = editor.current;
+    if (!current) {
+      setExpression((value) => value + insertText(item));
+      return;
+    }
+    const selection = current.getSelection();
+    if (selection) current.executeEdits("function-list", [{ range: selection, text: insertText(item), forceMoveMarkers: true }]);
+    current.focus();
+  }
 
   async function save() {
     if (!table || !name.trim() || !expression.trim()) {
@@ -90,11 +143,38 @@ export function MeasureEditor({
           <div className="measure-dax">
             <Editor
               height="180px"
-              defaultLanguage="plaintext"
+              defaultLanguage="dax"
               value={expression}
               onChange={(value) => setExpression(value ?? "")}
+              onMount={(instance, monaco) => {
+                editor.current = instance;
+                registerCompletions(monaco, () => known.current);
+              }}
               options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: "on" }}
             />
+          </div>
+        </div>
+        <div className="form-row">
+          <label htmlFor="measure-functions">Functions</label>
+          <div className="dax-functions">
+            <input
+              id="measure-functions"
+              className="ws-input"
+              value={search}
+              placeholder={`Search ${functions.length} functions`}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <ul>
+              {shown.map((item) => (
+                <li key={item.name}>
+                  <button type="button" onClick={() => insert(item)} title={`Insert ${item.name}`}>
+                    <code>{item.signature}</code>
+                    <span>{item.description}</span>
+                  </button>
+                </li>
+              ))}
+              {shown.length === 0 && <li className="ws-hint">No function matches "{search}".</li>}
+            </ul>
           </div>
         </div>
         <div className="form-actions">

@@ -1,7 +1,7 @@
 /**
  * API client — typed fetch wrapper with JWT token injection.
  */
-import { clearToken, getToken } from "./session";
+import { clearToken, getToken, isEmbedded } from "./session";
 
 const BASE = "/api/v1";
 
@@ -23,7 +23,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     ...init,
     headers: buildApiHeaders(token, init),
   });
-  if (res.status === 401 && token && !new Headers(init?.headers).has("Authorization")) {
+  if (res.status === 401 && token && !isEmbedded() && !new Headers(init?.headers).has("Authorization")) {
     // The session expired or was revoked: sign in again and come back here.
     clearToken();
     const next = encodeURIComponent(window.location.pathname + window.location.search);
@@ -36,10 +36,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
 export function messageFromErrorBody(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const error = (payload as { error?: { message?: string; validation?: { errors?: Array<{ message?: string }> } } }).error;
+  const error = (payload as { error?: { message?: string; problems?: unknown; validation?: { errors?: Array<{ message?: string }> } } }).error;
   const first = error?.validation?.errors?.[0]?.message;
   if (typeof first === "string" && first) return first;
-  if (typeof error?.message === "string" && error.message) return error.message;
+  // A refused theme lists every check it failed, one per line after the message.
+  const problems = Array.isArray(error?.problems) ? error.problems.filter((item): item is string => typeof item === "string") : [];
+  if (typeof error?.message === "string" && error.message) return [error.message, ...problems].join("\n");
   return null;
 }
 

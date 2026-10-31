@@ -17,7 +17,23 @@ function stores(): Storage[] {
   return found;
 }
 
+let embedToken: string | null = null;
+
+/**
+ * An embedded report's token. While set, every request on the page carries it,
+ * never a MagBI sign-in the browser may also hold, so the token's reports,
+ * datasets and row-level security always apply.
+ */
+export function setEmbedToken(token: string | null): void {
+  embedToken = token;
+}
+
+export function isEmbedded(): boolean {
+  return embedToken !== null;
+}
+
 export function getToken(): string | null {
+  if (embedToken) return embedToken;
   for (const store of stores()) {
     const token = store.getItem(TOKEN_KEY);
     if (token) return token;

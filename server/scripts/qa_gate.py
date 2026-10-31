@@ -36,15 +36,13 @@ from typing import Any
 
 import websockets
 
+from magbi.themes import load_theme, theme_colours, token_names
+
 PAGE_W, PAGE_H = 1760, 990
 VIEW_W, VIEW_H = 1920, 1080
 MAX_SECONDS = 2.0
 KPI_MIN_H = 122
-THEME = {
-    "#EEF2F7", "#F8FAFC", "#FFFFFF", "#E9EEF5", "#D3DCE6", "#E2E8EF", "#22324A", "#66758A", "#5A6A80",
-    "#2C4F80", "#F3F6FA", "#BCC8D6", "#3F6FB0", "#5F8BC9", "#82A6D6", "#B3C3D8", "#4E9E77", "#D49A55",
-    "#C76E6C", "#9EABBC",
-}
+TOKEN_PROPS = ("fill", "border")
 TONES = {"good", "watch", "action", "none", "info"}
 STATUS_TYPES = {"kpi", "meter"}
 CHROME = [
@@ -107,6 +105,13 @@ def _hexes(value: Any) -> list[str]:
 
 
 def static_checks(definition: dict[str, Any], result: Result) -> None:
+    """Checks the report against its own theme: colours must be theme colours or token names."""
+    theme = load_theme(definition.get("theme", {}).get("id", "enterprise-light"))
+    allowed = theme_colours(theme)
+    tokens = token_names(theme)
+    for colour in _hexes(definition.get("theme", {})):
+        if colour not in allowed:
+            result.failures.append(f"static: the report palette uses {colour}, which is not a {theme['name']} colour")
     visuals = definition["pages"][0]["visuals"]
     solid = [v for v in visuals if v["type"] not in {"frame", "label"}]
     for v in visuals:
@@ -116,8 +121,12 @@ def static_checks(definition: dict[str, Any], result: Result) -> None:
         if v["type"] == "kpi" and h < KPI_MIN_H:
             result.failures.append(f"static: KPI card {v['id']} is {h} px tall; the minimum is {KPI_MIN_H}")
         for colour in _hexes(v.get("properties", {})):
-            if colour not in THEME:
-                result.failures.append(f"static: {v['id']} uses {colour}, which is not an ERP Native token")
+            if colour not in allowed:
+                result.failures.append(f"static: {v['id']} uses {colour}, which is not a {theme['name']} colour")
+        for key in TOKEN_PROPS:
+            value = v.get("properties", {}).get(key)
+            if isinstance(value, str) and not value.startswith("#") and value not in tokens:
+                result.failures.append(f"static: {v['id']} {key} names {value!r}, which is not a theme token")
         if v["type"] in STATUS_TYPES and not isinstance(v.get("properties", {}).get("rule"), dict):
             result.failures.append(f"static: {v['id']} shows status without a tone rule")
         colours = v.get("properties", {}).get("colours", {})

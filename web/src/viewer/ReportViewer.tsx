@@ -9,6 +9,7 @@ import { type CrossFilter } from "../designer/filters";
 import { PAGE_HEIGHT, PAGE_WIDTH } from "../designer/layout";
 import { PageTabs } from "../designer/PageTabs";
 import { useDesignerStore } from "../designer/store";
+import { BUILT_IN_THEMES } from "../shared/theme";
 import { apiFetch } from "../shared/api";
 import type { ReportDefinition } from "../types/report";
 import "../designer/designer.css";
@@ -38,6 +39,8 @@ export function ReportViewer({
   const [error, setError] = useState("");
   const [cross, setCross] = useState<CrossFilter | null>(null);
   const token = searchParams.get("token");
+  // ?theme=<id> previews a built-in theme without saving anything (QA and theme checks).
+  const previewTheme = searchParams.get("theme");
 
   useEffect(() => {
     if (!workspaceId || !reportId) return;
@@ -51,7 +54,8 @@ export function ReportViewer({
     }>(`/workspaces/${workspaceId}/reports/${reportId}`, { headers })
       .then((body) => {
         if (cancelled) return;
-        replaceReport({ ...body.definition, name: body.name || body.definition.name });
+        const preview = BUILT_IN_THEMES.some((theme) => theme.id === previewTheme) ? { theme: { id: previewTheme as string } } : {};
+        replaceReport({ ...body.definition, ...preview, name: body.name || body.definition.name });
         setDataAsAt(body.last_refreshed_at ?? null);
         setDatasetId(body.dataset_id);
         setError("");

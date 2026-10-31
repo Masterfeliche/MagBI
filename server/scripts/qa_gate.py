@@ -26,6 +26,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -43,6 +44,7 @@ VIEW_W, VIEW_H = 1920, 1080
 MAX_SECONDS = 2.0
 KPI_MIN_H = 122
 TOKEN_PROPS = ("fill", "border")
+SEND_TIMEOUT = 60.0
 TONES = {"good", "watch", "action", "none", "info"}
 STATUS_TYPES = {"kpi", "meter"}
 CHROME = [
@@ -324,7 +326,10 @@ class Chrome:
         if exe is None:
             raise SystemExit("Chrome or Edge is required for the render checks")
         self.profile = tempfile.mkdtemp(prefix="magbi-qa-")
-        self.port = 9333
+        # A free port per run, so two runs never drive each other's browser.
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            self.port = probe.getsockname()[1]
         self.proc = subprocess.Popen(
             [exe, "--headless=new", f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}",
              f"--window-size={VIEW_W},{VIEW_H}", "--hide-scrollbars", "--force-device-scale-factor=1", "--no-first-run", "about:blank"],
@@ -362,7 +367,11 @@ class Tab:
         mine = self.next_id
         await self.socket.send(json.dumps({"id": mine, "method": method, "params": params or {}}))
         while True:
-            message = json.loads(await self.socket.recv())
+            try:
+                raw = await asyncio.wait_for(self.socket.recv(), timeout=SEND_TIMEOUT)
+            except TimeoutError:
+                raise RuntimeError(f"{method}: the browser did not answer in {SEND_TIMEOUT:.0f} s") from None
+            message = json.loads(raw)
             if message.get("id") == mine:
                 if "error" in message:
                     raise RuntimeError(f"{method}: {message['error']}")
@@ -391,7 +400,7 @@ class Tab:
         path.write_bytes(base64.b64decode(shot["data"]))
 
 
-async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[str, list[str]]], out: Path, result: Result) -> None:
+async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[str, list[str]]], out: Path, result: Result, theme: str | None = None) -> None:
     chrome = Chrome()
     try:
         async with websockets.connect(chrome.new_tab(), max_size=64 * 1024 * 1024) as socket:
@@ -402,7 +411,8 @@ async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[
                 await tab.send("Page.navigate", {"url": f"{web}/login"})
                 await asyncio.sleep(1.0)
                 await tab.evaluate(f"sessionStorage.setItem('magbi.token', {json.dumps(TOKEN['value'])})")
-            await tab.send("Page.navigate", {"url": f"{web}/workspaces/{wid}/reports/{report_id}/view"})
+            query = f"?theme={theme}" if theme else ""
+            await tab.send("Page.navigate", {"url": f"{web}/workspaces/{wid}/reports/{report_id}/view{query}"})
             await tab.settle()
             shot = out / f"{result.name}.png"
             await tab.screenshot(shot)
@@ -430,18 +440,21 @@ async def render_checks(web: str, wid: str, report_id: str, choices: list[tuple[
 # ---------------------------------------------------------------- run
 
 
-def run(api: str, web: str, wid: str, report_ids: list[str], out: Path, expected: dict[str, dict[str, float]]) -> list[Result]:
+def run(
+    api: str, web: str, wid: str, report_ids: list[str], out: Path, expected: dict[str, dict[str, float]], theme: str | None = None
+) -> list[Result]:
+    """``theme`` renders every report in that built-in theme instead of its own, without saving it."""
     out.mkdir(parents=True, exist_ok=True)
     results = []
     for report_id in report_ids:
         _status, report, _secs = _call("GET", f"{api}/workspaces/{wid}/reports/{report_id}")
-        definition = report["definition"]
+        definition = report["definition"] | ({"theme": {"id": theme}} if theme else {})
         did = report["dataset_id"]
         result = Result(report_id, re.sub(r"[^A-Za-z0-9]+", "-", report["name"]).strip("-"))
         static_checks(definition, result)
         choices = live_checks(api, wid, did, definition, result)
         expected_checks(api, wid, did, expected.get(report["name"], {}), result)
-        asyncio.run(render_checks(web, wid, report_id, choices, out, result))
+        asyncio.run(render_checks(web, wid, report_id, choices, out, result, theme))
         results.append(result)
     (out / "qa-report.json").write_text(json.dumps([r.__dict__ | {"passed": r.passed} for r in results], indent=1), encoding="utf-8")
     return results
@@ -456,11 +469,12 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--expected", type=Path, help="JSON: {report name: {'Table|Measure': value}}")
     parser.add_argument("--login", type=Path, help="JSON file with the QA account's email and password")
+    parser.add_argument("--theme", help="render in this built-in theme instead of the report's own (nothing is saved)")
     args = parser.parse_args()
     if args.login:
         sign_in(args.api, args.login)
     expected = json.loads(args.expected.read_text(encoding="utf-8")) if args.expected else {}
-    results = run(args.api, args.web, args.workspace, args.report, args.out, expected)
+    results = run(args.api, args.web, args.workspace, args.report, args.out, expected, args.theme)
     for result in results:
         print(f"{'PASS' if result.passed else 'FAIL'}  {result.name}  {json.dumps(result.stats)}")
         for item in result.failures:

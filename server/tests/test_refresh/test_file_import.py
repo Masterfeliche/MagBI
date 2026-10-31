@@ -105,3 +105,24 @@ def test_rejects_unknown_suffix(store: DuckDBStore, tmp_path: Path) -> None:
     path.write_text("nope", encoding="utf-8")
     with pytest.raises(FileImportError):
         import_file_to_staging(store, DS, path, "notes")
+
+
+def test_tables_from_a_connection_get_their_columns_after_import() -> None:
+    import duckdb
+
+    from magbi.model.schema import DatasetDefinition
+    from magbi.refresh.file_import import fill_missing_columns
+
+    con = duckdb.connect()
+    con.execute('CREATE TABLE "Orders" ("OrderID" BIGINT, "ShipCountry" VARCHAR, "Freight" DECIMAL(12,2), "OrderDate" TIMESTAMP)')
+    model = DatasetDefinition.model_validate({"tables": [
+        {"name": "Orders", "source": {"type": "table", "schema": "odata", "table": "Orders"}},
+        {"name": "Kept", "source": {"type": "table", "schema": "s", "table": "k"}, "columns": [{"name": "a", "data_type": "string"}]},
+    ]})
+    filled = fill_missing_columns(con, model)
+    orders = {c.name: c for c in filled.tables[0].columns}
+    assert list(orders) == ["OrderID", "ShipCountry", "Freight", "OrderDate"]
+    assert orders["Freight"].data_type.value == "decimal" and orders["Freight"].default_aggregation is not None
+    assert orders["OrderDate"].data_type.value == "datetime" and orders["ShipCountry"].default_aggregation is None
+    assert filled.tables[1] == model.tables[1]
+    assert fill_missing_columns(con, filled) is filled

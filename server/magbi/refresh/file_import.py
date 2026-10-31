@@ -155,6 +155,24 @@ def import_file_to_staging(
     return [_column_from_describe(row) for row in rows]
 
 
+def fill_missing_columns(con: duckdb.DuckDBPyConnection, model: DatasetDefinition) -> DatasetDefinition:
+    """Give each imported table with no columns in the model the columns it has in the data.
+
+    A table added from a connection starts with no columns; until now they stayed
+    empty after the first refresh, so nothing in it could be used.
+    """
+    imported = {str(row[0]) for row in con.execute("SELECT table_name FROM information_schema.tables").fetchall()}
+    tables = []
+    changed = False
+    for table in model.tables:
+        if not table.columns and table.name in imported:
+            rows = con.execute(f"DESCRIBE {_quote_ident(table.name)}").fetchall()
+            table = table.model_copy(update={"columns": [_column_from_describe(row) for row in rows]})
+            changed = True
+        tables.append(table)
+    return model.model_copy(update={"tables": tables}) if changed else model
+
+
 def _column_from_describe(row: tuple[object, ...]) -> ColumnDef:
     name = str(row[0])
     data_type = duckdb_to_data_type(str(row[1]))

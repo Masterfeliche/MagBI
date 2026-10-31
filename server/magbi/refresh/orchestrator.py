@@ -40,7 +40,7 @@ from magbi.model.schema import (
     SqlTableSource,
 )
 from magbi.refresh.dates import attach_date_table
-from magbi.refresh.file_import import carry_over_tables
+from magbi.refresh.file_import import carry_over_tables, fill_missing_columns
 from magbi.refresh.importer import (
     DEFAULT_BATCH_SIZE,
     ImportPipelineError,
@@ -292,7 +292,7 @@ def _import_job(
                 if isinstance(table.source, CsvSource)
             ]
             carry_over_tables(deps.store, dataset_key, staging, uploads)
-            extra, new_model = attach_date_table(staging, model)
+            extra, new_model = attach_date_table(staging, fill_missing_columns(staging, model))
             from magbi.refresh.calculated import apply_calculated_columns
 
             apply_calculated_columns(staging, new_model)
